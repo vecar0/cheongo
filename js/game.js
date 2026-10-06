@@ -34,11 +34,11 @@ const settings = Object.assign({ sound: true, offset: 0 }, store.get("settings",
 Music.setVolume(settings.sound ? 1 : 0); Music.setOffset(settings.offset);
 
 // ---------- 마당 definitions & palettes ----------
-const ORD = ["첫째", "둘째", "셋째", "넷째", "다섯째"];
+const ORD = ["첫째", "둘째", "셋째", "넷째", "다섯째", "여섯째"];
 // a turn of the tower is three 마당; each draws on one of the five tiers below (진양조 → 자진모리 → 단모리)
-const LAST_M = 2, MD = m => [0, 2, 4][Math.min(LAST_M, m)];
+const LAST_M = 5, MD = m => [0, 1, 2, 2, 3, 4][Math.min(LAST_M, m)];   // a turn: five short 관문 chosen along the way, then 천고대
 // the three 관문 of a turn, named in hanja: into the mountain, up the cloud ladder, the terrace of 천고 itself
-const STAGE = [{ han: "第一關", ko: "제1관문" }, { han: "第二關", ko: "제2관문" }, { han: "天鼓臺", ko: "천고대" }];   // the gates are only counted; the last takes its guardian's name
+const STAGE = [{ han: "第一關", ko: "제1관문" }, { han: "第二關", ko: "제2관문" }, { han: "第三關", ko: "제3관문" }, { han: "第四關", ko: "제4관문" }, { han: "第五關", ko: "제5관문" }, { han: "天鼓臺", ko: "천고대" }];   // the gates are only counted; the last takes its guardian's name
 // the last 관문 is named for the guardian waiting in it
 const LAIR = { sumun: ["鐵門關", "철문관"], gumiho: ["狐月谷", "호월곡"], dokkaebi: ["鬼火林", "귀화림"], imugi: ["潛龍淵", "잠룡연"], wongwi: ["冤魂閣", "원혼각"],
   jangseung: ["大將壇", "대장단"], cheongo: ["天鼓殿", "천고전"], shadow: ["影門", "영문"], haetae: ["鎭火臺", "진화대"], bulgasari: ["食鐵窟", "식철굴"], baekho: ["白虎嶺", "백호령"], talchum: ["假面臺", "가면대"] };
@@ -891,14 +891,14 @@ function genPiece(rng, m, ropes, ctl = 0) {   // ctl (천고탑): the higher, th
 }
 // boss arena before the last drum: a long floor with two ledges to dodge the 수문장's ground waves
 const ARENA_PIECE = (() => { const r = []; for (let y = 0; y < 16; y++) r.push(y >= 12 ? "#".repeat(26) : y === 11 ? " C" + " ".repeat(16) + "b" + " ".repeat(7) : y === 9 ? "     ====      ====       " : y === 5 ? "       T          T       " : " ".repeat(26)); return r; })();   // two 과녁 above: a loop of aimed dashes down onto the guardian
-function buildMadangMap(seed, m, cy = 0, omIn = null, arena = m === 4, crowd = 0, ctl = 0) {
+function buildMadangMap(seed, m, cy = 0, omIn = null, arena = m === 4, crowd = 0, ctl = 0, len = 9) {   // len: how many pieces — the gates are short now, and full
   const omList = Array.isArray(omIn) ? omIn : [omIn], om = omList.includes("gyeopjul") ? "gyeopjul" : omList.includes("gunse") || crowd ? "gunse" : omIn;
   const rng = mulberry(seed ^ Math.imul(m + 1, 0x9E3779B1) ^ Math.imul(cy, 0x85EBCA6B));   // each turn of the tower lays out fresh
   const rows = START_PIECE.slice();
   const used = new Set(), cyF = ctl ? Math.floor(cy / 4) : cy;   // more guards each turn; in the 탑 every fourth floor counts as a turn
   const tiers = MADANG[m].tiers.slice();
   for (let i = tiers.length - 1; i > 0; i--) { const j = (rng() * (i + 1)) | 0; [tiers[i], tiers[j]] = [tiers[j], tiers[i]]; }   // fresh order every run
-  for (const tier of tiers) {
+  for (const tier of tiers.slice(0, len)) {
     const kind = typeof tier === "string" ? tier[0] : "", t = kind ? +tier.slice(1) : tier;
     const fits = i => kind === "w" ? CHUNKS[i].wall && CHUNKS[i].tier <= t : kind === "m" ? CHUNKS[i].multi && CHUNKS[i].tier <= t : CHUNKS[i].tier === t && !CHUNKS[i].multi;
     let pool = CHUNKS.map((c, i) => i).filter(i => fits(i) && !used.has(i));
@@ -1060,7 +1060,7 @@ function newPlayer(x, y) {
 const TYPE_HP = { d: 1, g: 1, s: 1, a: 1, p: 2, m: 2, r: 2, h: 3, k: 3 };   // plain cuts it takes: hawks and gunners fall at once, the shield and the drummer stand; 간파 and 일섬 still cut any of them down
 function spawnEnemies() {
   needSheets(CHAR_SHEETS[(run && run.char) || "mumyeong"] || []);
-  const up = upOn("hp") ? 1 : 0, eliteP = cyc() >= 1 && mode !== "tutorial" ? .18 + .07 * Math.min(3, cyc()) : 0, es = ((run && run.seed) || 1) % 997 + (run && run.m || 0) * 31 + (run && run.floor || 0) * 17;
+  const up = upOn("hp") ? 1 : 0, eliteP = run && run.node === "elite" ? .45 + .1 * Math.min(3, cyc()) : cyc() >= 1 && mode !== "tutorial" ? .18 + .07 * Math.min(3, cyc()) : 0, es = ((run && run.seed) || 1) % 997 + (run && run.m || 0) * 31 + (run && run.floor || 0) * 17;
   const list = LV.defs.filter(d => !deadIds.has(d.id)).map(d => { const hp = mode === "tutorial" ? 1 : (TYPE_HP[d.type] || 1) + up;   // toughness by kind, not by turn (the 수련터 keeps everyone at one)
     if (d.type === "d") return { hp, maxHp: hp, id: d.id, type: "d", x: d.tx * T + 2, y: d.ty * T + 6, w: 28, h: 20, vx: 0, vy: 0, hx: d.tx * T + 2, hy: d.ty * T + 6, t: Math.random() * 6, alive: true };
     if (d.type === "h") return { hp, maxHp: hp, id: d.id, type: "h", x: d.tx * T + 4, y: (d.ty + 1) * T - 42, w: 24, h: 42, face: -1, vx: 0, alive: true };
@@ -1082,13 +1082,14 @@ function spawnEnemies() {
 // ---------- run flow ----------
 function newRun() {
   const key = todayKey();
-  run = { seed: (Math.random() * 2 ** 32) >>> 0, dateKey: key, m: 0, cp: -1, dead: [],
+  run = { v: 2, seed: (Math.random() * 2 ** 32) >>> 0, dateKey: key, m: 0, cp: -1, dead: [],
     breath: 3 + (META.bld.sadang >= 1 ? 1 : 0), time: 0, deaths: 0, kills: 0, strikes: 0, slashes: 0, perks: [], weapon: "hwando", oath: null, char: "mumyeong", picking: true };
   mode = "run";
   saveRun(); startPicks();
 }
 // a row of cards for one decision; items: { name, han, desc, cost?, glyph? }
 function pickScreen(title, sub, items, onPick) {
+  $("choice").classList.remove("route"); document.querySelectorAll(".route-trail,.ch-held").forEach(o => o.remove());
   $("chTitle").textContent = title; $("chMadang").textContent = sub;
   const box = $("cards"); box.innerHTML = "";
   for (const it of items) {
@@ -1124,15 +1125,17 @@ function startPicks(step = 0) {
 function continueRun() {
   const s = store.get("run", null); if (!s) return;
   run = s; mode = s.tower ? "tower" : "run"; delete s.daily; if (run.char === "posu") { run.char = "mumyeong"; run.weapon = "jochong"; } if (run.char === "shadowc") run.char = "mumyeong"; run.perks = fitPerks((run.perks || []).filter(id => CHOSIK.some(c => c.id === id)));   // older saves may hold more than the slots allow
-  if (s.m > LAST_M) s.m = LAST_M;   // a run saved under the old five-마당 tower
+  if (!s.v && !s.tower) { s.m = [0, 2, 5][s.m] ?? s.m; s.v = 2; }   // a run saved when a turn was three long gates
+  if (s.tower) s.m = LAST_M; if (s.m > LAST_M) s.m = LAST_M;
   if (s.picking) { startPicks(); return; }
+  if (s.choosing === "route") { showRoute(); return; }
   if (s.choosing === "omen") showOmen(); else if (s.choosing) showChoice(s.choosing); else showInterlude();
 }
 function saveRun() { if (run && mode !== "tutorial") store.set("run", run); }
 function showInterlude() {
   state = "interlude";
   const md = MADANG[MD(run.m)], jd = Music.JANGDAN[md.jd];
-  const sg = stageOf(run.m); $("iOrd").textContent = sg.ko; $("iOrd").dataset.han = sg.han;   // the reading large in the brush face, the hanja small beneath
+  const sg = stageOf(run.m); $("iOrd").textContent = (run.node === "elite" && !isFinal() ? "험로 · " : "") + sg.ko; $("iOrd").dataset.han = sg.han;   // the reading large in the brush face, the hanja small beneath
   const om = OMENS.find(o => o.id === run.omen);
   const bk = isFinal() && BOSSES[bossKindOf(run)];
   $("iLine").textContent = run.m === 0 && run.cycle ? SEASON[season()].line : bk ? `${bk.line} ${josa(bk.name, "을", "를")} 베면 그 뒤에 천고가 있다.` : md.line;
@@ -1141,9 +1144,9 @@ function showInterlude() {
   if (run.tower) { // 천고탑: every floor is a guardian's stage, crowded, with all the omens gathered so far
     const tier = [0, 2, 4][(run.floor - 1) % 3];
     $("iMeta").textContent = `천고탑 ${run.floor}층 · ${SEASON[season()].name} · ` + Music.JANGDAN[MADANG[tier].jd].name + " · " + "●".repeat(run.breath) + (run.omens.length ? " · 징조 " + run.omens.map(id => OMENS.find(o => o.id === id).name).join("·") : "");
-    loadMap(buildMadangMap(run.seed + run.floor * 7919, tier, run.cycle || 0, run.omens, true, Math.min(2, run.floor >> 3), Math.min(5, 1 + (run.floor >> 2))), PAL[tier]); LV.ledgeStone = tier >= 3;   // higher floors: harder ground
+    loadMap(buildMadangMap(run.seed + run.floor * 7919, tier, run.cycle || 0, run.omens, true, Math.min(2, run.floor >> 3), Math.min(5, 1 + (run.floor >> 2)), 3), PAL[tier]); LV.ledgeStone = tier >= 3;   // higher floors: harder ground
   } else
-  loadMap(buildMadangMap(run.seed, MD(run.m), run.cycle || 0, run.omen), PAL[MD(run.m)]); LV.ledgeStone = MD(run.m) >= 3;
+  loadMap(buildMadangMap(run.seed + run.m * 131, MD(run.m), run.cycle || 0, run.omen, run.m === LAST_M, run.node === "elite" ? 2 : 1, 0, run.m === LAST_M ? 2 : run.node === "elite" ? 3 : 4), PAL[MD(run.m)]); LV.ledgeStone = MD(run.m) >= 3;
   if (isFinal() && LV.exit) { // the last 마당 ends at 천고 itself instead of a seal
     LV.drums = [{ id: 0, big: true, x: LV.exit.x + LV.exit.w / 2, y: LV.exit.y + LV.exit.h, w: 60, h: 80 }]; LV.exit = null; LV.gate = null;
   }
@@ -1163,6 +1166,7 @@ function enterMadang() {
     cpSave = { x: c.x - 9, y: c.y - 30.01, dead: new Set(deadIds), idx: run.cp };
   }
   const s = cpSave || LV.start;
+  if (run.qiStart) { run.qi = Math.max(run.qi || 0, run.qiStart); run.qiStart = 0; }
   P = newPlayer(s.x, s.y); run.hosinUsed = 0; run.shadeUsed = false; run.cutDrums = run.cutDrums || []; 
   bullets = []; parts = []; ghosts = []; seals = []; vfx = []; haz = []; beams = []; bolts = []; kegs = []; rings = []; cutLines = []; trails = []; pops = []; pfires = []; bulletHold = 0; killCam = 0; clones = []; bossIntro = bossOut = bossBanner = roar = null; chungoFx = null; sealArena(null, false);
   Music.start(MADANG[run.tower ? [0, 2, 4][(run.floor - 1) % 3] : MD(run.m)].jd, run.seed + run.m, (1 + .04 * Math.min(4, run.cycle || 0)) * (omen("geupbak") ? 1.15 : 1) * (upOn("fast") ? 1.15 : 1));
@@ -1234,7 +1238,8 @@ function madangClear() {
   Music.sfx("seal");
   if (mode === "tutorial") { toast("수련을 마쳤다"); setTimeout(toMenu, 900); state = "result"; return; }
   if (run.m >= LAST_M) { endRun(true); return; }
-  run.m++; run.nakN = 0; run.janUsed = false; run.senN = 0; run.fudoN = 0; run.cp = -1; run.dead = []; run.cutDrums = []; if (!upOn("noheal") && !oath("godok")) run.breath = Math.min(breathCap(), has("saenggi") ? breathCap() : Math.max(run.breath, 3) + (has("josik") ? 1 : 0));   // breath refills each 마당
+  run.cleared = run.node || "gate"; if (run.cleared === "elite") { run.honBonus = (run.honBonus || 0) + 20; addQi(40); }
+  run.m++; run.node = null; run.nakN = 0; run.janUsed = false; run.senN = 0; run.fudoN = 0; run.cp = -1; run.dead = []; run.cutDrums = []; if (!upOn("noheal") && !oath("godok") && (has("saenggi") || has("josik"))) run.breath = Math.min(breathCap(), has("saenggi") ? breathCap() : run.breath + 1);   // breath no longer refills by itself: rest on the road, or before 천고대
   run.choosing = "madang"; saveRun();   // every cleared 마당 grants a 초식
   state = "result";
   setTimeout(() => showChoice("madang"), 700);
@@ -1247,7 +1252,8 @@ function showChoice(kind) {   // kind: "madang" after a cleared 마당, "cycle" 
       run.choosing = "omen"; saveRun(); showOmen(); return;
     }
     if (kind === "tower") { saveRun(); towerRest(); return; }
-    saveRun(); Music.stop(); showInterlude();
+    if (run.extraPick) { run.extraPick = 0; run.choosing = "madang"; saveRun(); showChoice("madang"); return; }
+    saveRun(); Music.stop(); nextStep();
   };
   const owned = id => (run.perks || []).includes(id);
   const rnd = mulberry((run.seed ^ (run.m * 7919) ^ ((run.cycle || 0) * 104729) ^ ((run.perks || []).length * 31337)) >>> 0);
@@ -1255,7 +1261,7 @@ function showChoice(kind) {   // kind: "madang" after a cleared 마당, "cycle" 
   const tpool = treeOffer();   // the weapon's tree: what can be learned next
   const combos = [];
   const picks = [];
-  const nCards = (META.bld.sadang >= 3 ? 4 : 3) + (oath("godok") ? 1 : 0);
+  const nCards = (META.bld.sadang >= 3 ? 4 : 3) + (oath("godok") ? 1 : 0) + (kind === "madang" && run.cleared === "elite" ? 1 : 0);
   for (let r = 0; r < (run.reroll || 0); r++) rnd();   // a reroll shifts the draw
   const take = arr => arr.splice((rnd() * arr.length) | 0, 1)[0];
   const nTree = Math.min(tpool.length, nCards - 1 >= 2 ? nCards - 1 : 2);   // mostly the tree, one shared card
@@ -1264,7 +1270,7 @@ function showChoice(kind) {   // kind: "madang" after a cleared 마당, "cycle" 
   while (picks.length < nCards && pool.length) picks.push(take(pool));
   while (picks.length < nCards && tpool.length) picks.push(take(tpool));
   if (!picks.length) { toast("익힐 비급이 더 없다"); done(); return; }   // every 비급 learned and breath full
-  $("chTitle").textContent = "비급을 골라라";
+  $("chTitle").textContent = "비급을 골라라"; $("choice").classList.remove("route"); document.querySelectorAll(".route-trail").forEach(o => o.remove());
   { const held = heldPerks(), line = document.createElement("div"); line.className = "ch-held";   // what is already held, so each card can be weighed against it
     const T = TREES[treeKey()], mine = new Set(run.perks || []);
     line.innerHTML = (T ? `<b>${T.name} 수련</b>` + T.br.map((b, bi) => `<span>${b.name} ${[1, 2, 3].map(t => CHOSIK.some(c => c.tree === treeKey() && c.br === bi && c.tier === t && mine.has(c.id)) ? "●" : "○").join("")}</span>`).join("") : "") + SLOT_ORDER.map(k => { const ids = held.filter(id => kindOf(id) === k);
@@ -1300,8 +1306,60 @@ function showChoice(kind) {   // kind: "madang" after a cleared 마당, "cycle" 
   if (!run.discarded && mine.length && run.breath < breathCap() && !oath("godok")) { const db = document.createElement("button"); db.className = "btn ghost"; db.textContent = "비급 버리고 숨 +1";
     db.addEventListener("click", () => discardScreen(kind)); tools.appendChild(db); }
   if (tools.children.length) box.appendChild(tools);
-  $("chMadang").textContent = kind === "tower" ? `천고탑 ${run.floor - 1}층을 넘었다` : kind === "cycle" ? `천고를 베었다 · ${(run.cycle || 0) + 1}번째` : kind === "bonus" ? "징조의 대가" : `${josa(stageOf(run.m - 1).ko, "을", "를")} 넘었다 · ${stageOf(run.m - 1).han}`;
+  $("chMadang").textContent = kind === "tower" ? `천고탑 ${run.floor - 1}층을 넘었다` : kind === "cycle" ? `천고를 베었다 · ${(run.cycle || 0) + 1}번째` : kind === "bonus" ? "징조의 대가" : run.cleared === "rest" ? "쉼터 · 수련" : run.cleared === "event" ? "기연 · 혈서" : `${josa(stageOf(run.m - 1).ko, "을", "를")} 넘었다 · ${stageOf(run.m - 1).han}`;
   state = "choice"; Music.pause(); if (P) P.focus = false; for (const k in held) held[k] = 0; showScreen("choice");
+}
+// 길 고르기: between the gates the road forks — a gate, a harder road, a rest, a chance meeting
+const ROUTE = {
+  gate: { name: "관문", han: "關", desc: "짧은 관문 하나 · 넘으면 비급" },
+  elite: { name: "험로", han: "險", desc: "정예가 몰린 더 짧은 길 · 비급 한 장 더, 혼 +20, 천고 기운" },
+  rest: { name: "쉼터", han: "息", desc: "싸우지 않고 숨을 고른다" },
+  event: { name: "기연", han: "緣", desc: "무엇을 만날지 모른다" } };
+function nextStep() {
+  if (run.tower || run.m <= 0) { showInterlude(); return; }
+  if (run.m >= LAST_M) { run.node = null; if (!upOn("noheal") && !oath("godok")) run.breath = Math.max(run.breath, Math.min(3, breathCap())); saveRun(); toast("천고대 앞 · 숨을 골랐다"); showInterlude(); return; }   // the guardian is met with breath
+  showRoute();
+}
+function routeOptions() {
+  const rnd = mulberry((run.seed ^ Math.imul(run.m + 1, 2654435761) ^ ((run.cycle || 0) * 40503)) >>> 0), pool = ["gate", "elite", "rest", "event"].filter(k => !(k === "rest" && run.lastNode === "rest")), out = [];
+  while (out.length < 3 && pool.length) out.push(pool.splice((rnd() * pool.length) | 0, 1)[0]);
+  if (!out.includes("gate") && !out.includes("elite")) out[0] = "gate";   // there is always a road that fights
+  return out;
+}
+function showRoute() {
+  run.choosing = "route"; saveRun();
+  const items = routeOptions().map(id => ({ id, ...ROUTE[id], calm: id === "rest" }));
+  pickScreen("길을 골라라", `${ORD[run.m]} 갈림길 · 천고대까지 ${LAST_M - run.m}`, items, it => {
+    run.lastNode = it.id; run.choosing = null;
+    if (it.id === "gate" || it.id === "elite") { run.node = it.id; saveRun(); Music.stop(); showInterlude(); return; }
+    if (it.id === "rest") { restScreen(); return; }
+    eventScreen(); });
+  document.querySelector("#choice").classList.add("route"); routeTrail();
+}
+function routeTrail() { // the road so far drawn as a line of seals above the cards
+  document.querySelectorAll(".route-trail").forEach(o => o.remove()); const d = document.createElement("div"); d.className = "route-trail";
+  d.innerHTML = Array.from({ length: LAST_M + 1 }, (_, i) => `<i class="${i < run.m ? "done" : i === run.m ? "now" : ""}">${i === LAST_M ? "鼓" : i < run.m ? "●" : "○"}</i>`).join("<b></b>"); $("cards").before(d);
+}
+function stepOn() { run.m++; run.choosing = null; saveRun(); nextStep(); }
+function restScreen() {
+  pickScreen("쉼터", "모닥불 곁에서 잠시", [
+    { id: "breath", name: "숨 고르기", han: "息", desc: "숨을 셋까지 채운다 (셋 이상이면 하나 더)" },
+    { id: "train", name: "수련", han: "練", desc: "비급 하나를 고른다" },
+    { id: "qi", name: "북 다듬기", han: "鼓", desc: "다음 관문을 천고 기운 가득 차서 시작한다" }], it => {
+    if (it.id === "breath") { run.breath = Math.min(breathCap(), run.breath >= 3 ? run.breath + 1 : 3); toast(`숨 ${run.breath}`); stepOn(); }
+    else if (it.id === "qi") { run.qiStart = 100; stepOn(); }
+    else { run.m++; run.choosing = "madang"; run.cleared = "rest"; saveRun(); showChoice("madang"); } });
+}
+const EVENTS = [
+  { id: "blood", name: "혈서", han: "血書", desc: "숨 하나를 바치면 비급을 두 번 고른다", ok: () => run.breath > 1, go: () => { run.breath--; run.m++; run.extraPick = 1; run.choosing = "madang"; run.cleared = "event"; saveRun(); showChoice("madang"); } },
+  { id: "dok", name: "도깨비 내기", han: "賭", desc: "반반 — 숨 둘을 얻거나, 숨 하나를 잃는다", ok: () => run.breath > 1, go: () => { const win = Math.random() < .5; run.breath = Math.max(1, Math.min(breathCap(), run.breath + (win ? 2 : -1))); toast(win ? "도깨비가 졌다 · 숨 +2" : "도깨비가 웃는다 · 숨 −1"); stepOn(); } },
+  { id: "grave", name: "무덤의 칼", han: "墓", desc: "혼 +40 (판이 끝날 때 받는다)", ok: () => true, go: () => { run.honBonus = (run.honBonus || 0) + 40; toast("혼 +40"); stepOn(); } },
+  { id: "monk", name: "노승의 시험", han: "僧", desc: "다음 관문은 정예가 몰리지만, 넘으면 비급 한 장 더", ok: () => true, go: () => { run.node = "elite"; run.m; run.choosing = null; saveRun(); Music.stop(); showInterlude(); } },
+  { id: "well", name: "약수", han: "泉", desc: "숨 하나를 되찾는다", ok: () => run.breath < breathCap(), go: () => { run.breath = Math.min(breathCap(), run.breath + 1); toast("숨 +1"); stepOn(); } }];
+function eventScreen() {
+  const rnd = mulberry((run.seed ^ Math.imul(run.m + 7, 97531) ^ (run.cycle || 0)) >>> 0), pool = EVENTS.filter(e => e.ok()), a = pool.splice((rnd() * pool.length) | 0, 1)[0], b = pool.length ? pool[(rnd() * pool.length) | 0] : null;
+  const items = [a, b].filter(Boolean).concat([{ id: "pass", name: "지나친다", han: "行", desc: "아무것도 하지 않는다", calm: true, go: () => stepOn() }]);
+  pickScreen("기연", "길에서 무언가를 만났다", items, it => it.go());
 }
 const PERK_MAX = 4;
 const heldPerks = () => (run.perks || []).filter(id => id !== "sum" && SLOT[kindOf(id)]);
@@ -1324,7 +1382,7 @@ function showOmen() {   // the rule for the coming turn: two omens drawn at rand
   const rnd = mulberry((run.seed ^ ((run.cycle || 0) * 7477)) >>> 0), pool = OMENS.filter(o => !o.calm), picks = [];
   while (picks.length < 2) picks.push(pool.splice((rnd() * pool.length) | 0, 1)[0]);
   picks.push(OMENS.find(o => o.calm));
-  $("chTitle").textContent = "징조를 골라라";
+  $("chTitle").textContent = "징조를 골라라"; $("choice").classList.remove("route"); document.querySelectorAll(".route-trail,.ch-held").forEach(o => o.remove());
   const c = run.cycle || 0, twist = c >= 3 ? "정예가 더 많고, 우두머리는 모든 기술을 쓴다" : c === 2 ? "우두머리가 처음부터 모든 기술을 쓴다" : c === 1 ? "정예(붉은 표식)가 섞인다 — 쓰러뜨리면 천고 기운이 크게 찬다" : "";
   $("chMadang").textContent = `${c + 1}번째 판 · ${SEASON[season()].name}` + (twist ? ` · 변주: ${twist}` : "");
   const box = $("cards"); box.innerHTML = "";
@@ -1374,7 +1432,7 @@ let lastResult = null, sealable = null, retryGain = null;
 // 혼 for everything done, 천고 조각 for the rare things (cutting 천고, every tenth floor); 업 multiplies both
 function runRewards(reached) {
   const mult = 1 + .15 * (run.upPts || 0) + (run.honDouble || 0);
-  const hon = Math.round(((run.tower ? reached * 9 : reached * 5) + Math.floor(run.strikes / 4) + Math.floor(run.kills / 3) + (run.bossKills || 0) * 12) * mult);
+  const hon = Math.round(((run.honBonus || 0) + (run.tower ? reached * 9 : reached * 3) + Math.floor(run.strikes / 4) + Math.floor(run.kills / 3) + (run.bossKills || 0) * 12) * mult);
   const shard = (run.tower ? Math.floor(reached / 10) : (run.cycle || 0)) + (run.firstBoss || 0);
   META.hon += hon; META.shard += shard; saveMeta(); if (typeof questEvent === "function") questEvent("runEnd", { reached });
   return { hon, shard };
@@ -2981,7 +3039,7 @@ const WTIP = {   // how each weapon's own move is done, by the rules it plays by
   ssang: ["빠르게 이어 베면 기세가 쌓이고, 다섯 번째는 X자 일격", MOBILE ? "연달아 긋기" : "J 연타"],
   woldo: ["공중에서 아래로 베면 내리꽂힌다 — 땅에 꽂히면 충격파", MOBILE ? "공중에서 아래로 긋기" : "공중에서 S + J"],
   baldo: ["베기를 누르고 있거나 무아경을 유지하면 발밑 먹이 솟구친다 — 붉어지면 놓아 붉은 일격", MOBILE ? "화면을 누른 채 떼기 · 무아경을 길게" : "J를 누른 채 떼기 · 무아경을 길게"] };
-function weaponTip() { if (mode === "tutorial" || !run) return; const w = WEAPONS[wpn()], t = WTIP[wrule()]; if (t) tipOnce("w_" + wpn(), `${w.name} · ${w.desc.split(" — ")[0]}`, t[0], t[1]); }
+function weaponTip() { if (mode === "tutorial" || !run || state !== "play") return; const w = WEAPONS[wpn()], t = WTIP[wrule()]; if (t) tipOnce("w_" + wpn(), `${w.name} · ${w.desc.split(" — ")[0]}`, t[0], t[1]); }
 $("tip").addEventListener("pointerdown", e => { e.stopPropagation(); tipT = 0; });
 function toast(msg) { const el = $("toast"); el.textContent = msg; el.classList.add("on"); toastT = 1.6; }
 function buzz(ms) { try { navigator.vibrate && navigator.vibrate(ms); } catch (e) {} }
@@ -4424,7 +4482,7 @@ $("bInstall").addEventListener("click", async () => { if (!installEvt) return; i
 const standalone = matchMedia("(display-mode: standalone)").matches || matchMedia("(display-mode: fullscreen)").matches || navigator.standalone;
 
 
-if (location.hash === "#debug") window.__dbg = { get missing() { return ALL_SHEETS.filter(n => !LAZY_SHEETS.has(n) && !SPR[n]).concat(BASE_IMGS.filter(k => !IMG[k])); }, tp(tx, ty) { P.x = tx * T + 7; P.y = (ty + 1) * T - 30; P.vx = P.vy = 0; }, get state() { return state; }, get P() { return P; }, get LV() { return LV; }, get state2() { return state; }, get SC() { return LV.scenery; }, get E() { return enemies; }, get run() { return run; }, set hs(v) { hitstop = v; }, kill(e) { killEnemy(e); }, hurt(e, s, k) { hurtEnemy(e, s, k); }, die(k, d) { die(k, d); }, banner(a, b, c) { banner(a, b === "red" ? SEAL : JJOK, c); }, chungo() { chungo(); }, get songPos() { return songPos; }, get FLASH() { return FLASH; }, get hold() { return bulletHold; }, get bolts() { return bolts; }, get rings() { return rings; }, get B() { return bullets; }, get beams() { return beams; }, flashing: e => isFlashing(e) };
+if (location.hash === "#debug") window.__dbg = { get missing() { return ALL_SHEETS.filter(n => !LAZY_SHEETS.has(n) && !SPR[n]).concat(BASE_IMGS.filter(k => !IMG[k])); }, tp(tx, ty) { P.x = tx * T + 7; P.y = (ty + 1) * T - 30; P.vx = P.vy = 0; }, get state() { return state; }, get P() { return P; }, get LV() { return LV; }, get state2() { return state; }, get SC() { return LV.scenery; }, get E() { return enemies; }, get run() { return run; }, set hs(v) { hitstop = v; }, kill(e) { killEnemy(e); }, hurt(e, s, k) { hurtEnemy(e, s, k); }, die(k, d) { die(k, d); }, banner(a, b, c) { banner(a, b === "red" ? SEAL : JJOK, c); }, chungo() { chungo(); }, clear() { madangClear(); }, get songPos() { return songPos; }, get FLASH() { return FLASH; }, get hold() { return bulletHold; }, get bolts() { return bolts; }, get rings() { return rings; }, get B() { return bullets; }, get beams() { return beams; }, flashing: e => isFlashing(e) };
 window.addEventListener("pointerdown", () => Music.unlock(), { once: true, capture: true });   // first tap anywhere starts the sound
 resize();
 toMenu();

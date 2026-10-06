@@ -278,3 +278,11 @@ body.padEdit #stickZone, body.padEdit #swipeZone { pointer-events: none; }
 #loading span { font-size: 12.5px; color: rgba(23, 22, 26, .6); }
 .card .tag.kind.ougi { background: #9a1424; }   /* 오의: the end of a branch */
 .ch-held span { white-space: nowrap; }
+/* 길 고르기: the road so far, a line of seals */
+.route-trail { display: flex; align-items: center; justify-content: center; gap: 0; margin: 2px 0 8px; }
+.route-trail i { font-style: normal; font-family: var(--f-head); width: 26px; height: 26px; display: grid; place-items: center; font-size: 14px; color: rgba(23,22,26,.45); border: 1px solid rgba(23,22,26,.3); border-radius: 50%; }
+.route-trail i.done { color: #17161a; border-color: #17161a; }
+.route-trail i.now { color: #f3ede0; background: #c3161c; border-color: #c3161c; }
+.route-trail i:last-child { width: 32px; height: 32px; font-size: 16px; border-width: 2px; }
+.route-trail b { width: 22px; height: 0; border-top: 2px dotted rgba(23,22,26,.35); }
+#choice.route .card .ic { font-size: 40px; }
