@@ -1638,16 +1638,18 @@ function startDash(dir, forced) { P.trail = null; P.yongArt = false;
 }
 // 간파 돌진: a blow read from afar — dash toward a foe while it glints and the dash closes the distance in a single stride and cuts on the glint
 const KAN_REACH = 300;
-function kanLunge(d) {
+function kanLunge(d, own) {   // own: called on its own (the 무아경 release), so it pays its air dash itself
+  if (own && !P.onGround && P.airDash <= 0) return false;
   const cx = P.x + P.w / 2, cy = P.y + P.h / 2; let t = null, bs = -1;
   for (const e of enemies) { if (!e.alive || ghostly(e) || e.hidden || !isFlashing(e)) continue; const dx = e.x + e.w / 2 - cx, dy = e.y + e.h / 2 - cy, L = Math.hypot(dx, dy);
     if (L > KAN_REACH + e.w / 2 || L < 1) continue; const c = (dx * d.x + dy * d.y) / L, side = Math.abs(d.y) < .5 && Math.sign(dx) === Math.sign(d.x || P.face);   // aimed at it, or at least toward its side on the level
     const sc = c + (side ? .4 : 0); if ((c > .55 || side) && sc > bs && los(cx, cy, e.x + e.w / 2, e.y + e.h / 2)) { bs = sc; t = e; } }
   if (!t) return false;
+  if (own && !P.onGround) P.airDash--;
   const side = Math.sign(t.x + t.w / 2 - cx) || P.face, nx = t.x + t.w / 2 - side * (t.w / 2 + 12) - P.w / 2, ny = Math.min(P.y, t.y + t.h - P.h - .01);
   const x0 = cx, y0 = cy; if (!rectSolid(nx, ny, P.w, P.h)) { P.x = nx; P.y = ny; }
   P.face = side; P.vx = side * 260; P.vy = Math.min(P.vy, -120); P.invT = Math.max(P.invT || 0, .35); P.dashHit = new Set([t.id]);
-  trailFx(x0, y0, P.x + P.w / 2, P.y + P.h / 2, 8, .35, WF2.streak); P.kanLungeT = .18;
+  trailFx(x0, y0, P.x + P.w / 2, P.y + P.h / 2, 8, .35, WF2.streak); P.kanLungeT = .18; tipOnce("kanLunge", "간파 돌진", "멀리 있어도 번뜩이는 적 쪽으로 대시하면 단숨에 붙어 간파한다", "번뜩일 때 그 적 쪽으로 대시");
   hurtEnemy(t, false, "il"); Music.sfx("dash"); P.dashCd = Math.max(P.dashCd, .2); return true;
 }
 function musket(d, arrow) { // 포수: the 일격 is a matchlock shot (or a loosed arrow) — then the match must be relit
@@ -2054,6 +2056,7 @@ function frameInput(rdt) {
       if (!tap && wk() === "baldo" && !WEAPONS[wpn()].bow && P.focusT >= iaiF()) doSlash({ dir: null, ts: performance.now(), dash: false, iai: P.focusT, fromMua: true });   // 발도: 무아경 itself is the draw — held long enough, the release is an 일도 where you aim
       else if (chr("munyeo") && has("m_talis")) talismans(aimDir());
       if (isGun() && gunShot()) {}
+      else if (kanLunge(aimDir(), true)) {}
       else if (!(!tap && has("d_sunbo") && sunbo())) { P.aimDash = true; if (!startDash(null, true)) P.aimDash = false; } } } }
   press.jump = press.dash = press.hook = 0;
   P.jumpBuf = Math.max(0, P.jumpBuf - rdt);
@@ -2405,9 +2408,11 @@ function stepFoe3(e, dt, pcx, pcy, dist, live, bl) { // 순라 · 자객 · 북�
   if (e.type === "p") {
     if (sees && e.swingAt == null) e.face = Math.sign(pcx - ecx) || e.face;
     if (sees && e.swingAt == null && dist > 46) walk(70);
-    if (sees && e.swingAt == null && dist < 76 && songPos >= e.nextSwing) e.swingAt = next();
-    if (e.swingAt != null && songPos >= e.swingAt) { const zone = { x: e.face > 0 ? ecx : ecx - 70, y: e.y - 4, w: 70, h: e.h + 4 };
-      addFx("fx", FX.slashA, ecx + e.face * 36, e.y + e.h / 2, 64, { life: .25, rot: e.face > 0 ? 0 : Math.PI }); Music.sfx("slash"); e.swingT = .3;
+    if (sees && e.swingAt == null && dist < 76 && songPos >= e.nextSwing) { e.swingAt = next(); e.rush = false; }
+    else if (sees && e.swingAt == null && dist > 130 && dist < 270 && songPos >= e.nextSwing && songPos >= (e.nextRush || 0)) { e.swingAt = next(); e.rush = true; e.nextRush = songPos + 5 * bl; }   // 돌진 베기: from mid-range he comes in with the blow — it glints from afar
+    if (e.swingAt != null && songPos >= e.swingAt) { if (e.rush) { e.rush = false; const gap = Math.max(0, Math.abs(pcx - ecx) - 40); trailFx(ecx, e.y + e.h / 2, ecx + e.face * Math.min(gap, 200), e.y + e.h / 2, 5, .3, WF2.streak); moveX(e, e.face * Math.min(gap, 200)); }
+      const zx = e.x + e.w / 2, zone = { x: e.face > 0 ? zx : zx - 70, y: e.y - 4, w: 70, h: e.h + 4 };
+      addFx("fx", FX.slashA, zx + e.face * 36, e.y + e.h / 2, 64, { life: .25, rot: e.face > 0 ? 0 : Math.PI }); Music.sfx("slash"); e.swingT = .3;
       if (live && hurtsPlayer() && overlap(zone, P)) { lastHitDir = { x: e.face, y: -.3 }; die(); } e.swingAt = null; e.nextSwing = songPos + 2.5 * bl; }
   } else if (e.type === "a") {
     e.counter = live && P.focus && dist < 320 && !(e.lungeT > 0) && !(e.stunT > 0);   // 자객: when you slip into 무아경, he settles into a counter stance
@@ -2488,8 +2493,8 @@ const viaMua = () => !!(P && P.aimDash && !P.tapDash);   // the cut came out of 
 function chainAdd(n) { if (!P) return; const g0 = Math.min(5, P.chain || 0); P.chain = (P.chain || 0) + n; P.chainPop = .25; if (Math.min(5, P.chain) > g0) Music.sfx("lantern"); }
 function addQi(n) { // 천고 기운: won by fighting well — 일섬, 간파, 과녁
   if (mode === "tutorial" || !run) return; const before = run.qi || 0; run.qi = Math.min(100, before + n * .6 * (oath("jangdan") ? 2 : 1) * (1 + .15 * Math.min(8, (P && P.chain) || 0)));
-  if (before < 100 && run.qi >= 100) { if (META.tips && META.tips.chungo) toast(`천고 기운이 찼다 · ${MOBILE ? "태극 북" : "북 또는 Q"} → 오의 ${OUGI[wpn()].name}`);
-    else tipOnce("chungo", `오의 · ${OUGI[wpn()].name}`, `북이 다 찼다 — ${OUGI[wpn()].tip}. 원할 때 쓴다`, MOBILE ? "아래 태극 북을 누르기" : "태극 북 클릭 또는 Q"); Music.jing(); }
+  if (before < 100 && run.qi >= 100) { if (META.tips && META.tips.chungo) toast(`천고 기운이 찼다 · ${MOBILE ? "태극 북" : "북 또는 Q"} → 오의 ${ougiOf().name}`);
+    else tipOnce("chungo", `오의 · ${ougiOf().name}`, `북이 다 찼다 — ${ougiOf().tip}. 원할 때 쓴다`, MOBILE ? "아래 태극 북을 누르기" : "태극 북 클릭 또는 Q"); Music.jing(); }
 }
 let chungoFx = null;
 // 오의: the full drum looses the weapon's own secret art — each hand ends a fight its own way
@@ -4444,7 +4449,7 @@ function buildHubMap() {
 function enterHub() {
   hubOn = true; mode = "tutorial"; Music.menuBgm(true);
   run = { hub: true, m: 0, breath: Infinity, time: 0, deaths: 0, kills: 0, strikes: 0, slashes: 0, cp: -1, dead: [], perks: [], weapon: META.lastWeapon && WEAPONS[META.lastWeapon] ? META.lastWeapon : "hwando" };
-  loadMap(buildHubMap(), PAL[0], []); LV.hub = true; LV.dress = [];
+  loadMap(buildHubMap(), PAL[0], []); LV.hub = true; LV.dress = []; needSheets(playSheets());
   for (const st of HUB_ST) LV.dress.push({ sheet: st.sheet, i: st.i, x: st.tx * T + 16, y: 12 * T + 2, h: st.h, flip: false, ay: 1 });
   const dk = hubDeco(); for (let k = 0; k < HUB_SLOTS.length; k++) { const id = dk.slots[k], d = DECO.find(o => o.id === id); if (d) LV.dress.push({ sheet: d.sheet, i: d.i, x: HUB_SLOTS[k] * T + 16, y: 12 * T + 2, h: d.h, flip: k % 2 === 1, ay: 1 }); }
   deadIds = new Set(); cpSave = null; enemies = [];
@@ -4647,7 +4652,7 @@ $("bShare").addEventListener("click", async () => {
   try { if (navigator.share) { await navigator.share({ text }); return; } } catch (e) { if (e && e.name === "AbortError") return; }
   try { await navigator.clipboard.writeText(text); toast("결과를 복사했어요"); } catch (e) { toast("복사하지 못했어요"); }
 });
-document.addEventListener("visibilitychange", () => { if (document.hidden) pauseGame(); });
+document.addEventListener("visibilitychange", () => { if (document.hidden && !hubOn) pauseGame(); });
 
 // install (Android/desktop Chrome); iOS gets a hint instead
 let installEvt = null;
