@@ -1465,7 +1465,7 @@ function endRun(won) {
   $("rSub").textContent = run.tower ? (won ? "천고가 다시 울렸다." : `천고탑 ${run.floor}층에서 숨이 다했다.`) : won ? "천고는 아직 위에서 울린다." : stageName(run.m) + "에서 숨이 다했다.";
   $("rStats").innerHTML = "";
   const gain = runRewards(reached);
-  if (mode !== "tutorial") { gain.sum = Math.max(0, run.breath) + Math.floor(reached / 2); META.sum = (META.sum || 0) + gain.sum; saveMeta(); }   // the breath left over goes home to the 거점
+  if (mode !== "tutorial") { gain.sum = Math.max(1, Math.max(0, run.breath) + reached); META.sum = (META.sum || 0) + gain.sum; saveMeta(); }   // the breath left over goes home to the 거점
   { const sn = store.get("stage", null); retryGain = !won && sn && sn.seed === run.seed && sn.m === run.m && (sn.cycle || 0) === (run.cycle || 0) && (sn.floor || 0) === (run.floor || 0) ? gain : null; $("bRetryGate").hidden = !retryGain; }   // 절명: the gate can be tried again — the rewards just given are taken back
   for (const [k, v] of [[run.tower ? "오른 층" : "넘은 관문", reached + (!run.tower && (run.cycle || 0) ? ` · ${run.cycle}번 천고를 벰` : "")], ["시간", fmt(run.time)], ["간파", (run.kanpa || 0) + "회"], ["벤 적", run.kills], ["얻은 혼", "+" + gain.hon + (gain.shard ? ` · 천고 조각 +${gain.shard}` : "")], ["모인 숨", "+" + (gain.sum || 0)]]) {
     const a = document.createElement("span"), b = document.createElement("b"); a.textContent = k; b.textContent = v; $("rStats").append(a, b);
@@ -1514,7 +1514,7 @@ function talismans(d) { // 부적 세 장: a fan of paper charms thrown along th
   for (const t of [-.22, 0, .22]) { const vx = d.x * Math.cos(t) - d.y * Math.sin(t), vy = d.x * Math.sin(t) + d.y * Math.cos(t);
     bullets.push({ x: cx + vx * 16, y: cy + vy * 16, vx: vx * 720, vy: vy * 720, ang: Math.atan2(vy, vx), friendly: true, talisman: true, wind: true, strike: true, r: 14, life: .5, owner: null }); }
 }
-const GUN_AX = { gun1: [.5, .3, .25, .45, .28, .5, .5, .38, .3], gun2: [.42, .24, .45, .45, .25, .5, .45, .25, .5], grun: [.5, .5, .49, .44, .47, .46, .41, .41, .4], grun2: [.41, .4, .4, .4, .39, .39, .38, .39, .47, .52, .5, .51, .47, .5, .52, .5, .44, .44, .41, .45, .43, .43, .42, .45, .43, .42, .43, .45, .44, .43, .44, .46] };   // grun: the three heavy guns carried at a run
+const GUN_AX = { gun1: [.5, .3, .25, .45, .28, .5, .5, .38, .3], gun2: [.42, .24, .45, .45, .25, .5, .45, .25, .5], grun: [.5, .5, .49, .44, .47, .46, .41, .41, .4], grun2: [.570, .567, .546, .541, .580, .589, .558, .551, .634, .659, .642, .637, .606, .653, .648, .634, .640, .624, .611, .612, .617, .624, .613, .612, .597, .590, .587, .607, .565, .582, .601, .600] };   // grun: the three heavy guns carried at a run
 const gunMag = () => (WEAPONS[wpn()].mag || 1) + (has("jc_c1") && wpn() === "jochong" ? 0 : 0);
 function gunReload(n, why) { // a round goes back in (a bayonet that bit, a read blow, the slow match)
   const G = WEAPONS[wpn()]; if (!G || !G.gun || !P) return;
@@ -4435,7 +4435,7 @@ const CHARS = [
   { id: "munyeo", name: "무녀", han: "巫女", desc: "일섬이 스친 탄을 되받아친다. 공중 점프 +1, 베는 범위는 좁다" },
 ];
 const chr = id => !!(run && (id === "posu" ? isGun() : run.char === id));   // 포수 is no longer a person: "posu" now means "holding a gun"
-const MV_AX = { mvrun: [.566, .631, .634, .635, .544, .63, .62, .639],   // the run sheet, aligned on the hat so the head rides level
+const MV_AX = { mvrun: [.593, .664, .658, .663, .572, .66, .658, .662],   // the run sheet, aligned on the hat so the head rides level
   mv0: [.52, .6, .64, .62, .61, .61, .55, .61, .54, .48, .44, .59, .58, .61, .43, .45],   // body axis of each frame, so the feet stay put
   mv1: [.53, .62, .62, .62, .57, .6, .57, .59, .63, .57, .44, .53, .54, .64, .46, .44], mv2: [.46, .5, .52, .49, .48, .5, .49, .46, .52, .41, .41, .44, .39, .45, .42, .42] };
 const VIS = { cut: 0, splat: 1, ring: 2, drum: 3, bigDrum: 4, burst: 5, stroke: 6, seal: 7, drops: 8 };   // blood, stamps and the beat bar, painted to read at a glance
@@ -4445,12 +4445,12 @@ const dirFx = d => ({ rot: d.x < 0 ? Math.atan2(d.y, d.x) - Math.PI : Math.atan2
 const AF_AX = [.48, .47, .4, .24, .37, .35, .47, .3];   // arms sheet: 무녀 방울 0-1, 신칼 2-3 / 포수 각궁 4-5, 창 6-7
 const CF_AX = [.57, .64, .61, .67, .53, .41, .4, .66, .37, .47, .46, .46, .49, .34, .39, .53];   // chars sheet: 무녀 0-7, 포수 8-15
 // ---------- 영물: a spirit beast raised from the egg on 숨 ----------
-// the breath left at a run's end (and half the gates passed) is kept at the 거점; fed to the egg it hatches (3) and grows (12), then fights at your side
+// the breath left at a run's end (and one for each gate passed) is kept at the 거점; fed to the egg it hatches (2) and grows (8), then fights at your side
 const PETS = {
   kkachi: { name: "까치", han: "鵲", base: 0, range: 260, cd: [3, 1.8], desc: "날아들어 쪼고, 다 자라면 지나가는 길의 적 탄을 낚아챈다" },
   haetae: { name: "해치", han: "獬豸", base: 9, range: 150, cd: [3.6, 2.5], desc: "가까운 적에게 불을 뿜어 잠깐 묶는다" },
   yong: { name: "용", han: "龍", base: 18, range: 330, cd: [3.2, 2.2], desc: "멀리 있는 적을 쫓는 물구슬을 뱉는다" } };
-const PET_HATCH = 3, PET_ADULT = 12;
+const PET_HATCH = 2, PET_ADULT = 8;   // one run hatches it, a few more raise it
 const petStage = () => !META.pet ? -1 : META.pet.fed >= PET_ADULT ? 2 : META.pet.fed >= PET_HATCH ? 1 : 0;
 let pet = null;
 function spawnPet() { pet = null; if (petStage() < 1 || !P || !PETS[META.pet.kind]) return; pet = { x: P.x - 20, y: P.y - 40, vx: 0, vy: 0, cd: 1.2, face: 1, act: null, t: 0 }; }
