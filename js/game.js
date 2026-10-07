@@ -1324,6 +1324,7 @@ function guardBlow(kind) { // 방어 비급: what takes the blow instead of a �
   if (has("bd_b3") && (P.iaiHold || (P.focus && wk() === "baldo")) && (run.fudoN || 0) < 3) { run.fudoN = (run.fudoN || 0) + 1; const t = nearestFoes(cx, cy, 1, 400)[0];   // 부동명왕
     P.iaiHold = false; P.focus = false; Music.muffle(false); if (t) { const dx = t.x + t.w / 2 - cx, dy = t.y + t.h / 2 - cy, L = Math.hypot(dx, dy) || 1; P.iaiCut = true; startDash({ x: dx / L, y: 0 }, true); P.dashT = .22; hurtEnemy(t, t.type !== "b" ? true : 2); }
     ougiArt(["ogA", 10], cx, P.y + P.h, 150, { life: .7, ay: 1 }); return ward(.8, `부동명왕 · ${3 - run.fudoN}번 남음`); }
+  if (kind !== "fall" && pet && !pet.rest && petStage() >= 3 && run.breath <= 1 && (pet.guardN || 0) < (META.pet.evo === 1 && petStage() >= 4 ? 2 : 1)) { pet.guardN = (pet.guardN || 0) + 1; if (pet.guardN >= (META.pet.evo === 1 && petStage() >= 4 ? 2 : 1)) pet.rest = true; pet.x = cx; pet.y = cy - 10; return ward(1.6, `수호 · ${PETS[META.pet.kind].name}이(가) 대신 맞았다`); }   // 수호
   if (has("d_gihyeol") && (run.qi || 0) >= 50) { run.qi = 0; return ward(1, "기혈 · 천고 기운이 대신 흩어졌다"); }
   if (has("d_gise") && (P.chain || 0) >= 3) { P.chain = 0; return ward(.9, "기세 · 연속 처치가 대신 끊겼다"); }
   return false;
@@ -1369,7 +1370,7 @@ function madangClear() {
   if (run.node === "rest" || run.node === "event") { run.m++; run.node = null; run.talked = false; run.cp = -1; run.dead = []; state = "result"; saveRun(); setTimeout(() => { Music.stop(); nextStep(); }, 500); return; }   // walked out of a road stage: on to the next fork
   if (run.gate && !run.tower) { const gr = gateGrade(); run.lastGrade = gr.ch; run.grades = (run.grades || "") + gr.ch;
     seals.push({ x: P.x + P.w / 2, y: P.y - 10, t: 0, rot: -.12, ch: gr.ch, big: true }); toast(`관문 등급 ${gr.ch}${gr.goal ? " · 과제를 이뤘다" : ""}${gr.ch === "甲" ? " · 수련점 +1" : gr.ch === "乙" ? " · 혼 +10" : ""}`);
-    if (gr.ch === "乙") run.honBonus = (run.honBonus || 0) + 10; run.gate = null; }
+    if (gr.ch === "乙") run.honBonus = (run.honBonus || 0) + 10; if (gr.ch === "甲") petJeong(3); run.gate = null; }
   run.cleared = run.node || "gate"; if (run.cleared === "elite") { run.honBonus = (run.honBonus || 0) + 20; addQi(40); }
   run.m++; run.node = null; run.nakN = 0; run.janUsed = false; run.senN = 0; run.fudoN = 0; run.cp = -1; run.dead = []; run.cutDrums = []; if (!upOn("noheal") && !oath("godok") && (has("saenggi") || has("josik"))) run.breath = Math.min(breathCap(), has("saenggi") ? breathCap() : run.breath + 1);   // breath no longer refills by itself: rest on the road, or before 천고대
   run.choosing = "madang"; saveRun();   // every cleared 마당 grants a 초식
@@ -1605,9 +1606,10 @@ function endRun(won) {
   $("rSub").textContent = run.tower ? (won ? "천고가 다시 울렸다." : `천고탑 ${run.floor}층에서 숨이 다했다.`) : won ? "천고는 아직 위에서 울린다." : stageName(run.m) + "에서 숨이 다했다.";
   $("rStats").innerHTML = "";
   const gain = runRewards(reached);
+  if (mode !== "tutorial" && run.petJ && petMeta()) { const b4 = petStage(); META.pet.jeong = (META.pet.jeong || 0) + run.petJ; gain.jeong = run.petJ; run.petJ = 0; if (petStage() > b4) gain.petUp = PET_ST[petStage()]; }
   if (mode !== "tutorial") { gain.sum = Math.max(1, Math.max(0, run.breath) + Math.floor(reached / 2)); META.sum = (META.sum || 0) + gain.sum; saveMeta(); }   // the breath left over goes home to the 거점
   retryGain = null;   /* 다시 시작 is gone: a death is a death */
-  for (const [k, v] of [[run.tower ? "오른 층" : "넘은 관문", reached + (!run.tower && (run.cycle || 0) ? ` · ${run.cycle}번 천고를 벰` : "")], ["시간", fmt(run.time)], ["간파", (run.kanpa || 0) + "회"], ["벤 적", run.kills], ["얻은 혼", "+" + gain.hon + (gain.shard ? ` · 천고 조각 +${gain.shard}` : "")], ["모인 숨", "+" + (gain.sum || 0)]]) {
+  for (const [k, v] of [[run.tower ? "오른 층" : "넘은 관문", reached + (!run.tower && (run.cycle || 0) ? ` · ${run.cycle}번 천고를 벰` : "")], ["시간", fmt(run.time)], ["간파", (run.kanpa || 0) + "회"], ["벤 적", run.kills], ["얻은 혼", "+" + gain.hon + (gain.shard ? ` · 천고 조각 +${gain.shard}` : "")], ["모인 숨", "+" + (gain.sum || 0)], ...(gain.jeong ? [["영물의 정", "+" + gain.jeong + (gain.petUp ? ` · ${gain.petUp}!` : "")]] : []), ...(run.grades ? [["관문 등급", run.grades]] : [])]) {
     const a = document.createElement("span"), b = document.createElement("b"); a.textContent = k; b.textContent = v; $("rStats").append(a, b);
   }
   let rec = "";
@@ -2431,6 +2433,8 @@ function hurtEnemy(e, strike, kind) {
   const kan = isFlashing(e); if (kan) { strike = true; e.kanpa = true; if (P && P.iaiCut && wrule() === "baldo") addQi(25); e.kanZan = e.openT > songPos; e.kanMua = viaMua(); if (run && mode !== "tutorial") run.kanpa = (run.kanpa || 0) + 1;
     const x = e.x + e.w / 2, y = e.y + e.h / 2, big = e.type === "b";   // 간파: the crossed cut, gold flakes, the world holds a beat
     { const bt = blowAt(e), perfect = bt != null && songPos >= bt - .09; momAdd(perfect || isGun() ? 35 : 25); if (isGun() && P) { gunReload(99); if (P.heat) P.heat = 0; P.overheat = 0; }   // a read shot: the gun is full again if (run && mode !== "tutorial") run.gKan = (run.gKan || 0) + 1;
+      if (pet && Math.hypot(pet.x - x, pet.y - y) < 280) petJeong(1);
+      if (pet && !pet.rest && kind !== "pet" && petStage() >= 2 && mode !== "tutorial") setTimeout(() => { if (!pet || state !== "play") return; const t = e.alive ? e : nearestFoes(x, y, 1, 320)[0]; if (t) { pet.cd = 0; petAttack(t, PETS[META.pet.kind], petStage() >= 3 ? 2 : 1); } }, 120);   // 합격
       if (perfect) { hitstop = Math.max(hitstop, .16); seals.push({ x, y: y - 10, t: 0, rot: (Math.random() - .5) * .3, ch: "妙" }); Music.sfx("strike"); Music.jing(); flashDim = .1; if (run && mode !== "tutorial") run.perfectN = (run.perfectN || 0) + 1; } }
     addFx("kfx", KF.xcut, x, y, big ? 120 : 64, { life: .4, grow: .15, rot: Math.random() * .6 - .3 }); addFx("kfx", KF.flakes, x, y, big ? 130 : 80, { life: .5, grow: .5 });
     hitstop = Math.max(hitstop, .1); shake = Math.max(shake, 7); }
@@ -2476,7 +2480,7 @@ function hurtEnemy(e, strike, kind) {
 }
 function killEnemy(e) {
   if (!e.alive) return;
-  e.alive = false; deadIds.add(e.id); run.kills++;
+  e.alive = false; deadIds.add(e.id); run.kills++; if (e.type === "b") petJeong(5);
   if (momOn()) { momAdd(P.dashT > 0 || P.aimDash ? 12 : 8); const t = momTier(); if (t >= 2) run.honBonus = (run.honBonus || 0) + (t >= 4 ? 2 : 1); if (t >= 3 && isGun()) gunReload(1, "slow"); }
   if (momOn() && e.type !== "b" && !LV.drums.length && !enemies.some(o => o.alive && o.type !== "i")) { killCam = Math.max(killCam, 1.1); hitstop = Math.max(hitstop, .18); shake = Math.max(shake, 8); Music.jing(); }   // the last of the gate falls slowly
   if (e.type === "m") for (const o of enemies) if (o.wardBy === e.id) o.ward = false;
@@ -3146,7 +3150,7 @@ function stepBullets(dt) {
         if (!b.noHit) for (const e of enemies) if (e.alive && !ghostly(e) && b.x > e.x - (b.r || 0) && b.x < e.x + e.w + (b.r || 0) && b.y > e.y - (b.r || 0) && b.y < e.y + e.h + (b.r || 0)) {
           if (b.hits && b.hits.has(e.id)) continue;
           if (b.blast) { b.life = 0; break; }   // rockets and balls burst on the first body
-          if (b.petOrb) { hurtEnemy(e, false, "pet"); addFx("pet", b.petFr || 26, b.x, b.y, 36, { life: .3 }); (b.hits = b.hits || new Set()).add(e.id); if (!b.pierce) b.life = 0; break; }
+          if (b.petOrb) { hurtEnemy(e, petStrike() && e.type !== "b", "pet"); addFx("pet", b.petFr || 26, b.x, b.y, 36, { life: .3 }); (b.hits = b.hits || new Set()).add(e.id); if (!b.pierce) b.life = 0; break; }
           if (e.type === "h" && Math.sign(b.vx) === -e.face && !b.pierce && !isGun()) { b.life = 0; Music.sfx("clang"); break; }
           (b.hits = b.hits || new Set()).add(e.id); if (b.neok || b.talisman) e.stunT = Math.max(e.stunT || 0, e.type === "b" ? .25 : b.neok ? 1.4 : .5); if (b.talisman && has("m_talis") && e.alive) e.openT = songPos + .8; if (b.talisman && SPR.mfx) addFx("mfx", 2, e.x + e.w / 2, e.y + e.h / 2, 54, { life: .3, grow: .4, ay: .5 }); hurtEnemy(e, !!b.strike || (b.pierce && !b.wind && !b.fire && !b.tornado && !b.dragon && !b.sword)); if (!b.pierce) b.life = 0;
           if ((b.sword && has("yuseong")) || (b.dragon && has("biryong"))) P.airDash = Math.max(P.airDash, baseAir());
@@ -4638,54 +4642,74 @@ const PETS = {
   yong: { name: "용", han: "龍", base: 18, range: 330, cd: [3.2, 2.2], desc: "멀리 있는 적을 쫓는 물구슬을 뱉는다" },
   fox: { name: "여우", han: "狐", base: 27, range: 300, cd: [3.4, 2.6], desc: "적을 쫓는 여우불을 띄운다 — 다 자라면 두 개" },
   crow: { name: "삼족오", han: "三足烏", base: 36, range: 380, cd: [4, 2.8], desc: "햇살을 쏘아 한 줄의 적을 꿰뚫는다 — 다 자라면 모두" } };
-const PET_HATCH = 5, PET_ADULT = 20;   // a run or two to hatch, many more to raise
-const petStage = () => !META.pet ? -1 : META.pet.fed >= PET_ADULT ? 2 : META.pet.fed >= PET_HATCH ? 1 : 0;
+// 영물 2.0: 숨 hatches the egg, then 정 (won beside it — reading blows near it, felling guardians, 甲 gates) raises it;
+// the last two steps also ask for more 숨, and the fourth splits two ways
+const PET_ST = ["알", "새끼", "어린 영물", "성수", "진화", "각성"];
+const PET_NEED = [null, { fed: 5 }, { jeong: 60 }, { jeong: 200 }, { jeong: 400, fed: 15 }, { jeong: 800, fed: 35 }];
+const PET_EVO = { kkachi: [["흑작", "黑鵲", "#3a1630", "쪼면 잡졸은 단번에 쓰러진다"], ["청작", "靑鵲", "#1d5a8a", "더 자주 날고, 관문마다 두 번 막아 준다"]],
+  haetae: [["화치", "火豸", "#b8321c", "불이 잡졸을 단번에 태운다"], ["석치", "石豸", "#3c5a6a", "더 자주 뿜고, 관문마다 두 번 막아 준다"]],
+  yong: [["적룡", "赤龍", "#a8202a", "물구슬이 잡졸을 단번에 꿰뚫는다"], ["청룡", "靑龍", "#1f6a5a", "더 자주 뱉고, 관문마다 두 번 막아 준다"]],
+  fox: [["구미호", "九尾狐", "#7a1e5a", "여우불이 잡졸을 단번에 태운다"], ["은호", "銀狐", "#5a6a8a", "더 자주 띄우고, 관문마다 두 번 막아 준다"]],
+  crow: [["금오", "金烏", "#b8862b", "햇살이 잡졸을 단번에 꿰뚫는다"], ["흑오", "黑烏", "#2a1a4a", "더 자주 쏘고, 관문마다 두 번 막아 준다"]] };
+const petMeta = () => { const m = META.pet; if (m && m.jeong == null) { m.jeong = m.fed >= 20 ? 200 : 0; m.evo = null; } return m; };   // older nests: a grown one keeps its growth
+const petStage = () => { const m = petMeta(); if (!m) return -1; let s = 0; for (let k = 1; k < PET_NEED.length; k++) { const n = PET_NEED[k]; if ((m.fed || 0) < (n.fed || 0) || (m.jeong || 0) < (n.jeong || 0) || (k >= 4 && m.evo == null)) break; s = k; } return s; };
+const petNextNeed = () => PET_NEED[petStage() + 1] || null;
+const petIntimacy = () => Math.min(8, Math.floor(((petMeta() || {}).jeong || 0) / 100));
+const petStrike = () => petStage() >= 4 && META.pet.evo === 0;
+function petJeong(n) { if (!run || mode === "tutorial" || petStage() < 1) return; run.petJ = (run.petJ || 0) + n; }
 let pet = null;
-function spawnPet() { pet = null; if (petStage() < 1 || !P || !PETS[META.pet.kind]) return; pet = { x: P.x - 20, y: P.y - 40, vx: 0, vy: 0, cd: 1.2, face: 1, act: null, t: 0 }; }
+function spawnPet() { pet = null; if (petStage() < 1 || !P || !PETS[META.pet.kind]) return; pet = { x: P.x - 20, y: P.y - 40, vx: 0, vy: 0, cd: 1.2, face: 1, act: null, t: 0, guardN: 0 }; }
 function stepPet(dt) {
-  if (!pet || !P || state !== "play") return; const D = PETS[META.pet.kind], st = petStage(), cx = P.x + P.w / 2, cy = P.y + P.h / 2; pet.t += dt;
+  if (!pet || !P || state !== "play") return; const D = PETS[META.pet.kind], st = petStage() >= 3 ? 2 : 1, cx = P.x + P.w / 2, cy = P.y + P.h / 2; pet.t += dt;
   if (pet.act && pet.act.kind === "dive") { const a = pet.act, dx = a.e.x + a.e.w / 2 - pet.x, dy = a.e.y + a.e.h / 2 - pet.y, L = Math.hypot(dx, dy) || 1; a.t -= dt;
     pet.x += dx / L * Math.min(L, 900 * dt); pet.y += dy / L * Math.min(L, 900 * dt); pet.face = Math.sign(dx) || pet.face;
     if (st >= 2) for (const b of bullets) if (!b.friendly && Math.hypot(b.x - pet.x, b.y - pet.y) < 26) { b.life = 0; addFx("hud", HUD.spark, b.x, b.y, 18, { life: .2 }); }
-    if (L < 16 || a.t <= 0) { if (a.e.alive) { hurtEnemy(a.e, false, "pet"); addFx("pet", D.base + 8, pet.x, pet.y, 40, { life: .3 }); } pet.act = null; }
+    if (L < 16 || a.t <= 0) { if (a.e.alive) { hurtEnemy(a.e, petStrike() && a.e.type !== "b", "pet"); addFx("pet", D.base + 8, pet.x, pet.y, 40, { life: .3 }); } pet.act = null; }
     return; }
   const tx = cx - P.face * 34, ty = P.y - 30 + Math.sin(pet.t * 3) * 5, f = Math.min(1, dt * 5);
   pet.vx += ((tx - pet.x) * 6 - pet.vx) * f; pet.vy += ((ty - pet.y) * 6 - pet.vy) * f; pet.x += pet.vx * dt; pet.y += pet.vy * dt;
   if (Math.abs(pet.vx) > 30) pet.face = Math.sign(pet.vx); if (pet.atkT > 0) pet.atkT -= dt;
-  if (mode === "tutorial" || hubOn || (pet.cd -= dt) > 0) return;
+  if (mode === "tutorial" || hubOn || pet.rest || (pet.cd -= dt) > 0) return;
   let t = null, bd = D.range; for (const e of enemies) { if (!e.alive || ghostly(e) || e.hidden) continue; const d = Math.hypot(e.x + e.w / 2 - pet.x, e.y + e.h / 2 - pet.y); if (d < bd && los(pet.x, pet.y, e.x + e.w / 2, e.y + e.h / 2)) { bd = d; t = e; } }
   if (!t) { pet.cd = .3; return; }
   petAttack(t, D, st);
 }
 function petAttack(t, D, st) {
-  pet.cd = D.cd[st >= 2 ? 1 : 0]; pet.atkT = .35; const ex = t.x + t.w / 2, ey = t.y + t.h / 2; pet.face = Math.sign(ex - pet.x) || pet.face;
+  const ps = petStage(); pet.cd = D.cd[st >= 2 ? 1 : 0] * (ps <= 1 ? 1.35 : ps >= 5 ? .7 : ps >= 4 ? .85 : 1) * (META.pet.evo === 1 && ps >= 4 ? .8 : 1) * (1 - .03 * petIntimacy()); pet.atkT = .35; const ex = t.x + t.w / 2, ey = t.y + t.h / 2; pet.face = Math.sign(ex - pet.x) || pet.face;
   if (META.pet.kind === "kkachi") { pet.act = { kind: "dive", e: t, t: .5 }; Music.sfx("dash"); }
   else if (META.pet.kind === "haetae") { const r = st >= 2 ? 150 : 110; addFx("pet", D.base + 8, pet.x + pet.face * r * .45, pet.y + 6, r * .9, { life: .4, flip: pet.face < 0 });
-    for (const e of enemies) if (e.alive && !ghostly(e) && Math.abs(e.x + e.w / 2 - (pet.x + pet.face * r / 2)) < r / 2 + e.w / 2 && Math.abs(e.y + e.h / 2 - pet.y) < 70) { hurtEnemy(e, false, "pet"); if (e.alive && e.type !== "b") e.stunT = Math.max(e.stunT || 0, .5); }
+    for (const e of enemies) if (e.alive && !ghostly(e) && Math.abs(e.x + e.w / 2 - (pet.x + pet.face * r / 2)) < r / 2 + e.w / 2 && Math.abs(e.y + e.h / 2 - pet.y) < 70) { hurtEnemy(e, petStrike() && e.type !== "b", "pet"); if (e.alive && e.type !== "b") e.stunT = Math.max(e.stunT || 0, .5); }
     Music.sfx("shoot"); }
   else if (META.pet.kind === "fox") { for (let i = 0; i < (st >= 2 ? 2 : 1); i++) { const a = Math.atan2(ey - pet.y, ex - pet.x) + (i ? .5 : -.5) * (st >= 2 ? 1 : 0); bullets.push({ x: pet.x, y: pet.y, vx: Math.cos(a) * 240, vy: Math.sin(a) * 240, friendly: true, petOrb: true, petFr: D.base + 8, seek: 9, life: 2.4, owner: null, r: 9 }); } Music.sfx("hook"); }
   else if (META.pet.kind === "crow") { const L = Math.hypot(ex - pet.x, ey - pet.y) || 1, d = { x: (ex - pet.x) / L, y: (ey - pet.y) / L }, reach = 380;   // a sun ray: the young one burns the first body, the grown one the whole line
     const line = foesInLine(pet.x, pet.y, d, reach).sort((a, b) => Math.hypot(a.x - pet.x, a.y - pet.y) - Math.hypot(b.x - pet.x, b.y - pet.y)).slice(0, st >= 2 ? 9 : 1);
     beams.push({ x0: pet.x, y0: pet.y, x1: pet.x + d.x * reach, y1: pet.y + d.y * reach, t: 0, life: .3, red: true, w: 1.6 });
-    for (const e of line) { hurtEnemy(e, false, "pet"); addFx("pet", D.base + 8, e.x + e.w / 2, e.y + e.h / 2, 46, { life: .3 }); } Music.sfx("snipe"); }
+    for (const e of line) { hurtEnemy(e, petStrike() && e.type !== "b", "pet"); addFx("pet", D.base + 8, e.x + e.w / 2, e.y + e.h / 2, 46, { life: .3 }); } Music.sfx("snipe"); }
   else { const L = Math.hypot(ex - pet.x, ey - pet.y) || 1; bullets.push({ x: pet.x, y: pet.y, vx: (ex - pet.x) / L * 300, vy: (ey - pet.y) / L * 300, friendly: true, petOrb: true, seek: 7, life: 2, owner: null, r: 9, pierce: st >= 2, petHit: true }); Music.sfx("hook"); }
 }
 function drawPet(pal) {
-  if (!pet || !SPR.pet) return; const D = PETS[META.pet.kind], st = petStage(), fr = D.base + (st >= 2 ? (pet.atkT > 0 || pet.act ? 6 : Math.abs(pet.vx) > 160 ? 7 : 5) : (pet.atkT > 0 || pet.act ? 4 : 3)), h = st >= 2 ? 46 : 32;
-  drawSprite("pet", fr, pet.x, pet.y, h / SPR.pet.f[fr].h, pet.face < 0, .5, false, .5);
+  if (!pet || !SPR.pet) return; const D = PETS[META.pet.kind], ps = petStage(), st = ps >= 3 ? 2 : 1, ev = ps >= 4 && PET_EVO[META.pet.kind] ? PET_EVO[META.pet.kind][META.pet.evo] : null;
+  if (pet.rest) ctx.globalAlpha = .35;
+  if (ev) { const r = ps >= 5 ? 34 : 26, g = ctx.createRadialGradient(pet.x, pet.y - 4, 2, pet.x, pet.y - 4, r); g.addColorStop(0, ev[2] + "aa"); g.addColorStop(1, ev[2] + "00"); ctx.fillStyle = g; ctx.beginPath(); ctx.arc(pet.x, pet.y - 4, r * (1 + .08 * Math.sin(pet.t * 4)), 0, 6.283); ctx.fill(); }   // an evolved one burns in its own colour
+  const fr = D.base + (st >= 2 ? (pet.atkT > 0 || pet.act ? 6 : Math.abs(pet.vx) > 160 ? 7 : 5) : (pet.atkT > 0 || pet.act ? 4 : 3)), h = (st >= 2 ? 46 : ps <= 1 ? 26 : 32) * (ps >= 5 ? 1.18 : 1);
+  drawSprite("pet", fr, pet.x, pet.y, h / SPR.pet.f[fr].h, pet.face < 0, .5, false, .5); ctx.globalAlpha = 1;
 }
 function petScreen() { // 둥지: choose an egg, feed it 숨
   const rows = [], cur = () => { const d = document.createElement("div"); d.className = "bd-cur"; d.innerHTML = `<span>숨 ${META.sum || 0}</span><span>혼 ${META.hon}</span>`; return d; };
   rows.push(cur());
   if (!META.pet) { for (const [k, D] of Object.entries(PETS)) rows.push(bdRow(`${D.name}의 알 ${D.han}`, D.desc, null, "품기", () => { META.pet = { kind: k, fed: 0 }; saveMeta(); toast(`${D.name}의 알을 품었다`); enterHub(); petScreen(); }));
     board("둥지", "알 하나를 골라 숨으로 키운다 · 숨은 판이 끝날 때 남은 숨과 넘은 관문으로 모인다", rows, [["돌아가기", resumeHub]]); return; }
-  const D = PETS[META.pet.kind], st = petStage(), need = st === 0 ? PET_HATCH : st === 1 ? PET_ADULT : 0;
-  rows.push(bdRow(`${D.name} ${D.han} · ${["알", "어린 영물", "다 자란 영물"][st]}`, st < 2 ? `숨 ${META.pet.fed} / ${need} — ${st === 0 ? "깨어나면 함께 싸운다" : "다 자라면 더 자주, 더 세게"}` : `다 자랐다 · ${D.desc}`));
-  const feed = n => { const give = Math.min(n, META.sum || 0, Math.max(0, PET_ADULT - META.pet.fed)); if (!give) return; const before = petStage(); META.sum -= give; META.pet.fed += give; saveMeta();
-    const now = petStage(); toast(now > before ? (now === 1 ? `${D.name}이(가) 알을 깨고 나왔다` : `${D.name}이(가) 다 자랐다`) : `숨 ${give}을 먹였다`); Music.sfx(now > before ? "seal" : "lantern"); if (now > before) enterHub(); petScreen(); };
-  if (st < 2) { rows.push(bdRow("숨 하나 먹이기", "숨 1", null, "먹이기", () => feed(1), !(META.sum > 0)));
+  const D = PETS[META.pet.kind], m = petMeta(), st = petStage(), nx = petNextNeed(), ev = st >= 4 ? PET_EVO[m.kind][m.evo] : null;
+  const needTxt = nx ? [nx.jeong ? `정 ${m.jeong || 0} / ${nx.jeong}` : "", nx.fed ? `숨 ${m.fed} / ${nx.fed}` : ""].filter(Boolean).join(" · ") : "다 이루었다";
+  rows.push(bdRow(`${ev ? ev[0] + " " + ev[1] : D.name + " " + D.han} · ${PET_ST[st]}`, `${needTxt} → ${PET_ST[st + 1] || "끝"}${st >= 1 ? ` · 친밀 ${petIntimacy()}` : ""}`));
+  rows.push(bdRow("함께 싸우면", [st >= 1 ? D.desc : "깨어나면 함께 싸운다", st >= 2 ? "합격 — 내가 간파하면 곧바로 덮친다" : "어린 영물이 되면 합격", st >= 3 ? `수호 — 죽을 일격을 관문마다 ${ev && m.evo === 1 ? "두" : "한"} 번 대신 막고 쉰다` : "성수가 되면 수호", ev ? ev[3] : "", st >= 1 ? "정은 영물 곁에서 간파 +1 · 우두머리 +5 · 甲 관문 +3" : ""].filter(Boolean).join(" · ")));
+  const feedCap = Math.max(0, ((nx && nx.fed) || m.fed) - m.fed);
+  const feed = n => { const give = Math.min(n, META.sum || 0, feedCap); if (!give) return; const before = petStage(); META.sum -= give; m.fed += give; saveMeta();
+    const now = petStage(); toast(now > before ? `${D.name} · ${PET_ST[now]}` : `숨 ${give}을 먹였다`); Music.sfx(now > before ? "seal" : "lantern"); if (now > before) enterHub(); petScreen(); };
+  if (feedCap > 0) { rows.push(bdRow("숨 하나 먹이기", `숨 1 · 이번 단계에 ${feedCap} 더`, null, "먹이기", () => feed(1), !(META.sum > 0)));
     rows.push(bdRow("숨 모두 먹이기", `가진 숨 ${META.sum || 0}`, null, "먹이기", () => feed(99), !(META.sum > 0))); }
-  if (st === 0) rows.push(bdRow("다른 알로 바꾸기", "먹인 숨은 돌아오지 않는다", null, "바꾸기", () => { META.pet = null; saveMeta(); enterHub(); petScreen(); }));
+  if (st === 3 && m.evo == null && (m.jeong || 0) >= 400 && m.fed >= 15) PET_EVO[m.kind].forEach((e, k) => rows.push(bdRow(`진화 · ${e[0]} ${e[1]}`, e[3], null, "고르기", () => { m.evo = k; saveMeta(); Music.sfx("seal"); Music.jing(); toast(`${D.name}이(가) ${e[0]}(으)로 거듭났다`); enterHub(); petScreen(); })));
+  else if (st === 3 && m.evo == null) rows.push(bdRow("진화", `정 400 · 숨 15가 차면 두 갈래 중 하나로 거듭난다`));
   board("둥지", D.desc, rows, [["돌아가기", resumeHub]]);
 }
 // ---------- 거점: the mountain hermitage you walk around in between runs ----------
