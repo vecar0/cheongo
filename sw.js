@@ -1,6 +1,6 @@
 // 천고 service worker: network-first for the game files (so updates land on the next launch),
 // cache fallback for offline play, cache-first for Google Fonts.
-const CACHE = "chungo-v123";
+const CACHE = "chungo-v124";
 const ASSETS = "chungo-assets";   // pictures and sound: kept across versions, served at once, refreshed in the background
 const CORE = ["./", "index.html", "manifest.webmanifest",
   "icons/icon-192.png", "icons/icon-512.png", "icons/apple-touch-icon.png"];
