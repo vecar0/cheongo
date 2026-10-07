@@ -395,3 +395,27 @@ body.inhub #hud .hl small em:first-child { color: #c3161c; }
 #bAct::before { content: "▼"; top: auto; bottom: -13px; }
 @keyframes actInTop { from { opacity: 0; transform: translate(-50%, -8px); } }
 #hJang.goal { color: #17161a !important; opacity: 1; font-size: 12px; background: rgba(236,230,216,.85); padding: 1px 8px; border-left: 2px solid #c3161c; }
+/* the longer tree: smaller seals, labels only on the chosen one, locks, forks, 합류 */
+#choice.tree .tr-graph { height: min(58vh, 300px); min-height: 210px; }
+#choice.tree .tr-n { width: 34px; height: 34px; }
+#choice.tree .tr-n i { width: 30px; height: 30px; }
+#choice.tree .tr-n.fk i { width: 24px; height: 24px; }
+#choice.tree .tr-n.og i { width: 34px; height: 34px; }
+#choice.tree .tr-n.rt i { width: 40px; height: 40px; background-color: var(--ink); border: 0; box-shadow: 0 0 0 3px var(--seal); filter: none; }
+#choice.tree .tr-n.mg i { border-radius: 4px; border-style: double; border-width: 4px; }
+#choice.tree .tr-n span { top: 33px; font-size: 10px; opacity: 0; transition: opacity .15s; pointer-events: none; z-index: 2; background: rgba(236,230,216,.92); padding: 0 3px; }
+#choice.tree .tr-n.rt span, #choice.tree .tr-n.sel span { opacity: 1; }
+#choice.tree .tr-n.lk i { filter: grayscale(1) opacity(.25); border-style: dashed; }
+#choice.tree .tr-n.lk::after { content: "鎖"; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-family: var(--f-head); font-size: 13px; color: var(--ink-2); }
+#choice.tree .tr-n.og:not(.on) i { border-color: #9a1424; border-style: dotted; }
+#choice.tree .tr-n.aw i { box-shadow: 0 0 0 2px var(--paper), 0 0 0 4px var(--seal), 0 0 14px 4px rgba(195,22,28,.55); }
+/* 비급 grades: a card turned face up, rarer ones edged in colour */
+.tr-sh { animation: cardFlip .42s cubic-bezier(.3,1.4,.5,1) both; transform-origin: 50% 50%; }
+@keyframes cardFlip { 0% { transform: perspective(400px) rotateY(90deg); opacity: 0; } 100% { transform: none; opacity: 1; } }
+.tr-sh.r2 { border-color: #2b5d8a; box-shadow: inset 0 0 0 1px rgba(43,93,138,.35); }
+.tr-sh.r2 small { color: #2b5d8a; }
+.tr-sh.r3 { border-color: #b8862b; background: linear-gradient(100deg, rgba(236,230,216,.9) 40%, rgba(232,200,120,.55) 50%, rgba(236,230,216,.9) 60%) 0 0 / 300% 100%; animation: cardFlip .42s cubic-bezier(.3,1.4,.5,1) both, legShine 2.4s 0.6s linear infinite; }
+.tr-sh.r3 small { color: #9a6a12; }
+@keyframes legShine { from { background-position: 100% 0; } to { background-position: -200% 0; } }
+@media (prefers-reduced-motion: reduce) { .tr-sh, .tr-sh.r3 { animation: none; } }
+@media (max-height: 430px) { #choice.tree .tr-graph { height: 214px; min-height: 0; } }

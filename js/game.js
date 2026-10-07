@@ -310,14 +310,95 @@ const TREES = {
       { id: "cj_c3", name: "유성", han: "流星", desc: "오의 — 높이 떨어져 땅에 닿으면 큰 폭발이 인다", icon: 862 } ] } ] }
 };
 const treeKey = () => { const w = wpn(), W = WEAPONS[w]; return W && W.gun ? w : wrule(); };   // 무녀's weapons grow on the sword tree they fight like
-for (const [wk2, T] of Object.entries(TREES)) T.br.forEach((b, bi) => b.nodes.forEach((n, t) => CHOSIK.push({ ...n, kind: "수련", tree: wk2, br: bi, tier: t + 1, brName: b.name, ougi: t === 2 })));
+// the longer tree: a root, then each branch runs 1단 → 2단 → 3단 (one of two) → 4단 → 오의 (given by 깨달음, never bought),
+// and two 합류 nodes join neighbouring branches. 3단·4단·합류 must first be learned at the 서고 before a run will offer them.
+// g: a shared mechanic granted (an existing 비급's effect), st: numbers added up by treeStat
+const G = (id, name, han, desc, o = {}) => ({ id, name, han, desc, grant: o.g, stat: o.st, icon: o.icon || 862 });
+const TREE_EXT = {
+  hwando: { r: G("hw_r", "환도 단련", "環刀鍛鍊", "날 +1", { st: { edge: 1 } }),
+    a: [G("hw_a3x", "되받기", "還擊", "간파 판정 +0.06초", { st: { kanWin: .06 } }), G("hw_a3y", "간섬", "看閃", "간파하면 공중 대시 +1, 천고 기운 두 배", { g: "d_beat" }), G("hw_a4", "반격세", "反擊勢", "기세가 30% 빨리 찬다", { st: { gise: .3 } })],
+    b: [G("hw_b3x", "잔영보", "殘影步", "무아경을 풀면 가까운 적 등 뒤로 넘어가 벤다", { g: "d_sunbo" }), G("hw_b3y", "연환", "連環", "일섬으로 베면 공중 대시 +1, 곧바로 다시 무아경", { g: "d_sun" }), G("hw_b4", "그림자 걸음", "影步", "이동 +12%", { st: { spd: .12 } })],
+    c: [G("hw_c3x", "검막", "劍幕", "간파 뒤 1.5초 탄을 막는다", { g: "d_ward" }), G("hw_c3y", "탄베기", "斬彈", "간파하는 순간 주변 탄이 사라진다", { g: "d_tan" }), G("hw_c4", "섬광일도", "閃光一刀", "일섬이 지나간 길의 탄을 지운다", { g: "d_dangong" })],
+    m: [G("hw_m1", "잔심", "殘心", "합류(반격·잔상) — 간파하면 주변 적도 잠깐 간파된다", { g: "d_zanshin" }), G("hw_m2", "명경지수", "明鏡止水", "합류(잔상·섬광) — 간파 판정 +0.15초", { g: "d_myeong" })] },
+  ssang: { r: G("ss_r", "쌍검 단련", "雙劍鍛鍊", "날 +2", { st: { edge: 2 } }),
+    a: [G("ss_a3x", "혈세", "血勢", "기세가 30% 빨리 찬다", { st: { gise: .3 } }), G("ss_a3y", "질풍보", "疾風步", "연속 처치가 오를수록 빨리 달린다", { g: "d_jilbo" }), G("ss_a4", "광폭", "狂暴", "날이 40% 빨리 선다", { st: { edgeRate: .4 } })],
+    b: [G("ss_b3x", "허공답보", "虛空踏步", "공중에서 한 번 더 뛴다", { g: "d_jump" }), G("ss_b3y", "활공", "滑空", "떨어질 때 점프를 누르면 천천히 내려온다", { g: "d_glide" }), G("ss_b4", "선풍각", "旋風脚", "공중 대시 +1", { g: "d_air" })],
+    c: [G("ss_c3x", "연환", "連環", "일섬으로 베면 공중 대시 +1, 곧바로 다시 무아경", { g: "d_sun" }), G("ss_c3y", "파죽", "破竹", "연속 처치가 오를수록 일섬이 길고 넓어진다", { g: "d_pajuk" }), G("ss_c4", "기공", "氣功", "간파하면 기력이 가득, 연속 처치 +2", { g: "d_breathe" })],
+    m: [G("ss_m1", "잔심", "殘心", "합류(폭주·선풍) — 간파하면 주변 적도 잠깐 간파된다", { g: "d_zanshin" }), G("ss_m2", "뇌인", "雷刃", "합류(선풍·쌍수) — 일섬 처치 때 번개가 옆 적도 벤다", { g: "d_chain" })] },
+  woldo: { r: G("wd_r", "월도 단련", "月刀鍛鍊", "날 +1, 기력 회복 +20%", { st: { edge: 1, ki: .2 } }),
+    a: [G("wd_a3x", "철벽", "鐵壁", "숨을 잃으면 주변 탄이 사라지고 잠깐 막는다", { g: "d_ganggi" }), G("wd_a3y", "낙법", "落法", "구덩이·가시에 빠져도 숨을 잃지 않는다 (관문마다 둘)", { g: "d_nakbeop" }), G("wd_a4", "천근", "千斤", "충격·폭발 범위 +30%", { st: { blast: .3 } })],
+    b: [G("wd_b3x", "비상", "飛上", "벽차기 하면 공중 대시가 차고 +1", { g: "d_bisang" }), G("wd_b3y", "부동", "不動", "공중 무아경 동안 그 자리에 멈춘다", { g: "d_hover" }), G("wd_b4", "비연", "飛燕", "공중 대시 +1", { g: "d_air" })],
+    c: [G("wd_c3x", "원섬", "遠閃", "일섬이 1.8배 멀리, 두 배 넓게", { g: "d_far" }), G("wd_c3y", "축기", "蓄氣", "꽉 모았다 놓으면 참격파가 날아간다", { g: "d_charge" }), G("wd_c4", "반섬", "反閃", "일섬이 벽·바닥에 한 번 튕겨 계속 벤다", { g: "d_bounce" })],
+    m: [G("wd_m1", "기혈", "氣血", "합류(낙차·도약) — 기운이 절반 넘으면 숨 대신 기운을 잃는다", { g: "d_gihyeol" }), G("wd_m2", "탄베기", "斬彈", "합류(도약·장병) — 간파하는 순간 주변 탄이 사라진다", { g: "d_tan" })] },
+  baldo: { r: G("bd_r", "발도 단련", "拔刀鍛鍊", "간파 판정 +0.04초", { st: { kanWin: .04 } }),
+    a: [G("bd_a3x", "원섬", "遠閃", "일섬이 1.8배 멀리, 두 배 넓게", { g: "d_far" }), G("bd_a3y", "혈섬", "血閃", "숨이 적을수록 일섬이 길고 넓어진다", { g: "d_hyeol" }), G("bd_a4", "일도양단", "一刀兩斷", "날 +1, 날이 30% 빨리 선다", { st: { edge: 1, edgeRate: .3 } })],
+    b: [G("bd_b3x", "명경지수", "明鏡止水", "간파 판정 +0.15초", { g: "d_myeong" }), G("bd_b3y", "평정", "平靜", "숨이 하나면 간파 판정과 무아경이 두 배", { g: "d_calm" }), G("bd_b4", "정중동", "靜中動", "무아경이 더 느리고 겨냥이 적에게 붙는다", { g: "d_jeong" })],
+    c: [G("bd_c3x", "연환", "連環", "일섬으로 베면 공중 대시 +1, 곧바로 다시 무아경", { g: "d_sun" }), G("bd_c3y", "순보", "瞬步", "무아경을 풀면 가까운 적 등 뒤로 넘어가 벤다", { g: "d_sunbo" }), G("bd_c4", "뇌인", "雷刃", "일섬 처치 때 번개가 옆 적도 벤다", { g: "d_chain" })],
+    m: [G("bd_m1", "잔명", "殘命", "합류(일도·정) — 죽을 일격을 관문마다 한 번 버틴다", { g: "d_janmyeong" }), G("bd_m2", "정지", "停止", "합류(정·연) — 간파하면 1.2초 모든 탄이 멈춘다", { g: "d_freeze" })] },
+  jochong: { r: G("jc_r", "조총 단련", "鳥銃鍛鍊", "탄 +1", { st: { mag: 1 } }),
+    a: [G("jc_a3x", "명경지수", "明鏡止水", "간파 판정 +0.15초", { g: "d_myeong" }), G("jc_a3y", "정중동", "靜中動", "무아경이 더 느리고 겨냥이 적에게 붙는다", { g: "d_jeong" }), G("jc_a4", "화승 숙련", "火繩熟鍊", "장전이 30% 빠르다", { st: { reload: .3 } })],
+    b: [G("jc_b3x", "비연", "飛燕", "공중 대시 +1", { g: "d_air" }), G("jc_b3y", "활공", "滑空", "떨어질 때 점프를 누르면 천천히 내려온다", { g: "d_glide" }), G("jc_b4", "부동", "不動", "공중 무아경 동안 그 자리에 멈춘다", { g: "d_hover" })],
+    c: [G("jc_c3x", "간섬", "看閃", "간파하면 공중 대시 +1, 천고 기운 두 배", { g: "d_beat" }), G("jc_c3y", "검막", "劍幕", "간파 뒤 1.5초 탄을 막는다", { g: "d_ward" }), G("jc_c4", "기공", "氣功", "간파하면 기력이 가득, 연속 처치 +2", { g: "d_breathe" })],
+    m: [G("jc_m1", "정지", "停止", "합류(저격·반동) — 간파하면 1.2초 모든 탄이 멈춘다", { g: "d_freeze" }), G("jc_m2", "호신강기", "護身罡氣", "합류(반동·총검) — 숨을 잃으면 주변 탄이 사라진다", { g: "d_ganggi" })] },
+  seungja: { r: G("sj_r", "승자 단련", "勝字鍛鍊", "탄 +1", { st: { mag: 1 } }),
+    a: [G("sj_a3x", "탄베기", "斬彈", "간파하는 순간 주변 탄이 사라진다", { g: "d_tan" }), G("sj_a3y", "검막", "劍幕", "간파 뒤 1.5초 탄을 막는다", { g: "d_ward" }), G("sj_a4", "대구경", "大口徑", "폭발 범위 +25%", { st: { blast: .25 } })],
+    b: [G("sj_b3x", "허공답보", "虛空踏步", "공중에서 한 번 더 뛴다", { g: "d_jump" }), G("sj_b3y", "비상", "飛上", "벽차기 하면 공중 대시가 차고 +1", { g: "d_bisang" }), G("sj_b4", "질풍보", "疾風步", "연속 처치가 오를수록 빨리 달린다", { g: "d_jilbo" })],
+    c: [G("sj_c3x", "기혈", "氣血", "기운이 절반 넘으면 숨 대신 기운을 잃는다", { g: "d_gihyeol" }), G("sj_c3y", "잔명", "殘命", "죽을 일격을 관문마다 한 번 버틴다", { g: "d_janmyeong" }), G("sj_c4", "화승 숙련", "火繩熟鍊", "장전이 30% 빠르다", { st: { reload: .3 } })],
+    m: [G("sj_m1", "간섬", "看閃", "합류(근접·기동) — 간파하면 공중 대시 +1, 기운 두 배", { g: "d_beat" }), G("sj_m2", "정지", "停止", "합류(기동·화약) — 간파하면 1.2초 모든 탄이 멈춘다", { g: "d_freeze" })] },
+  singi: { r: G("sg_r", "신기 단련", "神機鍛鍊", "냉각 +25%", { st: { heat: .25 } }),
+    a: [G("sg_a3x", "정중동", "靜中動", "무아경이 더 느리고 겨냥이 적에게 붙는다", { g: "d_jeong" }), G("sg_a3y", "명경지수", "明鏡止水", "간파 판정 +0.15초", { g: "d_myeong" }), G("sg_a4", "천고화", "天鼓火", "천고 기운 +25%", { st: { qi: .25 } })],
+    b: [G("sg_b3x", "냉각수", "冷却水", "냉각 +40%", { st: { heat: .4 } }), G("sg_b3y", "호신강기", "護身罡氣", "숨을 잃으면 주변 탄이 사라진다", { g: "d_ganggi" }), G("sg_b4", "화세", "火勢", "기세가 30% 빨리 찬다", { st: { gise: .3 } })],
+    c: [G("sg_c3x", "대폭", "大爆", "폭발 범위 +30%", { st: { blast: .3 } }), G("sg_c3y", "탄베기", "斬彈", "간파하는 순간 주변 탄이 사라진다", { g: "d_tan" }), G("sg_c4", "정지", "停止", "간파하면 1.2초 모든 탄이 멈춘다", { g: "d_freeze" })],
+    m: [G("sg_m1", "활공", "滑空", "합류(유도·과열) — 떨어질 때 점프를 누르면 천천히", { g: "d_glide" }), G("sg_m2", "잔명", "殘命", "합류(과열·폭발) — 죽을 일격을 관문마다 한 번 버틴다", { g: "d_janmyeong" })] },
+  cheonja: { r: G("cj_r", "천자 단련", "天字鍛鍊", "폭발 범위 +15%", { st: { blast: .15 } }),
+    a: [G("cj_a3x", "대구경", "大口徑", "폭발 범위 +30%", { st: { blast: .3 } }), G("cj_a3y", "탄베기", "斬彈", "간파하는 순간 주변 탄이 사라진다", { g: "d_tan" }), G("cj_a4", "화승 숙련", "火繩熟鍊", "장전이 35% 빠르다", { st: { reload: .35 } })],
+    b: [G("cj_b3x", "철벽", "鐵壁", "숨을 잃으면 주변 탄이 사라지고 잠깐 막는다", { g: "d_ganggi" }), G("cj_b3y", "기혈", "氣血", "기운이 절반 넘으면 숨 대신 기운을 잃는다", { g: "d_gihyeol" }), G("cj_b4", "정지", "停止", "간파하면 1.2초 모든 탄이 멈춘다", { g: "d_freeze" })],
+    c: [G("cj_c3x", "활공", "滑空", "떨어질 때 점프를 누르면 천천히 내려온다", { g: "d_glide" }), G("cj_c3y", "부동", "不動", "공중 무아경 동안 그 자리에 멈춘다", { g: "d_hover" }), G("cj_c4", "비연", "飛燕", "공중 대시 +1", { g: "d_air" })],
+    m: [G("cj_m1", "잔명", "殘命", "합류(포격·거치) — 죽을 일격을 관문마다 한 번 버틴다", { g: "d_janmyeong" }), G("cj_m2", "간섬", "看閃", "합류(거치·비행) — 간파하면 공중 대시 +1, 기운 두 배", { g: "d_beat" })] } };
+// shared 비급 come in three grades; pairs held together reveal a 조합
+const RARITY = { d_janmyeong: 3, d_freeze: 3, d_breath: 3, d_cheonbo: 3, d_myeong: 2, d_beat: 2, d_zanshin: 2, d_tan: 2, d_ward: 2, d_breathe: 2, d_ganggi: 2, d_gihyeol: 2, d_jump: 2, d_bisang: 2, d_jilbo: 2, d_calm: 2 };
+const RAR_NAME = ["", "일반", "희귀", "전설"];
+const COMBOS = [
+  G("cb_musim", "무심", "無心", "조합(명경지수+평정) — 간파 판정 +0.08초 더", { st: { kanWin: .08 } }), G("cb_cheolbyeok", "철벽", "鐵壁", "조합(정지+검막) — 간파하는 순간 주변 탄이 사라진다", { g: "d_tan" }),
+  G("cb_bicheon", "비천", "飛天", "조합(간섬+비연) — 공중에서 한 번 더 뛴다", { g: "d_jump" }), G("cb_danjeon", "단전", "丹田", "조합(기공+혈로) — 기세가 40% 빨리 찬다", { st: { gise: .4 } }),
+  G("cb_ilmang", "일망타진", "一網打盡", "조합(잔심+탄베기) — 일섬 처치 때 번개가 옆 적도 벤다", { g: "d_chain" }), G("cb_chukji", "축지", "縮地", "조합(질풍보+천보) — 이동 +15%", { st: { spd: .15 } }),
+  G("cb_bulgul", "불굴", "不屈", "조합(호신강기+잔명) — 기운이 절반 넘으면 숨 대신 기운을 잃는다", { g: "d_gihyeol" }), G("cb_hakik", "학익", "鶴翼", "조합(허공답보+활공) — 공중 무아경 동안 멈춘다", { g: "d_hover" })];
+const COMBO_NEED = { cb_musim: ["d_myeong", "d_calm"], cb_cheolbyeok: ["d_freeze", "d_ward"], cb_bicheon: ["d_beat", "d_air"], cb_danjeon: ["d_breathe", "d_breath"], cb_ilmang: ["d_zanshin", "d_tan"], cb_chukji: ["d_jilbo", "d_cheonbo"], cb_bulgul: ["d_ganggi", "d_janmyeong"], cb_hakik: ["d_jump", "d_glide"] };
+for (const [wk2, T] of Object.entries(TREES)) { const X = TREE_EXT[wk2], L = ["a", "b", "c"];
+  if (X) CHOSIK.push({ ...X.r, kind: "수련", tree: wk2, br: -1, tier: 0, brName: "뿌리" });
+  T.br.forEach((b, bi) => { const n = b.nodes, x = X && X[L[bi]];
+    CHOSIK.push({ ...n[0], kind: "수련", tree: wk2, br: bi, tier: 1, brName: b.name }, { ...n[1], kind: "수련", tree: wk2, br: bi, tier: 2, brName: b.name });
+    if (x) CHOSIK.push({ ...x[0], kind: "수련", tree: wk2, br: bi, tier: 3, fork: 0, brName: b.name, lock: 1 }, { ...x[1], kind: "수련", tree: wk2, br: bi, tier: 3, fork: 1, brName: b.name, lock: 1 }, { ...x[2], kind: "수련", tree: wk2, br: bi, tier: 4, brName: b.name, lock: 2 });
+    CHOSIK.push({ ...n[2], kind: "수련", tree: wk2, br: bi, tier: 5, brName: b.name, ougi: true }); });
+  if (X) X.m.forEach((m, k) => CHOSIK.push({ ...m, kind: "수련", tree: wk2, br: -2, merge: [k, k + 1], tier: 6, brName: "합류", lock: 2 })); }
+for (const c of COMBOS) CHOSIK.push({ ...c, kind: "조합", combo: COMBO_NEED[c.id] });
 CHOSIK_BY = Object.fromEntries(CHOSIK.map(c => [c.id, c]));
 const nodeOf = id => CHOSIK.find(c => c.id === id && c.tree);
 const treeNodesHeld = () => (run.perks || []).filter(id => nodeOf(id));
-function treeOffer() { // the nodes you could take now: the first step of any branch, or the next step of one begun
-  const T = treeKey(), held = new Set(run.perks || []), out = [];
-  for (const c of CHOSIK) if (c.tree === T && !held.has(c.id) && (c.tier === 1 || CHOSIK.some(o => o.tree === T && o.br === c.br && o.tier === c.tier - 1 && held.has(o.id)))) out.push(c);
+// 서고 수련: 0 → 3단까지, 1 → 4단까지, 2 → 합류까지 (META.treeOpen[weapon] counts what has been learned)
+const TREE_OPEN = [{ hon: 40, ms: 0, name: "3단 깨치기", desc: "갈래마다 둘 중 하나를 고르는 3단이 열린다" }, { hon: 70, ms: 1, name: "4단 깨치기", desc: "3단 뒤의 4단이 열린다 (무기 숙련 1)" }, { hon: 90, ms: 2, name: "합류 깨치기", desc: "이웃한 두 갈래를 잇는 합류가 열린다 (무기 숙련 2)" }];
+const treeOpen = tk => ((META.treeOpen || {})[tk] || 0);
+const lockLv = c => c.merge ? 3 : c.lock || 0;
+function treeOffer() { // the nodes you could take now: the root, then step by step along a branch; 오의 never (깨달음 gives it)
+  const T = treeKey(), held = new Set(run.perks || []), out = [], hasRoot = CHOSIK.some(o => o.tree === T && o.tier === 0);
+  const got = (br, tier) => CHOSIK.some(o => o.tree === T && o.br === br && o.tier === tier && held.has(o.id));
+  for (const c of CHOSIK) { if (c.tree !== T || held.has(c.id) || c.ougi || lockLv(c) > treeOpen(T)) continue;
+    const ok = c.tier === 0 ? true : c.tier === 1 ? (!hasRoot || got(-1, 0)) : c.tier === 3 ? got(c.br, 2) && !got(c.br, 3) : c.merge ? c.merge.every(b => got(b, 2)) : got(c.br, c.tier - 1);
+    if (ok) out.push(c); }
   return out;
+}
+function syncCombos() { // two 비급 held together reveal a third
+  for (const c of COMBOS) if (!run.perks.includes(c.id) && COMBO_NEED[c.id].every(id => has(id))) { run.perks.push(c.id); toast(`조합 발견 · ${c.name} — ${c.desc.replace(/^조합\([^)]*\) — /, "")}`); Music.jing(); }
+}
+// 깨달음: cutting 천고 opens one 오의 at the end of a branch you have walked two steps along; a second time awakens it
+function enlighten(then) {
+  then = then || (() => showChoice("cycle"));
+  const tk = treeKey(), held = new Set(run.perks || []);
+  if (run.ougiId) { if (!run.ougiAwake) { run.ougiAwake = true; saveRun(); const c = CHOSIK_BY[run.ougiId]; toast(`각성 · ${c ? c.name : "오의"} — 천고 오의가 더 넓고, 쓰면 기운 절반이 돌아온다`); Music.jing(); } run.choosing = "cycle"; saveRun(); return then(); }
+  const els = CHOSIK.filter(c => c.tree === tk && c.ougi && CHOSIK.some(o => o.tree === tk && o.br === c.br && o.tier === 2 && held.has(o.id)));
+  if (!els.length) { toast("깨달음이 오지 않았다 · 한 갈래를 2단까지 걸어야 한다"); run.choosing = "cycle"; saveRun(); return then(); }
+  pickScreen("깨달음", "천고를 베었다 — 걸어온 갈래 끝에서 오의 하나가 열린다", els.map(c => ({ id: c.id, name: pv(c).name, han: pv(c).han, desc: pv(c).desc.replace(/^오의 — /, ""), icon: pv(c).icon })), it => {
+    run.ougiId = it.id; run.perks.push(it.id); run.choosing = "cycle"; saveRun(); Music.jing(); toast(`오의를 깨쳤다 · ${it.name}`); then(); });
 }
 
 const kindOf = id => (CHOSIK.find(c => c.id === id) || {}).kind;
@@ -335,7 +416,10 @@ const OMENS = [
   { id: "pyeong", name: "평온", han: "平", desc: "아무 일도 일어나지 않는다", gift: "보상 없음", calm: true }
 ];
 const SEASON = [{ name: "여름", line: "장맛비가 그치지 않는다." }, { name: "가을", line: "단풍이 진다. 천고가 다시 울린다." }, { name: "겨울", line: "눈이 내린다. 장단이 얼어붙듯 빠르다." }, { name: "봄", line: "꽃잎이 날린다. 탑은 다시 처음이다." }];
-const has = id => !!(run && run.perks && run.perks.includes(id));
+let _hasRun = null, _hasKey = "", _hasSet = new Set();   // held ids plus what held tree nodes and 조합 grant
+const has = id => { if (!run || !run.perks) return false; const k = run.perks.length + ":" + run.perks[run.perks.length - 1];
+  if (_hasRun !== run || _hasKey !== k) { _hasRun = run; _hasKey = k; _hasSet = new Set(run.perks); for (const p of run.perks) { const c = CHOSIK_BY && CHOSIK_BY[p]; if (c && c.grant) _hasSet.add(c.grant); } }
+  return _hasSet.has(id); };
 // 무녀·포수: the same 비급 read through their own hands — new names, and for many a different working
 const PV = {
   munyeo: {
@@ -510,7 +594,7 @@ const season = () => { const c = cyc(); return c ? ((c - 1) % 3) + 1 : 0; };   /
 const ghostly = e => (e.type === "r" && e.ph === "gone") || !!e.hidden;
 const bossAlive = () => enemies.some(e => e.alive && e.type === "b");
 const F3 = { orb: 8 }, FXB = { coin: 0, fire: 1, claw: 2, hair: 3, pillar: 4, beam: 5, fan: 6, water: 7, scrap: 8 };   // bossB extra frame; bossfx sheet
-const maxv = () => (frenzy() ? 1.3 : 1) * MAXV * (has("d_jilbo") && P ? 1 + .08 * Math.min(5, P.chain || 0) : 1) * (has("jilpung") ? 1.18 : 1) * (oath("jilpung2") ? 1.25 : 1);
+const maxv = () => (frenzy() ? 1.3 : 1) * MAXV * (has("d_jilbo") && P ? 1 + .08 * Math.min(5, P.chain || 0) : 1) * (has("jilpung") ? 1.18 : 1) * (oath("jilpung2") ? 1.25 : 1) * (1 + treeStat("spd"));
 const strikeWin = () => STRIKE_WIN * (upOn("narrow") ? .7 : 1) * (simb("noe") ? 1.25 : 1) * (res("noe", 2) ? 1.2 : 1);
 const PINE_N = 5, DEATH_SEAL = 5;   // pines sheet: five misty pines, then the 絶命 seal
 const P2 = { plank: 0, ledge: 1, board: 2, rack: 3, haetae: 4, gate: 5, brazier: 6, lanterns: 7, sacks: 8 };
@@ -1096,7 +1180,7 @@ function newRun() {
 }
 // a row of cards for one decision; items: { name, han, desc, cost?, glyph? }
 function pickScreen(title, sub, items, onPick) {
-  $("choice").classList.remove("route", "wpick"); document.querySelectorAll(".route-trail,.ch-held").forEach(o => o.remove());
+  $("choice").classList.remove("route", "wpick", "tree"); document.querySelectorAll(".route-trail,.ch-held").forEach(o => o.remove());
   $("chTitle").textContent = title; $("chMadang").textContent = sub;
   const box = $("cards"); box.innerHTML = "";
   for (const it of items) {
@@ -1137,6 +1221,7 @@ function continueRun() {
   if (s.tower) s.m = LAST_M; if (s.m > LAST_M) s.m = LAST_M;
   if (s.picking) { startPicks(); return; }
   if (s.choosing === "route") { showRoute(); return; }
+  if (s.choosing === "enlight") { enlighten(); return; }
   if (s.choosing === "omen") showOmen(); else if (s.choosing) showChoice(s.choosing); else showInterlude();
 }
 function saveRun() { if (run && mode !== "tutorial") store.set("run", run); }
@@ -1294,7 +1379,7 @@ function madangClear() {
 // 수련: a real skill tree. Each cleared gate gives 수련점; spend them on the weapon's tree (a node opens the next along its branch),
 // or on a shared 비급 for the 방어·간파·이동 slots. Unspent points are kept.
 const SP_GAIN = { madang: 1, cycle: 2, bonus: 1, tower: 1, stage: 1 };
-const spCost = c => c.ougi ? 2 : 1;
+const spCost = c => c.tier >= 3 ? 2 : 1;
 function showChoice(kind) {   // kind: "madang" after a cleared gate, "cycle" after cutting 천고, "bonus", "tower", or "pause" (spending from the pause menu)
   const done = () => {
     run.choosing = null; $("choice").classList.remove("tree");
@@ -1314,40 +1399,48 @@ function showChoice(kind) {   // kind: "madang" after a cleared gate, "cycle" af
   for (let r = 0; r < (run.reroll || 0); r++) rnd();
   const pool = CHOSIK.filter(c => !c.combo && !c.tree && c.kind !== "일섬" && (!c.only || c.only === run.char) && (c.repeat ? run.breath < breathCap() && !oath("godok") : !owned(c.id) && SLOT[c.kind]));
   const shared = []; const nShared = (META.bld.sadang >= 3 ? 4 : 3) + (oath("godok") ? 1 : 0);
-  while (shared.length < nShared && pool.length) shared.push(pool.splice((rnd() * pool.length) | 0, 1)[0]);
+  const rar = c => RARITY[c.id] || 1, wt = c => [0, 6, 3, 1][rar(c)];
+  const draw = min => { const ps = pool.filter(c => rar(c) >= min); if (!ps.length) return null; let t = rnd() * ps.reduce((a, c) => a + wt(c), 0); for (const c of ps) if ((t -= wt(c)) <= 0) return c; return ps[ps.length - 1]; };
+  while (shared.length < nShared && pool.length) { const c = draw(!shared.length && run.lastGrade === "甲" && kind === "madang" ? 2 : 1) || pool[0]; pool.splice(pool.indexOf(c), 1); shared.push(c); }   // 甲 guarantees one 희귀 or better
   const T = TREES[treeKey()], tk = treeKey(), canTake = new Set(treeOffer().map(c => c.id));
   $("chTitle").textContent = "수련"; $("choice").classList.remove("route", "wpick"); $("choice").classList.add("tree"); document.querySelectorAll(".route-trail,.ch-held").forEach(o => o.remove());
   $("chMadang").textContent = kind === "pause" ? "멈춤 · 수련" : kind === "tower" ? `천고탑 ${run.floor - 1}층을 넘었다` : kind === "cycle" ? `천고를 베었다 · ${(run.cycle || 0) + 1}번째` : kind === "bonus" ? "징조의 대가" : run.cleared === "rest" ? "쉼터 · 수련" : run.cleared === "event" ? "기연" : `${josa(stageOf(run.m - 1).ko, "을", "를")} 넘었다`;
   const box = $("cards"); box.innerHTML = "";
-  const sp = document.createElement("div"); sp.className = "tr-sp"; sp.innerHTML = `수련점 <b>${"●".repeat(run.sp || 0) || "－"}</b><small>노드 1점 · 오의 2점 · 공용 비급 1점</small>`; box.appendChild(sp);
+  const sp = document.createElement("div"); sp.className = "tr-sp"; sp.innerHTML = `수련점 <b>${"●".repeat(run.sp || 0) || "－"}</b><small>1·2단 1점 · 3·4단·합류 2점 · 공용 1점 · 오의는 천고를 베면</small>`; box.appendChild(sp);
   const wrap = document.createElement("div"); wrap.className = "tr-wrap"; box.appendChild(wrap);
   const graph = document.createElement("div"); graph.className = "tr-graph"; const side = document.createElement("div"); side.className = "tr-side"; wrap.append(graph, side);
   let sel = null;
   const learn = c => { const cost = c.tree ? spCost(c) : 1; if ((run.sp || 0) < cost) { toast("수련점이 모자라다"); return; }
     if (!(META.seen = META.seen || []).includes(c.id)) { META.seen.push(c.id); saveMeta(); }
     if (c.id === "sum") { run.sp -= cost; run.breath = Math.min(breathCap(), run.breath + 1); }
-    else if (c.tree) { if (!canTake.has(c.id)) return; run.sp -= cost; run.perks.push(c.id); if (c.ougi) toast(`오의를 깨쳤다 · ${c.name}`); }
+    else if (c.tree) { if (!canTake.has(c.id)) return; run.sp -= cost; run.perks.push(c.id); }
     else if (slotFull(c.kind)) { replaceScreen(c, ok => { if (ok) run.sp -= cost; saveRun(); showChoice(kind); }); return; }
     else { run.sp -= cost; run.perks.push(c.id); }
-    Music.sfx("lantern"); saveRun(); showChoice(kind); };
+    syncCombos(); Music.sfx("lantern"); saveRun(); showChoice(kind); };
   const detail = c => { sel = c; graph.querySelectorAll(".tr-n").forEach(n => n.classList.toggle("sel", n.dataset.id === c.id)); side.querySelectorAll(".tr-sh").forEach(n => n.classList.toggle("sel", n.dataset.id === c.id));
     const v = pv(c), mine = owned(c.id), can = c.tree ? canTake.has(c.id) : true, cost = c.tree ? spCost(c) : 1;
-    const d = side.querySelector(".tr-det"); d.innerHTML = `<em class="tag kind${c.ougi ? " ougi" : ""}">${c.tree ? `${T.name} · ${c.brName} ${c.ougi ? "오의" : c.tier + "단"}` : c.kind || "숨"}</em><b>${v.name}</b><small>${v.han || ""}</small><p>${v.desc}</p>`;
-    const b = document.createElement("button"); b.className = "btn pri"; b.textContent = mine ? "익혔다" : !can ? "앞 단계를 먼저" : `익히기 · ${cost}점`; b.disabled = mine || !can || (run.sp || 0) < cost; b.addEventListener("click", () => learn(c)); d.appendChild(b); };
-  if (T) { // the graph: root on the left, three branches fanning right, three steps each
-    const ys = [18, 50, 82], xs = [33, 59, 86];
-    let svg = `<svg viewBox="0 0 100 100" preserveAspectRatio="none">`;
-    T.br.forEach((b, bi) => { const y = ys[bi]; svg += `<path d="M7 50 C 18 50, 18 ${y}, ${xs[0]} ${y}" class="${CHOSIK.some(c => c.tree === tk && c.br === bi && c.tier === 1 && owned(c.id)) ? "on" : ""}"/>`;
-      for (let t = 1; t < 3; t++) { const on = CHOSIK.some(c => c.tree === tk && c.br === bi && c.tier === t + 1 && owned(c.id)); svg += `<path d="M${xs[t - 1]} ${y} L ${xs[t]} ${y}" class="${on ? "on" : ""}"/>`; } });
-    graph.innerHTML = svg + `</svg><div class="tr-root" style="left:7%;top:50%"><b>${T.name}</b></div>`;
-    T.br.forEach((b, bi) => { const lab = document.createElement("span"); lab.className = "tr-bn"; lab.style.cssText = `left:${(7 + xs[0]) / 2 + 2}%;top:${ys[bi]}%`; lab.textContent = b.name; graph.appendChild(lab);
-      for (let t = 1; t <= 3; t++) { const c = CHOSIK.find(o => o.tree === tk && o.br === bi && o.tier === t); if (!c) continue; const n = document.createElement("button");
-        n.className = "tr-n" + (c.ougi ? " og" : "") + (owned(c.id) ? " on" : canTake.has(c.id) ? " can" : ""); n.dataset.id = c.id; n.style.cssText = `left:${xs[t - 1]}%;top:${ys[bi]}%;--ic:var(--chosik-${pv(c).icon})`;
-        n.innerHTML = `<i></i><span>${pv(c).name}</span>`; n.addEventListener("click", () => { Music.sfx("hook"); detail(c); }); graph.appendChild(n); } }); }
+    const lk = c.tree && lockLv(c) > treeOpen(tk), r = !c.tree && RARITY[c.id] || 1, otherFork = c.fork != null && CHOSIK.some(o => o.tree === tk && o.br === c.br && o.tier === 3 && o.id !== c.id && owned(o.id));
+    const d = side.querySelector(".tr-det"); d.innerHTML = `<em class="tag kind${c.ougi ? " ougi" : ""}">${c.tree ? `${T.name} · ${c.brName} ${c.ougi ? "오의" : c.tier ? c.tier + "단" : ""}` : `${c.kind || "숨"}${c.kind ? " · " + RAR_NAME[r] : ""}`}</em><b>${v.name}</b><small>${v.han || ""}</small><p>${v.desc}</p>`;
+    const b = document.createElement("button"); b.className = "btn pri"; b.textContent = mine ? "익혔다" : c.ougi ? "천고를 베면 깨닫는다" : lk ? "서고에서 먼저 깨쳐야 한다" : otherFork ? "다른 갈래를 골랐다" : !can ? "앞 단계를 먼저" : `익히기 · ${cost}점`; b.disabled = mine || !can || (run.sp || 0) < cost; b.addEventListener("click", () => learn(c)); d.appendChild(b); };
+  if (T) { // the graph: root on the left, three branches → 1단 · 2단 · a fork of two · 4단 · 오의, two 합류 on the far right
+    const ys = [14, 50, 86], X = { 0: 5, 1: 18, 2: 31, 3: 46, 4: 61, 5: 76 }, mx = 91, at = c => c.tier === 0 ? [X[0], 50] : c.merge ? [mx, (ys[c.merge[0]] + ys[c.merge[1]]) / 2] : [X[c.tier], ys[c.br] + (c.fork != null ? (c.fork ? 11 : -11) : 0)];
+    const nodes = CHOSIK.filter(c => c.tree === tk), on = c => owned(c.id), line = (p, q, lit) => `<path d="M${p[0]} ${p[1]} C ${(p[0] + q[0]) / 2} ${p[1]}, ${(p[0] + q[0]) / 2} ${q[1]}, ${q[0]} ${q[1]}" class="${lit ? "on" : ""}"/>`;
+    const root = nodes.find(c => c.tier === 0); let svg = `<svg viewBox="0 0 100 100" preserveAspectRatio="none">`;
+    T.br.forEach((b, bi) => { const st = t => nodes.filter(c => c.br === bi && c.tier === t);
+      let prev = root ? [root] : [];
+      for (let t = 1; t <= 5; t++) { const cur = st(t); for (const c of cur) for (const p of prev.length ? prev : [{ tier: -1 }]) svg += line(p.tier === -1 ? [X[0], 50] : at(p), at(c), on(c) && (p.tier === -1 || on(p))); if (cur.length) prev = cur; } });
+    for (const m of nodes.filter(c => c.merge)) for (const bi of m.merge) { const t2 = nodes.find(c => c.br === bi && c.tier === 2); if (t2) svg += line(at(t2), at(m), on(m)).replace("<path", '<path stroke-dasharray="1 2.5"'); }
+    graph.innerHTML = svg + `</svg>`;
+    T.br.forEach((b, bi) => { const lab = document.createElement("span"); lab.className = "tr-bn"; lab.style.cssText = `left:${(X[1] + X[2]) / 2}%;top:${ys[bi]}%`; lab.textContent = b.name; graph.appendChild(lab); });
+    for (const c of nodes) { const [x, y] = at(c), n = document.createElement("button"), lk = lockLv(c) > treeOpen(tk) && !on(c);
+      n.className = "tr-n" + (c.ougi ? " og" : "") + (c.tier === 0 ? " rt" : "") + (c.merge ? " mg" : "") + (c.fork != null ? " fk" : "") + (on(c) ? " on" : canTake.has(c.id) ? " can" : "") + (lk ? " lk" : "") + (c.ougi && run.ougiAwake && on(c) ? " aw" : "");
+      n.dataset.id = c.id; n.style.cssText = `left:${x}%;top:${y}%;--ic:var(--chosik-${pv(c).icon})`;
+      n.innerHTML = `<i></i><span>${c.tier === 0 ? T.name : pv(c).name}</span>`; n.addEventListener("click", () => { Music.sfx("hook"); detail(c); }); graph.appendChild(n); } }
   side.innerHTML = `<div class="tr-det"><p class="tr-hint">노드를 눌러 읽고, 수련점으로 익힌다</p></div><div class="tr-shl"><em>공용 비급</em></div>`;
   const shl = side.querySelector(".tr-shl");
   for (const c of shared) { const b = document.createElement("button"); b.className = "tr-sh"; b.dataset.id = c.id; b.style.setProperty("--ic", `var(--chosik-${pv(c).icon})`);
-    b.innerHTML = `<i></i><span><small>${c.kind || "숨"}${c.kind && slotFull(c.kind) ? " · 교체" : ""}</small>${pv(c).name}</span>`; b.addEventListener("click", () => { Music.sfx("hook"); detail(c); }); shl.appendChild(b); }
+    const rr = RARITY[c.id] || 1; b.className += " r" + rr; b.style.animationDelay = `${shared.indexOf(c) * .09}s`;
+    b.innerHTML = `<i></i><span><small>${c.kind || "숨"}${c.kind ? " · " + RAR_NAME[rr] : ""}${c.kind && slotFull(c.kind) ? " · 교체" : ""}</small>${pv(c).name}</span>`; b.addEventListener("click", () => { Music.sfx("hook"); detail(c); }); shl.appendChild(b); }
   const tools = document.createElement("div"); tools.className = "ch-tools";
   const left = (META.bld.sadang >= 2 ? 2 : 1) - (run.rerollN || 0);
   if (left > 0 && kind !== "pause") { const rb = document.createElement("button"); rb.className = "btn ghost"; rb.textContent = `공용 다시 뽑기 · ${left}`;
@@ -1358,7 +1451,7 @@ function showChoice(kind) {   // kind: "madang" after a cleared gate, "cycle" af
   const go = document.createElement("button"); go.className = "btn" + ((run.sp || 0) ? "" : " pri"); go.textContent = kind === "pause" ? "닫기" : (run.sp || 0) ? `남겨 두고 나아가기 (${run.sp}점)` : "나아가기";
   go.addEventListener("click", () => { Music.sfx("lantern"); done(); }); tools.appendChild(go);
   box.appendChild(tools);
-  const first = T && CHOSIK.find(c => c.tree === tk && canTake.has(c.id) && c.ougi) || T && CHOSIK.find(c => c.tree === tk && canTake.has(c.id)); if (first) detail(first);
+  const first = T && CHOSIK.find(c => c.tree === tk && canTake.has(c.id)); if (first) detail(first);
   state = "choice"; Music.pause(); if (P) P.focus = false; for (const k in held) held[k] = 0; showScreen("choice");
 }
 // 길 고르기: between the gates the road forks — a gate, a harder road, a rest, a chance meeting
@@ -1434,8 +1527,9 @@ function treeStrip(offer = []) {
   const d = document.createElement("div"); d.className = "ch-held"; const tk = treeKey(), T = TREES[tk], mine = new Set(run.perks || []), off = new Set(offer.map(c => c.id));
   let h = "";
   if (T) { h += `<div class="ts-tree"><b class="ts-w">${T.name}</b>`;
-    T.br.forEach((b, bi) => { h += `<span class="ts-br"><em>${b.name}</em>`; for (let t = 1; t <= 3; t++) { const c = CHOSIK.find(o => o.tree === tk && o.br === bi && o.tier === t); if (!c) continue;
-      h += `<i class="ts-n${t === 3 ? " og" : ""}${mine.has(c.id) ? " on" : ""}${off.has(c.id) ? " next" : ""}" title="${c.name} — ${c.desc}">${t === 3 ? "奧" : ""}</i>`; } h += `</span>`; });
+    T.br.forEach((b, bi) => { h += `<span class="ts-br"><em>${b.name}</em>`; for (let t = 1; t <= 5; t++) { const cs = CHOSIK.filter(o => o.tree === tk && o.br === bi && o.tier === t); if (!cs.length) continue;
+      const c = cs.find(o => mine.has(o.id)) || cs.find(o => off.has(o.id)) || cs[0];
+      h += `<i class="ts-n${c.ougi ? " og" : ""}${mine.has(c.id) ? " on" : ""}${off.has(c.id) ? " next" : ""}" title="${c.name} — ${c.desc}">${c.ougi ? "奧" : ""}</i>`; } h += `</span>`; });
     h += `</div>`; }
   h += `<div class="ts-slots">` + SLOT_ORDER.map(k => { const ids = heldPerks().filter(id => kindOf(id) === k);
     return `<span class="ts-k"><em>${k}</em>` + Array.from({ length: SLOT[k] }, (_, n) => { const c = ids[n] && CHOSIK.find(o => o.id === ids[n]); return c ? `<i class="ts-s on" title="${c.name} — ${c.desc}" style="--ic:var(--chosik-${pv(c).icon})"></i>` : `<i class="ts-s"></i>`; }).join("") + `</span>`; }).join("") + `</div>`;
@@ -1555,13 +1649,14 @@ function talismans(d) { // 부적 세 장: a fan of paper charms thrown along th
     bullets.push({ x: cx + vx * 16, y: cy + vy * 16, vx: vx * 720, vy: vy * 720, ang: Math.atan2(vy, vx), friendly: true, talisman: true, wind: true, strike: true, r: 14, life: .5, owner: null }); }
 }
 const GUN_AX = { gun1: [.5, .3, .25, .45, .28, .5, .5, .38, .3], gun2: [.42, .24, .45, .45, .25, .5, .45, .25, .5], grun: [.5, .5, .49, .44, .47, .46, .41, .41, .4], grun2: [.544, .551, .522, .510, .553, .573, .536, .522, .606, .629, .612, .609, .576, .623, .618, .605, .620, .603, .590, .591, .595, .601, .591, .591, .575, .567, .565, .583, .542, .559, .578, .577] };   // grun: the three heavy guns carried at a run
-const gunMag = () => (WEAPONS[wpn()].mag || 1) + (has("jc_c1") && wpn() === "jochong" ? 0 : 0);
+const gunMag = () => (WEAPONS[wpn()].mag || 1) + treeStat("mag");
 function gunReload(n, why) { // a round goes back in (a bayonet that bit, a read blow, the slow match)
   const G = WEAPONS[wpn()]; if (!G || !G.gun || !P) return;
   if (G.heat) { P.heat = Math.max(0, (P.heat || 0) - 34 * n); if (P.overheat > 0 && n >= 3) P.overheat = 0; return; }
   const before = P.ammo ?? gunMag(); P.ammo = Math.min(gunMag(), before + n); if (P.ammo > before) { P.reloadT = .25; if (why !== "slow") Music.sfx("hook"); }
 }
 function blast(x, y, r, strike, opts = {}) { // a gun's explosion: ink and fire, everyone inside cut
+  r *= 1 + treeStat("blast");
   if (SPR.gfx) addFx("gfx", 3, x, y, r * 2.1, { life: .45, grow: .25, rot: Math.random() * 6.28 }); else fireFx(x, y, r);
   shake = Math.max(shake, Math.min(14, 4 + r / 12)); hitstop = Math.max(hitstop, .04); Music.sfx("shoot");
   for (const e of enemies) { if (!e.alive || ghostly(e)) continue; const dd = Math.hypot(e.x + e.w / 2 - x, e.y + e.h / 2 - y), rr = Math.max(e.w, e.h) / 2; if (dd >= r + rr) continue;
@@ -1634,18 +1729,18 @@ function volleyFire() { // 화차: the overheated box empties itself
 // a read blow (간파) or an 일섬 kill whets it at once. A dull blade does not bite: the cut glances off.
 const EDGE = { hwando: [4, .55], ssang: [6, .4], woldo: [3, .75], baldo: [3, .7] };   // [notches, seconds per notch]
 const edgeOn = () => !!(P && run && mode !== "tutorial" && !isGun() && EDGE[wk()]);
-const edgeMax = () => (EDGE[wk()] || [4])[0] + (has("d_air") ? 0 : 0);
+const edgeMax = () => (EDGE[wk()] || [4])[0] + treeStat("edge");
 function stepEdge(dt) { if (!edgeOn()) return; if (P.edge == null) P.edge = edgeMax();
-  P.edgeIdle = (P.edgeIdle || 0) + dt; if (P.edge < edgeMax() && P.edgeIdle > .35) { P.edgeT = (P.edgeT || 0) + dt; if (P.edgeT >= EDGE[wk()][1] / (momTier() >= 3 ? 2 : 1)) { P.edgeT = 0; P.edge++; } } }
+  P.edgeIdle = (P.edgeIdle || 0) + dt; if (P.edge < edgeMax() && P.edgeIdle > .35) { P.edgeT = (P.edgeT || 0) + dt; if (P.edgeT >= EDGE[wk()][1] / (momTier() >= 3 ? 2 : 1) / (1 + treeStat("edgeRate"))) { P.edgeT = 0; P.edge++; } } }
 function whet(n = 99) { if (P && edgeOn()) P.edge = Math.min(edgeMax(), (P.edge ?? edgeMax()) + n); }
 function stepGun(dt) { // the slow match: an empty gun refills by itself, a hot box cools
   const G = WEAPONS[wpn()]; if (!G || !G.gun) return;
   if (P.onGround) { P.airFree = false; P.airShots = 0; }
   P.stillT = P.onGround && Math.abs(P.vx) < 20 ? (P.stillT || 0) + dt : 0;
   P.fireT = Math.max(0, (P.fireT || 0) - dt); P.reloadT = Math.max(0, (P.reloadT || 0) - dt); P.bayoT = Math.max(0, (P.bayoT || 0) - dt); P.cannonT = Math.max(0, (P.cannonT || 0) - dt);
-  if (G.heat) { P.heat = Math.max(0, (P.heat || 0) - dt * 30 * (has("sg_b1") ? 2 : 1)); if (P.overheat > 0) P.overheat -= dt * (has("sg_b1") ? 2 : 1); return; }
+  if (G.heat) { P.heat = Math.max(0, (P.heat || 0) - dt * 30 * (has("sg_b1") ? 2 : 1) * (1 + treeStat("heat"))); if (P.overheat > 0) P.overheat -= dt * (has("sg_b1") ? 2 : 1); return; }
   if (P.ammo == null) P.ammo = gunMag();
-  if (P.ammo < gunMag()) { P.slowRe = (P.slowRe || 0) + dt; if (P.slowRe > 2.4) { P.slowRe = 0; gunReload(1, "slow"); } } else P.slowRe = 0;
+  if (P.ammo < gunMag()) { P.slowRe = (P.slowRe || 0) + dt; if (P.slowRe > 2.4 / (1 + treeStat("reload"))) { P.slowRe = 0; gunReload(1, "slow"); } } else P.slowRe = 0;
   if (P.cannonT > 0) for (const e of enemies) if (e.alive && !ghostly(e) && overlap(e, P)) hurtEnemy(e, e.type !== "b");   // 포탄비행: the body itself is the shot
   if (has("cj_b3") && P.onGround && P.stillT >= 2 && (P.fortT = (P.fortT || 0) - dt) <= 0) { const t = nearestFoes(P.x, P.y, 1, 420)[0]; if (t) { P.fortT = 1.5; ougiArt(["ogB", 10], P.x + P.w / 2, P.y + P.h + 6, 90, { life: .5, ay: .8 }); const dx = t.x + t.w / 2 - P.x, dy = t.y - P.y - 40, L = Math.hypot(dx, dy) || 1; bullets.push({ x: P.x + P.w / 2, y: P.y + 8, vx: dx / L * 520, vy: dy / L * 520 - 120, g: 900, friendly: true, cannon: true, blast: 70, strike: true, life: 2.4, owner: null, r: 9 }); Music.sfx("snipe"); } }
 }
@@ -2121,7 +2216,7 @@ function frameInput(rdt) {
   }
   if (P.kiteFlash && (P.kiteFlash.t -= rdt) <= 0) P.kiteFlash = null;
   if (P.kiteAim > 0 && (P.kiteAim -= rdt) <= 0 && !P.onGround && !P.focus) { P.focus = true; P.focusTap = true; P.focusT = 0; Music.muffle(true); }   // 연 조준
-  if (!P.focus && P.onGround) P.ki = Math.min(1, (P.ki || 0) + rdt * .9);   // 기력 comes back with the feet on the ground
+  if (!P.focus && P.onGround) P.ki = Math.min(1, (P.ki || 0) + rdt * .9 * (1 + treeStat("ki")));   // 기력 comes back with the feet on the ground
   if (P.focus && mode !== "tutorial" && P.focusT > TAP_T) P.ki = Math.max(0, (P.ki || 0) - rdt / (has("d_jeong") ? 2.4 : 1.6) * (has("hw_c3") ? 2 : 1));   // and drains while time is held
   if (P.focus) { P.focusT += rdt;
     const release = P.focusTap ? press.dash : !held.dash, grounded = P.onGround && !P.focusGround;
@@ -2530,7 +2625,7 @@ function stepFoe3(e, dt, pcx, pcy, dist, live, bl) { // 순라 · 자객 · 북�
 function dashThrough(e) { if (state === "play" && P.dashT > 0 && overlap(e, P) && !P.dashHit.has(e.id)) { P.dashHit.add(e.id); dashHurt(e); } }
 let inChain = false;
 const FLASH_BASE = .3; let FLASH = FLASH_BASE;   // the glint before a blow lands: long enough to answer by hand, longer still in 무아경 (the music slows)
-function flashSync() { FLASH = (FLASH_BASE + (simb("noe") ? .1 : 0) + (has("d_myeong") ? .15 : 0) + (has("bd_b2") && P && (P.iaiHold || (P.focus && wk() === "baldo")) ? .1 : 0)) * (has("d_calm") && run && run.breath <= 1 && mode !== "tutorial" ? 2 : 1); }
+function flashSync() { FLASH = (FLASH_BASE + (simb("noe") ? .1 : 0) + (has("d_myeong") ? .15 : 0) + treeStat("kanWin") + (has("bd_b2") && P && (P.iaiHold || (P.focus && wk() === "baldo")) ? .1 : 0)) * (has("d_calm") && run && run.breath <= 1 && mode !== "tutorial" ? 2 : 1); }
 function kanPerks(e) { // what the held 간파 비급 gives back for one read blow
   if (!P || state !== "play") return; const x = e.x + e.w / 2, y = e.y + e.h / 2, px = P.x + P.w / 2, py = P.y + P.h / 2;
   if (pet && !pet.act) pet.cd = Math.min(pet.cd, .05);   // the beast answers a read blow at once
@@ -2579,7 +2674,7 @@ function drawKanFlash(e, tt) { // 간파: one brush ring shrinks onto the weak p
 const viaMua = () => !!(P && P.aimDash && !P.tapDash);   // the cut came out of 무아경
 function chainAdd(n) { if (!P) return; const g0 = Math.min(5, P.chain || 0); P.chain = (P.chain || 0) + n; P.chainPop = .25; if (Math.min(5, P.chain) > g0) Music.sfx("lantern"); }
 function addQi(n) { // 천고 기운: won by fighting well — 일섬, 간파, 과녁
-  if (mode === "tutorial" || !run) return; const before = run.qi || 0; run.qi = Math.min(100, before + n * .6 * (oath("jangdan") ? 2 : 1) * (1 + .15 * Math.min(8, (P && P.chain) || 0)));
+  if (mode === "tutorial" || !run) return; const before = run.qi || 0; run.qi = Math.min(100, before + n * .6 * (1 + treeStat("qi")) * (oath("jangdan") ? 2 : 1) * (1 + .15 * Math.min(8, (P && P.chain) || 0)));
   if (before < 100 && run.qi >= 100) { if (META.tips && META.tips.chungo) toast(`천고 기운이 찼다 · ${MOBILE ? "태극 북" : "북 또는 Q"} → 오의 ${ougiOf().name}`);
     else tipOnce("chungo", `오의 · ${ougiOf().name}`, `북이 다 찼다 — ${ougiOf().tip}. 원할 때 쓴다`, MOBILE ? "아래 태극 북을 누르기" : "태극 북 클릭 또는 Q"); Music.jing(); }
 }
@@ -2603,16 +2698,16 @@ function chungo() { // the full drum: 오의. Swords lay ink lines from foe to f
   const o = ougiOf(), w = wpn();
   if (WEAPONS[w] && WEAPONS[w].gun) return gunOugi(w, o);
   const cx = P.x + P.w / 2, cy = P.y + P.h / 2, d = a => Math.hypot(a.x + a.w / 2 - cx, a.y + a.h / 2 - cy);
-  const ts = enemies.filter(e => e.alive && !ghostly(e) && !e.hidden && d(e) < 480).sort((a, b) => d(a) - d(b)).slice(0, has("d_giseom") ? 10 : 8);
+  const ts = enemies.filter(e => e.alive && !ghostly(e) && !e.hidden && d(e) < (run.ougiAwake ? 640 : 480)).sort((a, b) => d(a) - d(b)).slice(0, (has("d_giseom") ? 10 : 8) + (run.ougiAwake ? 4 : 0));
   if (!ts.length) return false;
   const pts = [{ x: cx, y: cy }, ...ts.map(e => ({ x: e.x + e.w / 2, y: e.y + e.h / 2 }))];
-  chungoFx = { pts, ts, t: 0, done: false, w: wrule() }; run.qi = 0; P.invT = Math.max(P.invT || 0, 1.2); P.vx = P.vy = 0;
+  chungoFx = { pts, ts, t: 0, done: false, w: wrule() }; run.qi = run.ougiAwake ? 50 : 0; P.invT = Math.max(P.invT || 0, 1.2); P.vx = P.vy = 0;
   for (const e of ts) e.stunT = Math.max(e.stunT || 0, 2); Music.sfx("dash"); flashDim = .12; ougiCall(o); return true;
 }
 function gunOugi(w, o) { // the four guns' 오의
   const cx = P.x + P.w / 2, cy = P.y + P.h / 2, near = nearestFoes(cx, cy, 12, 560);
   if (!near.length && w !== "cheonja") return false;
-  run.qi = 0; P.invT = Math.max(P.invT || 0, 1); ougiCall(o); flash = .3; shake = 16; hitstop = Math.max(hitstop, .12); Music.jing(); killCam = Math.max(killCam, .5);
+  run.qi = run.ougiAwake ? 50 : 0; P.invT = Math.max(P.invT || 0, 1); ougiCall(o); flash = .3; shake = 16; hitstop = Math.max(hitstop, .12); Music.jing(); killCam = Math.max(killCam, .5);
   if (w === "jochong") {   // 일발필중: one ball, foe to foe
     let from = { x: cx, y: cy - 6 }, n = 0; for (const e of near.slice(0, 8)) { const ex = e.x + e.w / 2, ey = e.y + e.h / 2; beams.push({ x0: from.x, y0: from.y, x1: ex, y1: ey, t: -n * .05, life: .5, red: true, w: 2.4 });
       if (SPR.gfx) trailFx(from.x, from.y, ex, ey, 4, .45, 5, "gfx"); hurtEnemy(e, e.type !== "b" ? true : 2, "il"); ougiArt(o.art, ex, ey, 80, { life: .45, rot: Math.random() * .6 - .3 }); from = { x: ex, y: ey }; n++; }
@@ -2952,8 +3047,8 @@ function cutDrum(d) {
   if (mode !== "tutorial") { questEvent("cut"); gainStroke("cut"); }
   if (run.endingDue) { state = "result"; Music.stop(); setTimeout(showEnding, 700); return; }
   if (run.tower) { towerNext(); return; }
-  run.choosing = "cycle"; saveRun();
-  state = "result"; Music.stop(); setTimeout(() => showChoice("cycle"), 700);
+  run.choosing = "enlight"; saveRun();
+  state = "result"; Music.stop(); setTimeout(() => enlighten(), 700);
 }
 function drumsInPlay() { return mode === "tutorial" || !LV.drums ? [] : LV.drums.filter(d => !(run.cutDrums || []).includes(d.id)); }
 function slashHits() {
@@ -4227,6 +4322,15 @@ function bdRow(title, desc, pic, btnLabel, onBtn, disabled) {
   if (btnLabel) { const b = document.createElement("button"); b.className = "btn"; b.textContent = btnLabel; b.disabled = !!disabled; b.addEventListener("click", onBtn); r.appendChild(b); } else r.appendChild(document.createElement("span"));
   return r;
 }
+function treeOpenScreen() { // 서고: learn the deeper steps of each weapon's tree with 혼 (gated by the weapon's mastery)
+  const rows = [curLine()];
+  for (const w of Object.keys(TREE_EXT)) { if (!(META.weapons || []).includes(w) && w !== "hwando") continue;
+    const lv = treeOpen(w), nx = TREE_OPEN[lv], ms = masteryLv(w), nm = (WEAPONS[w] && WEAPONS[w].name) || TREES[w].name;
+    const done = TREE_OPEN.slice(0, lv).map(o => o.name.replace(" 깨치기", "")).join(" · ") || "아직 없음";
+    rows.push(bdRow(`${nm} · 숙련 ${ms}`, nx ? `${nx.desc} — 혼 ${nx.hon}${nx.ms ? ` · 숙련 ${nx.ms} 필요` : ""} (연 것: ${done})` : `모두 열었다 (${done})`, null, nx ? nx.name : "완성", () => {
+      META.hon -= nx.hon; (META.treeOpen = META.treeOpen || {})[w] = lv + 1; saveMeta(); Music.sfx("lantern"); toast(`${nm} · ${nx.name.replace(" 깨치기", "")}을 깨쳤다`); treeOpenScreen(); }, !nx || META.hon < nx.hon || ms < nx.ms)); }
+  board("수련 깨치기", "판에서 수련점으로 익히기 전에, 여기서 먼저 깨쳐 둔다", rows, [["돌아가기", resumeHub]]);
+}
 const curLine = () => { const d = document.createElement("div"); d.className = "bd-cur"; d.innerHTML = `<span><i></i> 혼 ${META.hon}</span><span>천고 조각 ${META.shard}</span>`; return d; };
 const bookCap = () => PERK_MAX;         // 비급 a 비급첩 can hold
 const shelfCap = () => 3 + Math.min(4, META.bld.bigeup);        // 비급첩 kept at once
@@ -4660,7 +4764,7 @@ function hubAct() {
   const menu = (title, sub, items) => board(title, sub, items.map(([n, d, fn]) => bdRow(n, d, null, "가기", fn)), [["돌아가기", resumeHub]]);
   if (id === "gate") return menu("산문 山門", "어디로 갈 것인가", [["길 떠나기", "천고를 향한 한 바퀴", gateScreen], ["천고탑", "층마다 우두머리 · 무한", () => towerScreen()], ["수련터", "조작을 다시 익힌다", () => { leaveHub(); Music.unlock(); loadGate(playSheets(), BASE_IMGS, startTutorial, "수련터를 그리는 중"); }]]);
   if (id === "well") return menu("약수터 藥水", "숨을 다스리고 영물을 키운다", [["약수", "혼으로 숨을 다스린다", wellScreen], ["둥지", "숨으로 영물을 키운다", petScreen]]);
-  if (id === "hall") return menu("본당 本堂", "산중 암자의 중심", [["서고", "서약과 심법", () => hermitScreen("seogo")], ["사당", "판의 시작을 넉넉하게", () => hermitScreen("sadang")], ["비급각", "봉인한 비급첩", sealShelf]]);
+  if (id === "hall") return menu("본당 本堂", "산중 암자의 중심", [["서고", "서약과 심법", () => hermitScreen("seogo")], ["수련 깨치기", "무기 트리의 3단·4단·합류를 연다", treeOpenScreen], ["사당", "판의 시작을 넉넉하게", () => hermitScreen("sadang")], ["비급각", "봉인한 비급첩", sealShelf]]);
   if (id === "forge") return menu("대장간 鍛冶間", "벼리고 물들인다", [["무기", "새 무기를 벼린다", () => hermitScreen("daejang")], ["의방", "띠의 빛깔", () => hermitScreen("uibang")]]);
   if (id === "drum") return menu("큰북 大鼓", "북 곁의 기록", [["수행 · 기억", "오늘의 수행과 되찾은 기억", questScreen], ["도감", "만난 우두머리와 비급", () => codexScreen()]]);
   if (id === "gate") return gateScreen();
@@ -4762,7 +4866,9 @@ function pauseBuild() { // the build so far: hand and weapon, 심법, 서약, �
   const oa = OATHS.find(o => o.id === run.oath); line("서약", oa ? oa.name : "없음", oa ? `${oa.desc} — 대가 · ${oa.cost}` : "");
   { const T = TREES[treeKey()], mine = new Set(run.perks || []);   // the weapon's tree, branch by branch
     if (T) T.br.forEach((b, bi) => { const got = CHOSIK.filter(c => c.tree === treeKey() && c.br === bi && mine.has(c.id)).sort((a, c) => a.tier - c.tier);
-      line(bi ? "" : `${T.name} 수련`, `${b.name} ${[1, 2, 3].map(t => got.some(c => c.tier === t) ? "●" : "○").join("")}${got.length ? " · " + got.map(c => c.name).join(" → ") : ""}`, got.length ? got[got.length - 1].desc : "아직 익히지 않았다", got.some(c => c.ougi) ? SEAL : null); }); }
+      line(bi ? "" : `${T.name} 수련`, `${b.name} ${[1, 2, 3, 4, 5].map(t => got.some(c => c.tier === t) ? "●" : "○").join("")}${got.length ? " · " + got.map(c => c.name).join(" → ") : ""}`, got.length ? got[got.length - 1].desc : "아직 익히지 않았다", got.some(c => c.ougi) ? SEAL : null); }); }
+  { const tk = treeKey(), ex = (run.perks || []).map(id => CHOSIK_BY[id]).filter(c => c && ((c.tree === tk && (c.tier === 0 || c.merge)) || c.combo));
+    ex.forEach((c, i) => line(i ? "" : "뿌리·합류·조합", c.name + (c.ougi && run.ougiAwake ? " · 각성" : ""), c.desc)); }
   for (const k of SLOT_ORDER) { const ps = heldPerks().filter(id => kindOf(id) === k).map(id => CHOSIK.find(c => c.id === id));
     if (!ps.length) line(`${k} 0/${SLOT[k]}`, "비어 있음", ""); ps.forEach((c, i) => line(i ? "" : `${k} ${ps.length}/${SLOT[k]}`, c.name, c.desc, null)); }
 }
@@ -4829,7 +4935,7 @@ $("bInstall").addEventListener("click", async () => { if (!installEvt) return; i
 const standalone = matchMedia("(display-mode: standalone)").matches || matchMedia("(display-mode: fullscreen)").matches || navigator.standalone;
 
 
-if (location.hash === "#debug") window.__dbg = { get missing() { return ALL_SHEETS.filter(n => !LAZY_SHEETS.has(n) && !SPR[n]).concat(BASE_IMGS.filter(k => !IMG[k])); }, tp(tx, ty) { P.x = tx * T + 7; P.y = (ty + 1) * T - 30; P.vx = P.vy = 0; }, get state() { return state; }, get P() { return P; }, get LV() { return LV; }, get state2() { return state; }, get SC() { return LV.scenery; }, get E() { return enemies; }, get run() { return run; }, set hs(v) { hitstop = v; }, kill(e) { killEnemy(e); }, hurt(e, s, k) { hurtEnemy(e, s, k); }, die(k, d) { die(k, d); }, banner(a, b, c) { banner(a, b === "red" ? SEAL : JJOK, c); }, chungo() { chungo(); }, clear() { madangClear(); }, hubAct() { hubAct(); }, get hub() { return { hubOn, hubNear }; }, get songPos() { return songPos; }, get FLASH() { return FLASH; }, get hold() { return bulletHold; }, get bolts() { return bolts; }, get rings() { return rings; }, get B() { return bullets; }, get beams() { return beams; }, flashing: e => isFlashing(e) };
+if (location.hash === "#debug") window.__dbg = { get missing() { return ALL_SHEETS.filter(n => !LAZY_SHEETS.has(n) && !SPR[n]).concat(BASE_IMGS.filter(k => !IMG[k])); }, tp(tx, ty) { P.x = tx * T + 7; P.y = (ty + 1) * T - 30; P.vx = P.vy = 0; }, get state() { return state; }, get P() { return P; }, get LV() { return LV; }, get state2() { return state; }, get SC() { return LV.scenery; }, get E() { return enemies; }, get run() { return run; }, set hs(v) { hitstop = v; }, kill(e) { killEnemy(e); }, hurt(e, s, k) { hurtEnemy(e, s, k); }, die(k, d) { die(k, d); }, banner(a, b, c) { banner(a, b === "red" ? SEAL : JJOK, c); }, chungo() { chungo(); }, clear() { madangClear(); }, hubAct() { hubAct(); }, get hub() { return { hubOn, hubNear }; }, get songPos() { return songPos; }, get FLASH() { return FLASH; }, get hold() { return bulletHold; }, get bolts() { return bolts; }, get rings() { return rings; }, get B() { return bullets; }, get beams() { return beams; }, flashing: e => isFlashing(e), enlighten: f => enlighten(f), syncCombos: () => syncCombos(), has: id => has(id), get FL() { flashSync(); return FLASH; } };
 window.addEventListener("pointerdown", () => Music.unlock(), { once: true, capture: true });   // first tap anywhere starts the sound
 resize();
 toMenu();
