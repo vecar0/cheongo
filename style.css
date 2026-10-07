@@ -419,3 +419,4 @@ body.inhub #hud .hl small em:first-child { color: #c3161c; }
 @keyframes legShine { from { background-position: 100% 0; } to { background-position: -200% 0; } }
 @media (prefers-reduced-motion: reduce) { .tr-sh, .tr-sh.r3 { animation: none; } }
 @media (max-height: 430px) { #choice.tree .tr-graph { height: 214px; min-height: 0; } }
+#choice.route .card .ds { white-space: pre-line; }

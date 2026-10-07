@@ -1472,9 +1472,15 @@ function routeOptions() {
   if (!out.includes("gate") && !out.includes("elite")) out[0] = "gate";   // there is always a road that fights
   return out;
 }
+const FOE_NAME = { p: "순라", g: "포수", s: "저격수", h: "등패수", a: "자객", k: "북잡이", d: "매", m: "무당" };
+function foeComp(node) { // read the gate ahead from the same seed that will build it
+  try { const map = buildMadangMap(run.seed + run.m * 131, MD(run.m), run.cycle || 0, run.omen, false, node === "elite" ? 2 : 1, 0, node === "elite" ? 3 : 4), n = {};
+    for (const row of map) for (const ch of row) if (FOE_NAME[ch]) n[ch] = (n[ch] || 0) + 1;
+    return Object.entries(n).sort((a, b) => b[1] - a[1]).map(([k, v]) => `${FOE_NAME[k]} ${v}`).join(" · "); } catch (e) { return ""; }
+}
 function showRoute() {
   run.choosing = "route"; saveRun();
-  const items = routeOptions().map(id => ({ id, ...ROUTE[id], calm: id === "rest" }));
+  const items = routeOptions().map(id => { const c = id === "gate" || id === "elite" ? foeComp(id) : ""; return { id, ...ROUTE[id], desc: ROUTE[id].desc + (c ? `\n${c}` : ""), calm: id === "rest" }; });
   pickScreen("길을 골라라", `${ORD[run.m]} 갈림길 · 천고대까지 ${LAST_M - run.m}`, items, it => {
     run.lastNode = it.id; run.choosing = null;
     if (it.id === "gate" || it.id === "elite") { run.node = it.id; saveRun(); Music.stop(); showInterlude(); return; }
@@ -1642,7 +1648,7 @@ function aimDir() { const a = axis(), m = Math.hypot(a.x, a.y); let d = m < 0.35
     if (best) d = best; }
   return d; }
 const TAP_T = .12;   // released sooner than this, the dash button is a tap
-const focusLen = () => (upOn("narrow") ? .5 : 1) * ((P && P.cloudT ? P.cloudT : 0) + 1.2 * (oath("gonggung") && !P.onGround ? 2 : 1) * (simb("hyeol") && run && run.breath <= 2 && mode !== "tutorial" ? 2 : 1) * (has("d_calm") && run && run.breath <= 1 && mode !== "tutorial" ? 2 : 1));
+const focusLen = () => (upOn("narrow") ? .5 : 1) * (isGun() ? 1.6 : 1) * ((P && P.cloudT ? P.cloudT : 0) + 1.2 * (oath("gonggung") && !P.onGround ? 2 : 1) * (simb("hyeol") && run && run.breath <= 2 && mode !== "tutorial" ? 2 : 1) * (has("d_calm") && run && run.breath <= 1 && mode !== "tutorial" ? 2 : 1));
 function talismans(d) { // 부적 세 장: a fan of paper charms thrown along the aim
   const cx = P.x + P.w / 2, cy = P.y + P.h / 2;
   for (const t of [-.22, 0, .22]) { const vx = d.x * Math.cos(t) - d.y * Math.sin(t), vy = d.x * Math.sin(t) + d.y * Math.cos(t);
@@ -1668,10 +1674,11 @@ function blast(x, y, r, strike, opts = {}) { // a gun's explosion: ink and fire,
 function chainBlast(x, y, depth) { if (has("sj_c3") && depth) ougiArt(["ogB", 5], x, y, 110, { life: .4 }); blast(x, y, 48, false, { after: e => { if (!e.alive && has("sj_c3") && depth < 4) setTimeout(() => chainBlast(e.x + e.w / 2, e.y + e.h / 2, depth + 1), 90); } }); }   // 유폭 · 연쇄유폭
 let pfires = [];   // fire left on the ground by your own shots: it burns foes, never you
 function pfire(x, y, w, t) { pfires.push({ x, y, w, h: 20, until: songPos + t, tick: 0 }); }
-function gunShot() { // 총: the aimed release is a shot, and the recoil is the dash; an empty gun lunges with the bayonet instead
+function gunShot(hip) { // 총: the aimed release is a shot, and the recoil is the dash; an empty gun lunges with the bayonet instead
   const G = WEAPONS[wpn()], w = wpn();
   if (G.heat) { if ((P.overheat || 0) > 0 && !has("sg_b3")) return false; }
   else if ((P.ammo ?? gunMag()) <= 0) return false;
+  if (hip) return hipShot(G, w);
   let d = aimDir();
   { const cx = P.x + P.w / 2, cy = P.y + P.h / 2 - 4; let bs = .9;   // a marksman's eye: a foe within a hair of the aim draws the barrel onto it
     for (const e of enemies) { if (!e.alive || ghostly(e)) continue; const dx = e.x + e.w / 2 - cx, dy = e.y + e.h / 2 - cy, L = Math.hypot(dx, dy); if (L > 560 || L < 10) continue; const c = (dx * d.x + dy * d.y) / L; if (c > bs) { bs = c; d = { x: dx / L, y: dy / L }; } } }
@@ -1708,6 +1715,13 @@ function gunShot() { // 총: the aimed release is a shot, and the recoil is the 
   if (!P.onGround && !(has("jc_b1") && w === "jochong")) P.airDash = Math.max(0, P.airDash - 1);
   P.vx = -d.x * 560 * k; P.vy = -d.y * 560 * k - 140 * k; P.onGround = false; P.coyote = 0; if (Math.abs(d.x) > .2) P.face = Math.sign(d.x);
   return true;
+}
+function hipShot(G, w) { // a tap: fired from the hip — short, one wound, one round, barely a kick
+  const d0 = aimDir(), d = Math.abs(d0.x) < .2 && Math.abs(d0.y) < .2 ? { x: P.face, y: 0 } : d0, { x: cx, y: cy } = muzzleAt(w, d);
+  if (G.heat) { P.heat = (P.heat || 0) + 20; if (P.heat >= 100) { P.heat = 100; P.overheat = 1.6; } } else P.ammo = (P.ammo ?? gunMag()) - 1;
+  aimRay(d, w === "seungja" ? 200 : 300, 8, 0, cx, cy, false, {}); muzzleFx(w === "cheonja" ? "jochong" : w, cx, cy, d);
+  shake = Math.max(shake, 3); Music.sfx("shoot"); P.fireT = .16; P.lastShotAt = songPos; P.shotDir = d; P.hipT = .2;
+  P.vx -= d.x * 120; if (Math.abs(d.x) > .2) P.face = Math.sign(d.x); return true;
 }
 const MUZ_L = { jochong: 40, seungja: 30, singi: 30, cheonja: 40 };   // from the body's centre to the barrel's mouth, as drawn
 function muzzleAt(w, d) { const L = MUZ_L[w] || 32; return { x: P.x + P.w / 2 + d.x * L, y: P.y + P.h / 2 - 7 + d.y * L * .8 }; }
@@ -2230,7 +2244,7 @@ function frameInput(rdt) {
       {
       if (!tap && wk() === "baldo" && !WEAPONS[wpn()].bow && P.focusT >= iaiF()) doSlash({ dir: null, ts: performance.now(), dash: false, iai: P.focusT, fromMua: true });   // 발도: 무아경 itself is the draw — held long enough, the release is an 일도 where you aim
       else if (chr("munyeo") && has("m_talis")) talismans(aimDir());
-      if (isGun() && gunShot()) {}
+      if (isGun() && gunShot(tap)) {}
       else if (kanLunge(aimDir(), true)) {}
       else if (!(!tap && has("d_sunbo") && sunbo())) { P.aimDash = true; if (!startDash(null, true)) P.aimDash = false; } } } }
   press.jump = press.dash = press.hook = 0;
@@ -2268,7 +2282,7 @@ function stepPlayer(dt) {
       ghost(0.02); return;
     }
   }
-  if (P.focus && (has("d_hover") || P.focusGround)) { P.vx = 0; P.vy = 0; }   // 체공
+  if (P.focus && (has("d_hover") || (P.focusGround && !isGun()))) { P.vx = 0; P.vy = 0; }   // 체공
   if (P.dashT > 0) {
     P.dashT -= dt; P.vx = P.dashDir.x * DASHV; P.vy = P.dashDir.y * DASHV;
     P.trailD = (P.trailD || 0) + DASHV * dt;
@@ -2416,7 +2430,7 @@ function hurtEnemy(e, strike, kind) {
   if (!e.alive || ghostly(e)) return;
   const kan = isFlashing(e); if (kan) { strike = true; e.kanpa = true; if (P && P.iaiCut && wrule() === "baldo") addQi(25); e.kanZan = e.openT > songPos; e.kanMua = viaMua(); if (run && mode !== "tutorial") run.kanpa = (run.kanpa || 0) + 1;
     const x = e.x + e.w / 2, y = e.y + e.h / 2, big = e.type === "b";   // 간파: the crossed cut, gold flakes, the world holds a beat
-    { const bt = blowAt(e), perfect = bt != null && songPos >= bt - .09; momAdd(perfect ? 35 : 25); if (run && mode !== "tutorial") run.gKan = (run.gKan || 0) + 1;
+    { const bt = blowAt(e), perfect = bt != null && songPos >= bt - .09; momAdd(perfect || isGun() ? 35 : 25); if (isGun() && P) { gunReload(99); if (P.heat) P.heat = 0; P.overheat = 0; }   // a read shot: the gun is full again if (run && mode !== "tutorial") run.gKan = (run.gKan || 0) + 1;
       if (perfect) { hitstop = Math.max(hitstop, .16); seals.push({ x, y: y - 10, t: 0, rot: (Math.random() - .5) * .3, ch: "妙" }); Music.sfx("strike"); Music.jing(); flashDim = .1; if (run && mode !== "tutorial") run.perfectN = (run.perfectN || 0) + 1; } }
     addFx("kfx", KF.xcut, x, y, big ? 120 : 64, { life: .4, grow: .15, rot: Math.random() * .6 - .3 }); addFx("kfx", KF.flakes, x, y, big ? 130 : 80, { life: .5, grow: .5 });
     hitstop = Math.max(hitstop, .1); shake = Math.max(shake, 7); }
@@ -3077,7 +3091,7 @@ function slashHits() {
     if (wk() === "woldo" && e.type !== "b" && e.type !== "d") { const kx = Math.sign(e.x + e.w / 2 - P.x - P.w / 2), hitWall = moveX(e, kx * (has("wd_c1") ? 64 : 34));
       if (has("wd_c2") && (hitWall || enemies.some(o => o !== e && o.alive && Math.abs(o.x - e.x) < 26 && Math.abs(o.y - e.y) < 30))) { e.stunT = Math.max(e.stunT || 0, 1); addFx("wfx", WF2.burst, e.x + e.w / 2, e.y + e.h / 2, 40, { life: .3 }); } }   // 참마
     if (has("heup") && (P.blood = (P.blood || 0) + 1) % 8 === 0 && run.breath < breathCap() && mode !== "tutorial") { run.breath++; setHud(); toast("흡혈 · 숨 하나를 빼앗았다"); }
-    if (e.type === "h" && !P.strike && !has("cheol") && wk() !== "woldo" && Math.sign(P.x + P.w / 2 - (e.x + e.w / 2)) === e.face) { if (!P.clanged.has(e.id)) { P.clanged.add(e.id); clang(e); } continue; }   // the shield only covers his front
+    if (!P.strike && !isFlashing(e) && ((e.type === "h" && !has("cheol") && wk() !== "woldo" && Math.sign(P.x + P.w / 2 - (e.x + e.w / 2)) === e.face) || (e.type === "k" && wk() !== "woldo" && !isGun()))) { if (!P.clanged.has(e.id)) { P.clanged.add(e.id); clang(e); } continue; }   // the shield only covers his front
     if (P.hitSet && P.hitSet.has(e.id)) continue;   // one hit per swing
     if (P.hitSet) P.hitSet.add(e.id);
     if (P.strike) seals.push({ x: e.x + e.w / 2, y: e.y + 6, t: 0, rot: (Math.random() - .5) * 0.4 });
@@ -3133,7 +3147,7 @@ function stepBullets(dt) {
           if (b.hits && b.hits.has(e.id)) continue;
           if (b.blast) { b.life = 0; break; }   // rockets and balls burst on the first body
           if (b.petOrb) { hurtEnemy(e, false, "pet"); addFx("pet", b.petFr || 26, b.x, b.y, 36, { life: .3 }); (b.hits = b.hits || new Set()).add(e.id); if (!b.pierce) b.life = 0; break; }
-          if (e.type === "h" && Math.sign(b.vx) === -e.face && !b.pierce) { b.life = 0; Music.sfx("clang"); break; }
+          if (e.type === "h" && Math.sign(b.vx) === -e.face && !b.pierce && !isGun()) { b.life = 0; Music.sfx("clang"); break; }
           (b.hits = b.hits || new Set()).add(e.id); if (b.neok || b.talisman) e.stunT = Math.max(e.stunT || 0, e.type === "b" ? .25 : b.neok ? 1.4 : .5); if (b.talisman && has("m_talis") && e.alive) e.openT = songPos + .8; if (b.talisman && SPR.mfx) addFx("mfx", 2, e.x + e.w / 2, e.y + e.h / 2, 54, { life: .3, grow: .4, ay: .5 }); hurtEnemy(e, !!b.strike || (b.pierce && !b.wind && !b.fire && !b.tornado && !b.dragon && !b.sword)); if (!b.pierce) b.life = 0;
           if ((b.sword && has("yuseong")) || (b.dragon && has("biryong"))) P.airDash = Math.max(P.airDash, baseAir());
           if (b.sword && has("noegeom")) { const o = nearestFoes(e.x + e.w / 2, e.y + e.h / 2, 2, 260).find(o => o !== e); if (o) { beams.push({ x0: e.x + e.w / 2, y0: e.y + e.h / 2, x1: o.x + o.w / 2, y1: o.y + o.h / 2, t: 0, life: .2 }); hurtEnemy(o, false); } }
@@ -3195,7 +3209,7 @@ function frameBody(now) {
     if (P && P.slowT > 0) P.slowT -= rdt;
     if (state === "play" && bossIntro) ts = 0.03;
     else if (state === "play" && roar) ts = 0.05;
-    else if (hitstop > 0) { hitstop -= rdt; ts = 0.06; } else if (state === "play" && P.focus) ts = has("d_jeong") ? 0.07 : 0.12; else if (state === "play" && killCam > 0) ts = .32;
+    else if (hitstop > 0) { hitstop -= rdt; ts = 0.06; } else if (state === "play" && P.focus) ts = isGun() && P.focusT > TAP_T ? (has("d_jeong") ? .35 : .5) : has("d_jeong") ? 0.07 : 0.12;   // a gun aims on the move (half speed); a sword stills the world else if (state === "play" && killCam > 0) ts = .32;
     if (state === "play" && P && P.iaiHold && wk() === "baldo" && !P.focus && !bossIntro && !roar && performance.now() - (P.iaiAt || 0) < 1500) ts = Math.min(ts, has("bd_b2") ? .4 : .55);   // only for the draw itself, not forever   // 일도: the draw stills the world
     if (state === "play" && P && P.slowT > 0 && !P.focus) ts = Math.min(ts, .55);   // 비월
     if (state === "dead") ts = 0.3;
