@@ -4034,7 +4034,7 @@ function drawWeaponFx(kind, cx, cy, pal) {
   ctx.save(); ctx.lineCap = "round"; ctx.lineJoin = "round";
   if ((kind === "fan" || kind === "streamer") && SPR.mfx) { const f = SPR.mfx.f[st ? 1 : 0], hh = (st ? 104 : 84) * (.85 + prog * .3);   // the gust the fan throws
     ctx.save(); ctx.translate(cx + d.x * 34, cy + d.y * 30); ctx.rotate(left ? -ang : ang); ctx.globalAlpha = fade * .9; drawSprite("mfx", st ? 1 : 0, 0, 0, hh / f.h, left, .5, false, .5); ctx.restore(); }
-  if ((kind === "thrust" || kind === "spear") && SPR.pfx && !isGun()) {   // guns: the thrust pose alone, no ink bar const f = SPR.pfx.f[0], L = (kind === "spear" ? 130 : 96) * (st ? 1.15 : 1);   // a streak of ink along the thrust
+  if ((kind === "thrust" || kind === "spear") && SPR.pfx && !isGun()) { const f = SPR.pfx.f[0], L = (kind === "spear" ? 130 : 96) * (st ? 1.15 : 1);   // a streak of ink along the thrust (guns: the thrust pose alone)
     ctx.save(); ctx.translate(cx + d.x * (L * .5 + 6), cy + d.y * (L * .5 + 4)); ctx.rotate(Math.atan2(d.y, d.x)); ctx.globalAlpha = fade * .85; drawSprite("pfx", 0, 0, 0, L / f.w, false, .5, false, .5); ctx.restore(); }
   if (kind === "fan") { // a folding fan snaps open through the swing: ribs of ink, paper washed white to vermilion
     const L = (st ? 70 : 56), open = Math.min(1, prog * 2.2) * 2.1, a0 = -1.05;
