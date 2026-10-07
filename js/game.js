@@ -3228,6 +3228,7 @@ function render(rdt) {
     const lw = LV.w * T, lh = LV.h * T;
     cam.x = lw <= vw ? lw / 2 : Math.max(vw / 2, Math.min(lw - vw / 2, cam.x));
     const maxY = lh - vh / 2 + 8; cam.y = Math.min(maxY, Math.max(Math.min(maxY, vh / 2 - 96), cam.y));
+    if (LV.hub) cam.y = Math.min(cam.y, 12 * T - vh * .22);   // the 거점: the yard's ground line sits low on the screen, the painting fills the rest
   }
   const sx = (Math.random() - .5) * shake, sy = (Math.random() - .5) * shake;
 
@@ -4520,8 +4521,8 @@ function petScreen() { // 둥지: choose an egg, feed it 숨
 // every station is a place you walk up to; the 산문 at the left edge is the road out to 천고
 let hubOn = false, hubNear = null;
 // the 거점 is one painted courtyard: a yard, a stone terrace (축대) with the main hall on it, and five places to go
-const HUB_W = 40, HUB_UP = 10, HUB_K = .94, HUB_Y = 12 * 32 - 490 * .94;   // the painting's ground line (y 490) sits on row 12; its terrace top lands on row 10
-const HUBIMG = new Image(); HUBIMG.src = "assets/hubscene.webp?v=10029600";
+const HUB_W = 40, HUB_UP = 10, HUB_K = 40 * 32 / 1344, HUB_Y = 12 * 32 - 490 * (40 * 32 / 1344);   // the painting spans the map exactly   // the painting's ground line (y 490) sits on row 12; its terrace top lands on row 10
+const HUBIMG = new Image(); HUBIMG.src = "assets/hubscene.webp?v=10029700";
 const HUB_ST = [
   { id: "gate", tx: 4, ty: 12, h: 150, name: "산문", han: "山門", act: "길 떠나기 · 천고탑 · 수련터" },
   { id: "well", tx: 9, ty: 12, h: 80, name: "약수터", han: "藥水", act: "숨 다스리기 · 영물" },
@@ -4552,15 +4553,23 @@ function buildHubMap() {
   rows[11][6] = "P"; return rows.map(r => r.join(""));
 }
 function drawHubScene(pal) { // the painting itself is the place; the yard below its ground line is plain earth
-  const top = HUB_Y, w = 1344 * HUB_K, h = 576 * HUB_K;
-  ctx.fillStyle = "#d9d3c4"; ctx.fillRect(-400, top + h - 2, LV.w * T + 800, 1200);
-  if (HUBIMG.complete && HUBIMG.naturalWidth) ctx.drawImage(HUBIMG, (LV.w * T - w) / 2, top, w, h);
+  const top = HUB_Y, w = 1344 * HUB_K, h = 576 * HUB_K, x = (LV.w * T - w) / 2, I = HUBIMG;
+  if (!(I.complete && I.naturalWidth)) { ctx.fillStyle = "#d9d3c4"; ctx.fillRect(-400, top + h - 2, LV.w * T + 800, 1200); return; }
+  if (!I.edge) { const c = document.createElement("canvas"); c.width = 8; c.height = 8; const g = c.getContext("2d"), avg = (sx, sy, sw, sh) => { g.clearRect(0, 0, 8, 8); g.drawImage(I, sx, sy, sw, sh, 0, 0, 1, 1); const d = g.getImageData(0, 0, 1, 1).data; return `rgb(${d[0]},${d[1]},${d[2]})`; };
+    I.edge = { sky: avg(0, 0, I.width, 6), earth: avg(I.width * .1, I.height - 70, I.width * .8, 40), left: avg(0, 0, 6, I.height * .5), right: avg(I.width - 6, 0, 6, I.height * .5) }; }
+  const E = I.edge;   // past the painting's edges the screen takes its colours, never a seam
+  ctx.fillStyle = E.sky; ctx.fillRect(x - 900, top - 1400, w + 1800, 1402);
+  ctx.fillStyle = E.earth; ctx.fillRect(x - 900, top + h - 2, w + 1800, 1400);
+  ctx.fillStyle = E.left; ctx.fillRect(x - 900, top, 902, h); ctx.fillStyle = E.right; ctx.fillRect(x + w - 2, top, 902, h);
+  ctx.drawImage(I, x, top, w, h);
+  const fade = (y0, y1, col) => { const gr = ctx.createLinearGradient(0, y0, 0, y1); gr.addColorStop(0, "rgba(0,0,0,0)"); gr.addColorStop(1, col); return gr; };
+  ctx.fillStyle = fade(top + h - 60, top + h, E.earth); ctx.fillRect(x, top + h - 60, w, 61);
 }
 function enterHub() {
   hubOn = true; mode = "tutorial"; Music.menuBgm(true);
   run = { hub: true, m: 0, breath: Infinity, time: 0, deaths: 0, kills: 0, strikes: 0, slashes: 0, cp: -1, dead: [], perks: [], weapon: META.lastWeapon && WEAPONS[META.lastWeapon] ? META.lastWeapon : "hwando" };
   loadMap(buildHubMap(), PAL[0], []); LV.hub = true; LV.dress = []; needSheets(playSheets());
-  if (petStage() === 0) LV.dress.push({ sheet: "pet", i: PETS[META.pet.kind].base, x: 10.6 * T, y: 12 * T - 6, h: 30, flip: false, ay: 1 });   // the egg in the straw nest by the well
+  if (petStage() === 0) LV.dress.push({ sheet: "pet", i: PETS[META.pet.kind].base, x: 366 * HUB_K, y: 454 * HUB_K + HUB_Y, h: 26, flip: false, ay: 1 });   // the egg sits in the painted straw nest by the well
   LV.stations = HUB_ST;
   const dk = hubDeco(); for (let k = 0; k < HUB_SLOTS.length; k++) { const id = dk.slots[k], d = DECO.find(o => o.id === id); if (d) LV.dress.push({ sheet: d.sheet, i: d.i, x: HUB_SLOTS[k].tx * T + 16, y: HUB_SLOTS[k].ty * T + 2, h: d.h, flip: k % 2 === 1, ay: 1 }); }
   deadIds = new Set(); cpSave = null; enemies = [];
