@@ -1072,7 +1072,7 @@ function spawnEnemies() {
     if (d.type === "a") return { hp, maxHp: hp, id: d.id, type: "a", x: d.tx * T + 5, y: (d.ty + 1) * T - 40, w: 22, h: 40, face: -1, vx: 0, dashAt: null, lungeT: 0, nextLunge: 1, counter: false, alive: true };   // 자객: reads your 무아경
     if (d.type === "k") return { hp, maxHp: hp, id: d.id, type: "k", x: d.tx * T + 1, y: (d.ty + 1) * T - 46, w: 30, h: 46, face: -1, drumAt: null, nextDrum: songPos + 2 + Math.random(), beatT: 0, alive: true };   // 북잡이: his drum sets the others striking together
     if (d.type === "b") {
-      const kind = window.__forceBoss || (run && mode !== "tutorial" ? bossKindOf(run) : "sumun"), B = BOSSES[kind]; needSheets(bossSheets(kind)); const bh = Math.round((Math.round(B.hp * 2.1) + 3 * cyc()) * (upOn("bosshp") ? 1.5 : 1)), floor = (d.ty + 1) * T;
+      const kind = window.__forceBoss || (run && mode !== "tutorial" ? bossKindOf(run) : "sumun"), B = BOSSES[kind]; needSheets(bossSheets(kind)); const bh = Math.round((Math.round(B.hp * 2.6) + 4 * cyc()) * (upOn("bosshp") ? 1.5 : 1)), floor = (d.ty + 1) * T;
       return { hp: bh, maxHp: bh, id: d.id, type: "b", kind, x: d.tx * T + 16 - B.w / 2, y: (B.fly ? floor - 95 - B.h / 2 : floor - B.h), w: B.w, h: B.h, floor, face: -1, vx: 0, vy: 0, act: null, nextAt: 0, n: (run && run.seed || 0) % 4, mask: 0, raged: upOn("rage"), alive: true, book: kind === "shadow" ? shadowBook() : null };
     }
     return { hp, maxHp: hp, id: d.id, type: d.type, x: d.tx * T + 5, y: (d.ty + 1) * T - 42, w: 22, h: 42, face: -1, fireAt: null, aimFrom: 0, readyAt: songPos + 0.6 + Math.random() * 0.8, tx: 0, ty: 0, alive: true };
@@ -1465,7 +1465,7 @@ function endRun(won) {
   $("rSub").textContent = run.tower ? (won ? "천고가 다시 울렸다." : `천고탑 ${run.floor}층에서 숨이 다했다.`) : won ? "천고는 아직 위에서 울린다." : stageName(run.m) + "에서 숨이 다했다.";
   $("rStats").innerHTML = "";
   const gain = runRewards(reached);
-  if (mode !== "tutorial") { gain.sum = Math.max(1, Math.max(0, run.breath) + reached); META.sum = (META.sum || 0) + gain.sum; saveMeta(); }   // the breath left over goes home to the 거점
+  if (mode !== "tutorial") { gain.sum = Math.max(1, Math.max(0, run.breath) + Math.floor(reached / 2)); META.sum = (META.sum || 0) + gain.sum; saveMeta(); }   // the breath left over goes home to the 거점
   { const sn = store.get("stage", null); retryGain = !won && sn && sn.seed === run.seed && sn.m === run.m && (sn.cycle || 0) === (run.cycle || 0) && (sn.floor || 0) === (run.floor || 0) ? gain : null; $("bRetryGate").hidden = !retryGain; }   // 절명: the gate can be tried again — the rewards just given are taken back
   for (const [k, v] of [[run.tower ? "오른 층" : "넘은 관문", reached + (!run.tower && (run.cycle || 0) ? ` · ${run.cycle}번 천고를 벰` : "")], ["시간", fmt(run.time)], ["간파", (run.kanpa || 0) + "회"], ["벤 적", run.kills], ["얻은 혼", "+" + gain.hon + (gain.shard ? ` · 천고 조각 +${gain.shard}` : "")], ["모인 숨", "+" + (gain.sum || 0)]]) {
     const a = document.createElement("span"), b = document.createElement("b"); a.textContent = k; b.textContent = v; $("rStats").append(a, b);
@@ -1590,6 +1590,14 @@ function volleyFire() { // 화차: the overheated box empties itself
   for (let i = 0; i < 12; i++) { const a = -Math.PI / 2 + (i - 5.5) * .14 + (P.face < 0 ? 0 : 0); bullets.push({ x: cx, y: cy, vx: Math.cos(a) * 420 + P.face * 160, vy: Math.sin(a) * 420, friendly: true, rocket: true, seek: 9, blast: 46, strike: true, life: 2.2, owner: null, r: 8 }); }
   ougiArt(["ogB", 6], cx, cy, 170, { life: .6, ay: .9 }); shake = Math.max(shake, 10); setTimeout(() => { if (P) P.volley = false; }, 400);
 }
+// 날: a sword's edge is spent like a gun's rounds — every plain cut dulls it a notch; rest the hand and it comes back,
+// a read blow (간파) or an 일섬 kill whets it at once. A dull blade does not bite: the cut glances off.
+const EDGE = { hwando: [4, .55], ssang: [6, .4], woldo: [3, .75], baldo: [3, .7] };   // [notches, seconds per notch]
+const edgeOn = () => !!(P && run && mode !== "tutorial" && !isGun() && EDGE[wk()]);
+const edgeMax = () => (EDGE[wk()] || [4])[0] + (has("d_air") ? 0 : 0);
+function stepEdge(dt) { if (!edgeOn()) return; if (P.edge == null) P.edge = edgeMax();
+  P.edgeIdle = (P.edgeIdle || 0) + dt; if (P.edge < edgeMax() && P.edgeIdle > .35) { P.edgeT = (P.edgeT || 0) + dt; if (P.edgeT >= EDGE[wk()][1]) { P.edgeT = 0; P.edge++; } } }
+function whet(n = 99) { if (P && edgeOn()) P.edge = Math.min(edgeMax(), (P.edge ?? edgeMax()) + n); }
 function stepGun(dt) { // the slow match: an empty gun refills by itself, a hot box cools
   const G = WEAPONS[wpn()]; if (!G || !G.gun) return;
   if (P.onGround) { P.airFree = false; P.airShots = 0; }
@@ -1709,6 +1717,9 @@ function shot(d, arrow) {
   if (P.hook) return; P.pogoed = false;
   if (P.slashCd > 0 && !req.dash && !req.fromMua) return;
   if ((P.offBal || 0) > 0 && !req.dash && !req.fromMua) return;
+  if (edgeOn() && !req.dash && !req.fromMua && req.iai == null) { if (P.edge == null) P.edge = edgeMax();
+    if (P.edge < 1) { P.slashCd = .45; P.edgeIdle = 0; addFx("hud", HUD.spark, P.x + P.w / 2 + P.face * 22, P.y + P.h / 2, 26, { life: .2 }); Music.sfx("clang"); if (!P.dullTold) { P.dullTold = true; tipOnce("edge", "날이 무뎌졌다", "막 휘두르면 날이 닳는다 — 잠깐 손을 쉬거나 간파하면 날이 선다", "베기 사이에 쉬기"); } return; }
+    P.edge--; P.edgeIdle = 0; P.edgeT = 0; }
   let d = req.dir;
   if (!d) { const a = axis(), m = Math.hypot(a.x, a.y); d = m > 0.5 ? { x: a.x / m, y: a.y / m } : { x: P.face, y: 0 }; }
   const off = Music.offBeat(Music.posAt(req.ts));
@@ -2098,7 +2109,7 @@ function stepPlayer(dt) {
   P.renT = Math.max(0, (P.renT || 0) - dt);
   if (has("bd_b1") && (P.iaiHold || (P.focus && wk() === "baldo"))) for (const b of bullets) if (!b.friendly && b.life > 0 && Math.abs(b.y - P.y - P.h / 2) < 34 && (b.x - P.x - P.w / 2) * P.face > 0 && Math.abs(b.x - P.x - P.w / 2) < 46) { b.life = 0; addFx("hud", HUD.spark, b.x, b.y, 20, { life: .2 }); Music.sfx("clang"); }   // 정좌
   if (has("cj_b2") && P.onGround && P.focus) for (const b of bullets) if (!b.friendly && b.life > 0 && (b.x - P.x - P.w / 2) * P.face > 0 && Math.hypot(b.x - P.x - P.w / 2, b.y - P.y - P.h / 2) < 52) { b.life = 0; addFx("hud", HUD.spark, b.x, b.y, 20, { life: .2 }); }   // 철갑
-  stepGun(dt); P.counterT = Math.max(0, (P.counterT || 0) - dt); P.slamLandT = Math.max(0, (P.slamLandT || 0) - dt);
+  stepGun(dt); stepEdge(dt); P.counterT = Math.max(0, (P.counterT || 0) - dt); P.slamLandT = Math.max(0, (P.slamLandT || 0) - dt);
   P.invT = Math.max(0, (P.invT || 0) - dt); P.dashInvT = 0; P.offBal = Math.max(0, (P.offBal || 0) - dt); P.returnT = Math.max(0, (P.returnT || 0) - dt); P.floatT = Math.max(0, (P.floatT || 0) - dt); for (const g of LV.targets) { if (g.t > 0) g.t -= dt;
     else if (!META.firsts.target && mode !== "tutorial" && Math.hypot(g.x - P.x, g.y - P.y) < 260) { META.firsts.target = 1; saveMeta(); toast("과녁 · 대시로 베면 공중 대시가 다시 찬다"); } }
   if (P.echo && (P.echo.t -= dt) <= 0) { const o = P.echo, dx = o.x1 - o.x0, dy = o.y1 - o.y0, L = Math.hypot(dx, dy) || 1, d = { x: dx / L, y: dy / L }; P.echo = null;   // the soul runs the same line
@@ -2285,13 +2296,13 @@ function hurtEnemy(e, strike, kind) {
     if (!strike && !il && kind !== "pet" && !((e.recoverUntil || 0) > songPos)) { e.softHits = (e.softHits || 0) + 1;   // a flurry of plain cuts: the guardian sets its guard for a moment (never in its recovery)
       if ((e.guardT || 0) > songPos) { e.hitT = .1; Music.sfx("clang"); addFx("hud", HUD.spark, e.x + e.w / 2, e.y + e.h * .4, 40, { life: .25 }); return; }
       e.softN = songPos - (e.softAt ?? -9) < 1.6 ? (e.softN || 0) + 1 : 1; e.softAt = songPos;
-      if (e.softN >= 4) { e.softN = 0; e.guardT = songPos + 1.3; toast("막아 낸다 · 일섬으로 뚫어라"); } }
+      if (e.softN >= 2) { e.softN = 0; e.guardT = songPos + 1.6; toast("막아 낸다 · 틈이나 간파를 노려라"); } }
     const aimed = kan || heavy, read = kan, mua = kan && e.kanMua; e.kanpa = false;   // 간파 breaks the blow; 천고난무 cuts deep; 일섬 bites harder than a plain cut
-    e.hp -= kan ? 4 : heavy ? 3 : strike ? 2 : il ? 2 : 1; e.hitT = .22;
+    e.hp -= kan ? 3 : heavy ? 3 : strike ? 2 : il ? 2 : (e.recoverUntil || 0) > songPos ? 2 : 1; e.hitT = .22;   // a cut in the opening bites twice
     addFx("bvfx", BV.impact, e.x + e.w / 2 + (Math.random() - .5) * e.w * .4, e.y + e.h * (.3 + Math.random() * .3), aimed ? 120 : strike ? 80 : 54, { life: .28, grow: .25, rot: Math.random() * 6.28, a: .9 });
     if (il) addQi(4);
-    if (read) { regainAir(); addQi((has("d_beat") ? 2 : 1) * (mua ? 2 : 1) * 15); P.ki = Math.min(1, (P.ki || 0) + .5); chainAdd(mua ? 2 : 1); kanPerks(e); if (mua) killCam = Math.max(killCam, .3); hitstop = Math.max(hitstop, .12); shake = Math.max(shake, 9); haz = haz.filter(z => z.kind === "ring"); }
-    if (aimed) { e.stagT = read ? 1.1 : .4; e.act = null; e.suck = false; e.chargeT = 0; e.danceT = 0; e.swoopT = 0; e.nextAt = songPos + 2 * Music.beatLen; if (e.hidden) { e.hidden = false; e.x = e.tx - e.w / 2; } }
+    if (read) { regainAir(); whet(); addQi((has("d_beat") ? 2 : 1) * (mua ? 2 : 1) * 15); P.ki = Math.min(1, (P.ki || 0) + .5); chainAdd(mua ? 2 : 1); kanPerks(e); if (mua) killCam = Math.max(killCam, .3); hitstop = Math.max(hitstop, .12); shake = Math.max(shake, 9); haz = haz.filter(z => z.kind === "ring"); }
+    if (aimed) { e.stagT = read ? .7 : .3; e.act = null; e.suck = false; e.chargeT = 0; e.danceT = 0; e.swoopT = 0; e.nextAt = songPos + 2 * Music.beatLen; if (e.hidden) { e.hidden = false; e.x = e.tx - e.w / 2; } }
     addFx("fx", FX.drops, e.x + e.w / 2, e.y + 30, 30, { life: .4, rot: Math.random() * 6.28 });
     hitstop = Math.max(hitstop, .05); Music.sfx("clang"); shake = Math.max(shake, 4);
     if (e.hp <= 0) killEnemy(e); return;
@@ -2322,14 +2333,14 @@ function killEnemy(e) {
   if (P && state === "play" && P.iaiCut && has("bd_c3")) { run.senN = (run.senN || 0) + 1; ougiArt(["ogA", 11], e.x + e.w / 2, e.y + e.h / 2, 90, { life: .35, flip: P.face < 0 }); }   // 천섬
   if (e.elite && P && state === "play") { addQi(12); P.ki = 1; addFx("wfx", WF2.burst, e.x + e.w / 2, e.y + e.h / 2, 80, { life: .4, grow: .3 }); }   // 정예: worth the trouble
   if (P && e.kanpa && e.type !== "b" && state === "play") { const mua = e.kanMua;   // 간파: cut down on the glint — its shot dies with it
-    addQi((has("d_beat") ? 2 : 1) * (mua ? 2 : 1) * 15); regainAir(); P.ki = Math.min(1, (P.ki || 0) + .5); if (mua) chainAdd(1); kanPerks(e);
+    addQi((has("d_beat") ? 2 : 1) * (mua ? 2 : 1) * 15); regainAir(); whet(); P.ki = Math.min(1, (P.ki || 0) + .5); if (mua) chainAdd(1); kanPerks(e);
     for (const b of bullets) if (b.owner === e && !b.friendly) b.life = 0;
     if (e.type === "k") { for (const o of enemies) if (o.alive && o !== e && Math.hypot(o.x - e.x, o.y - e.y) < 320) { o.stunT = Math.max(o.stunT || 0, 1.2); o.fireAt = null; o.swingAt = null; o.thrustAt = null; o.dashAt = null; }   // the drum falls silent: everyone near falters
       ringFx(e.x + e.w / 2, e.y + e.h / 2, 160, "rgba(39,70,106,.7)", .45); addQi(15); }
     hitstop = Math.max(hitstop, .06);
     if (mua) killCamOn(e); }
   if (P && ((P.aimDash && !P.tapDash) || (P.aimedUntil || 0) > songPos) && state === "play") {
-    addQi(has("d_giseom") || has("p_charge") ? 18 : 9); run.aimK = (run.aimK || 0) + 1; P.ki = Math.min(1, (P.ki || 0) + .3); // what an aimed-dash kill gives back
+    addQi(has("d_giseom") || has("p_charge") ? 18 : 9); run.aimK = (run.aimK || 0) + 1; P.ki = Math.min(1, (P.ki || 0) + .3); whet(1); // what an aimed-dash kill gives back
     P.airDash = Math.max(P.airDash, baseAir() + (has("d_sun") ? 1 : 0)); P.dashCd = 0;   // only an aimed kill gives the air dash back (연환: one more)
     if (has("d_sun")) P.reAim = true;
     if (has("p_quick")) P.reloadAt = 0;
@@ -2784,7 +2795,7 @@ function bossPerform(e, a, I) {
     case "low": case "high": case "lowhigh": case "highlow": case "hair": Music.sfx("strike"); shake = 5; break;
     case "breath": Music.sfx("snipe"); if (c >= 1) addHaz("fire", e.face > 0 ? e.x + e.w + 150 : e.x - 230, f - 22, 80, 22, songPos + bl, songPos + bl * 3); break;
     case "stomp": addFx("bvfx", BV.quake, ecx, f - 18, 80, { life: .55, grow: .25, ay: .8 }); shake = 12; Music.sfx("kill"); waves(e, 340 + 30 * c); if (hurtsPlayer() && Math.abs(pcx - ecx) < e.w / 2 + 50 && P.y + P.h > f - 40) { lastHitDir = { x: Math.sign(pcx - ecx) || 1, y: -.6 }; die(null, 2); } break;
-    case "inhale": { e.suck = false; const zone = { x: e.face > 0 ? ecx : ecx - 110, y: f - 70, w: 110, h: 70 }; Music.sfx("kill"); if (hurtsPlayer() && overlap(zone, P)) { lastHitDir = { x: e.face, y: -.3 }; die(); } break; }
+    case "inhale": { e.suck = false; const zone = { x: e.face > 0 ? ecx : ecx - 110, y: f - 70, w: 110, h: 70 }; Music.sfx("kill"); if (hurtsPlayer() && overlap(zone, P)) { lastHitDir = { x: e.face, y: -.3 }; die(null, 2); } break; }
     case "scrap": for (let i = 0; i < 5; i++) lob(e, ecx + e.face * 30, e.y + 10, pcx + (i - 2) * 55, f - 10, .8 + i * .05, { scrap: true }); Music.sfx("shoot"); break;
     case "claw": addFx("bvfx", BV.crescent, ecx + e.face * 60, f - 34, 90, { life: .3, flip: e.face < 0, grow: .2 }); for (let i = 0; i < 3; i++) { const at = songPos + i * bl * .5; addHaz("claw", e.face > 0 ? ecx + 10 : ecx - 120, f - 64, 110, 64, at, at + .15); } Music.sfx("slash"); break;
     case "roar": addFx("bvfx", BV.ring, ecx, e.y + e.h / 2, 140, { life: .6, grow: 1.4, a: .8 }); shake = 14; Music.sfx("die"); if (Math.abs(pcx - ecx) < 360) { P.vx = Math.sign(pcx - ecx || 1) * 560; P.dashCd = Math.max(P.dashCd, bl * 1.5); } break;   // the roar only pushes you back — it does not wound
@@ -2799,7 +2810,7 @@ function bossPerform(e, a, I) {
       e.act = "shcut"; e.hitAt = (Math.floor(songPos / bl) + 1) * bl; return true; }
     case "shcut": case "shstrike": { const w = a === "shstrike" ? 120 : 70, zone = { x: e.face > 0 ? ecx : ecx - w, y: e.y - 20, w, h: e.h + 30 };
       addFx("slashfx", a === "shstrike" ? SF.arcRed : SF.arc, ecx + e.face * w / 2, e.y + e.h / 2, a === "shstrike" ? 90 : 60, { life: .25, flip: e.face < 0 }); Music.sfx(a === "shstrike" ? "strike" : "slash");
-      if (hurtsPlayer() && overlap(zone, P)) { lastHitDir = { x: e.face, y: -.3 }; die(); } break; }
+      if (hurtsPlayer() && overlap(zone, P)) { lastHitDir = { x: e.face, y: -.3 }; die(null, a === "shstrike" ? 2 : 1); } break; }
     case "shdash": e.chargeT = .28; e.cv = 760; Music.sfx("dash"); break;
   }
   return false;
@@ -2822,7 +2833,7 @@ function stepBoss(e, dt, pcx, pcy, dist, live) {
     if (!seen && mode !== "tutorial") bossIntro = { t: 0, e }; else toast(josa(B.name, "이", "가") + " 길을 막는다");
     e.nextAt = (Math.floor(songPos / bl) + 2) * bl + (bossIntro ? 1.7 : 0); }
   let ecx = e.x + e.w / 2;
-  const deadly = () => { if (live && hurtsPlayer() && overlap(e, P)) { lastHitDir = { x: Math.sign(pcx - ecx) || 1, y: -.3 }; die(); } };
+  const deadly = () => { if (live && hurtsPlayer() && overlap(e, P)) { lastHitDir = { x: Math.sign(pcx - ecx) || 1, y: -.3 }; die(null, e.raged ? 2 : 1); } };   // a charging guardian hits harder once enraged
   if (e.air) { // leaping: arc under gravity, deadly on contact, shake on landing
     e.vy += 1900 * dt; moveX(e, e.vx * dt);
     if (moveY(e, e.vy * dt) && e.vy > 0) { e.air = false; e.vx = 0; e.vy = 0; e.landT = .22; e.mv = 0; shake = 8; addFx("bvfx", BV.quake, e.x + e.w / 2, e.floor - 16, 60, { life: .45, grow: .2, ay: .8 }); addFx("hud", HUD.dust, e.x + e.w / 2, e.y + e.h, 80, { life: .4, ay: 1 });
@@ -2862,17 +2873,17 @@ function stepBoss(e, dt, pcx, pcy, dist, live) {
       if ((a === "slam" || a === "club" || a === "inhale") && dist > 280) a = e.kind === "sumun" ? (c >= 1 ? "volley" : "charge") : e.kind === "dokkaebi" ? "coins" : "scrap";
       if (a === "claw" && dist > 200) a = "leap";
       e.act = a; e.hitAt = (Math.floor(songPos / bl) + 1) * bl; if (e.hitAt - songPos < .45) e.hitAt += bl; e.actFrom = songPos;
-      if (DELAYABLE.has(a) && (e.raged || c >= 2) && e.rng() < .3) e.hitAt += bl * .5;   // a held swing: the blow waits half a beat longer than the eye expects
+      if (DELAYABLE.has(a) && e.rng() < (e.raged ? .45 : .25)) e.hitAt += bl * .5;   // a held swing: the blow waits half a beat longer than the eye expects
       bossChoose(e, a, I);
     }
   } else {
     if (e.suck && live && P.dashT <= 0) P.vx += Math.sign(ecx - pcx) * 1100 * dt;   // 불가사리 breathes in
     if (songPos >= e.hitAt) {
       const a = e.act; e.act = null; e.swingT = .35; e.lastAct = a;
-      const rage = e.raged || e.hp <= e.maxHp / 2, gap = Math.max(rage && c >= 3 ? 1 : 2, (e.kind === "jangseung" ? 3 : 3) - (c >> 1) - (e.mask === 1 ? 1 : 0) - (rage ? 1 : 0));
+      const rage = e.raged || e.hp <= e.maxHp / 2, gap = Math.max(1, 2 - (c >> 1) - (e.mask === 1 ? 1 : 0) - (rage ? 1 : 0) + (e.kind === "jangseung" ? 1 : 0));
       if (!bossPerform(e, a, I)) {   // strings of blows, then an opening: a guardian is punished in its recovery, not mid-string
         if (e.comboLeft > 0) { e.comboLeft--; e.nextAt = e.hitAt + bl * .5; }
-        else { e.nextAt = e.hitAt + (gap + 1) * bl; e.recoverUntil = e.nextAt; const rg = e.raged || e.hp <= e.maxHp / 2; e.comboLeft = rg ? (e.rng() < .55 ? 2 : 1) : (c >= 2 && e.rng() < .4 ? 1 : e.rng() < .25 ? 1 : 0); } }
+        else { e.nextAt = e.hitAt + (gap + 1) * bl; e.recoverUntil = e.nextAt; const rg = e.raged || e.hp <= e.maxHp / 2; e.comboLeft = rg ? (e.rng() < .35 ? 3 : e.rng() < .7 ? 2 : 1) : (e.rng() < .3 ? 2 : e.rng() < .65 ? 1 : 0); } }
     }
   }
   ecx = e.x + e.w / 2;
@@ -2980,7 +2991,7 @@ function stepBullets(dt) {
         if (!b.noHit) for (const e of enemies) if (e.alive && !ghostly(e) && b.x > e.x - (b.r || 0) && b.x < e.x + e.w + (b.r || 0) && b.y > e.y - (b.r || 0) && b.y < e.y + e.h + (b.r || 0)) {
           if (b.hits && b.hits.has(e.id)) continue;
           if (b.blast) { b.life = 0; break; }   // rockets and balls burst on the first body
-          if (b.petOrb) { hurtEnemy(e, false, "pet"); addFx("pet", 26, b.x, b.y, 36, { life: .3 }); (b.hits = b.hits || new Set()).add(e.id); if (!b.pierce) b.life = 0; break; }
+          if (b.petOrb) { hurtEnemy(e, false, "pet"); addFx("pet", b.petFr || 26, b.x, b.y, 36, { life: .3 }); (b.hits = b.hits || new Set()).add(e.id); if (!b.pierce) b.life = 0; break; }
           if (e.type === "h" && Math.sign(b.vx) === -e.face && !b.pierce) { b.life = 0; Music.sfx("clang"); break; }
           (b.hits = b.hits || new Set()).add(e.id); if (b.neok || b.talisman) e.stunT = Math.max(e.stunT || 0, e.type === "b" ? .25 : b.neok ? 1.4 : .5); if (b.talisman && has("m_talis") && e.alive) e.openT = songPos + .8; if (b.talisman && SPR.mfx) addFx("mfx", 2, e.x + e.w / 2, e.y + e.h / 2, 54, { life: .3, grow: .4, ay: .5 }); hurtEnemy(e, !!b.strike || (b.pierce && !b.wind && !b.fire && !b.tornado && !b.dragon && !b.sword)); if (!b.pierce) b.life = 0;
           if ((b.sword && has("yuseong")) || (b.dragon && has("biryong"))) P.airDash = Math.max(P.airDash, baseAir());
@@ -3309,7 +3320,6 @@ function render(rdt) {
     if (d.w) { ctx.drawImage(pal.night ? SPR[d.sheet].inv : SPR[d.sheet].img, f.x, f.y, f.w, f.h, d.x - d.w / 2, d.y, d.w, d.h); continue; }
     drawSprite(d.sheet, d.i, d.x, d.y, d.h / f.h, d.flip, .5, pal.night, d.ay);
   }
-  drawHubLabels(pal);
   // ink stains
   for (const s of LV.stains) {
     if (!visible(s.x)) continue;
@@ -3426,7 +3436,7 @@ function render(rdt) {
       ctx.strokeStyle = SEAL; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(b.x - d * 6, b.y - 16 + wob); ctx.quadraticCurveTo(b.x + d * 6, b.y - 16 + wob, b.x + d * 8, b.y - 6); ctx.stroke();
       continue;
     }
-    if (b.petOrb && SPR.pet) { ctx.save(); ctx.translate(b.x, b.y); ctx.rotate(performance.now() / 120); drawSprite("pet", 26, 0, 0, 22 / SPR.pet.f[26].h, false, .5, false, .5); ctx.restore(); continue; }
+    if (b.petOrb && SPR.pet) { ctx.save(); ctx.translate(b.x, b.y); ctx.rotate(performance.now() / 120); drawSprite("pet", b.petFr || 26, 0, 0, 22 / SPR.pet.f[b.petFr || 26].h, false, .5, false, .5); ctx.restore(); continue; }
     if (b.red && SPR.mech) { ctx.save(); ctx.translate(b.x, b.y); ctx.rotate(Math.atan2(b.vy, b.vx) + Math.PI); drawSprite("mech", MECH.fire, 0, 0, 30 / SPR.mech.f[MECH.fire].h, false, .2, false, .5); ctx.restore(); continue; }
     const sp = Math.hypot(b.vx, b.vy) || 1, tl = b.sniper ? 34 : 18;
     const tr = ctx.createLinearGradient(b.x, b.y, b.x - b.vx / sp * tl, b.y - b.vy / sp * tl);
@@ -3460,6 +3470,7 @@ function render(rdt) {
   drawVfx(pal, true, vw);   // effects that belong behind the body (the 납도 ink at the feet)
   drawPet(pal);
   if (P && (state === "play" || state === "pause" || state === "result" || state === "dead")) drawPlayer(pal);
+  drawHubLabels(pal);   // the names sit above every figure
   for (const p of parts) { // round drops of ink, stretched a little along their flight — never square specks
     const k = Math.max(0, p.life / p.max), sp = Math.hypot(p.vx, p.vy), r = p.s * .5 * (.6 + .4 * k), st = Math.min(2.2, 1 + sp / 500);
     ctx.globalAlpha = k; ctx.fillStyle = p.c; ctx.beginPath(); ctx.ellipse(p.x, p.y, r * st, r, sp > 20 ? Math.atan2(p.vy, p.vx) : 0, 0, 6.283); ctx.fill(); }
@@ -3797,6 +3808,9 @@ function drawPlayer(pal) {
   ctx.globalAlpha = 1;
   if (wrule() === "ssang" && P.gise > 0 && songPos - (P.giseAt ?? -9) < 3 && state !== "dead") { const n = P.gise, full = n >= 3;   // 기세: red beads over the head, ready at three
     for (let i = 0; i < n; i++) { ctx.fillStyle = full ? SEAL : "rgba(60,56,50,.75)"; ctx.beginPath(); ctx.arc(cx - (n - 1) * 3.5 + i * 7, P.y - 10, full ? 2.8 : 2.2, 0, Math.PI * 2); ctx.fill(); } }
+  if (edgeOn() && state !== "dead" && P.edge != null && P.edge < edgeMax()) { const m = edgeMax(), y = P.y - 12;   // 날: short strokes, dark while sharp
+    for (let i = 0; i < m; i++) { ctx.fillStyle = i < P.edge ? "#17161a" : "rgba(23,22,26,.2)"; ctx.save(); ctx.translate(cx - (m - 1) * 4 + i * 8, y); ctx.rotate(-.5); ctx.fillRect(-1.2, -4, 2.4, 8); ctx.restore(); }
+    if (P.edge < 1) { ctx.fillStyle = SEAL; ctx.font = `400 10px "Song Myung", serif`; ctx.textAlign = "center"; ctx.fillText("무딤", cx, y - 8); } }
   if (isGun() && state !== "dead") { const G = WEAPONS[wpn()], y = P.y - 12;   // 총: rounds over the head (or the heat of the rocket box)
     if (G.heat) { const h = Math.min(1, (P.heat || 0) / 100), w = 26; ctx.fillStyle = "rgba(23,22,26,.25)"; ctx.fillRect(cx - w / 2, y, w, 3); ctx.fillStyle = P.overheat > 0 ? (Math.floor(performance.now() / 90) % 2 ? SEAL : "#17161a") : h > .7 ? SEAL : "#17161a"; ctx.fillRect(cx - w / 2, y, w * h, 3); }
     else { const m = gunMag(), a = P.ammo ?? m; for (let i = 0; i < m; i++) { ctx.fillStyle = i < a ? "#17161a" : "rgba(23,22,26,.22)"; ctx.beginPath(); ctx.ellipse(cx - (m - 1) * 4 + i * 8, y, 2.4, 3.4, 0, 0, 7); ctx.fill(); }
@@ -4449,8 +4463,10 @@ const CF_AX = [.57, .64, .61, .67, .53, .41, .4, .66, .37, .47, .46, .46, .49, .
 const PETS = {
   kkachi: { name: "까치", han: "鵲", base: 0, range: 260, cd: [3, 1.8], desc: "날아들어 쪼고, 다 자라면 지나가는 길의 적 탄을 낚아챈다" },
   haetae: { name: "해치", han: "獬豸", base: 9, range: 150, cd: [3.6, 2.5], desc: "가까운 적에게 불을 뿜어 잠깐 묶는다" },
-  yong: { name: "용", han: "龍", base: 18, range: 330, cd: [3.2, 2.2], desc: "멀리 있는 적을 쫓는 물구슬을 뱉는다" } };
-const PET_HATCH = 2, PET_ADULT = 8;   // one run hatches it, a few more raise it
+  yong: { name: "용", han: "龍", base: 18, range: 330, cd: [3.2, 2.2], desc: "멀리 있는 적을 쫓는 물구슬을 뱉는다" },
+  fox: { name: "여우", han: "狐", base: 27, range: 300, cd: [3.4, 2.6], desc: "적을 쫓는 여우불을 띄운다 — 다 자라면 두 개" },
+  crow: { name: "삼족오", han: "三足烏", base: 36, range: 380, cd: [4, 2.8], desc: "햇살을 쏘아 한 줄의 적을 꿰뚫는다 — 다 자라면 모두" } };
+const PET_HATCH = 5, PET_ADULT = 20;   // a run or two to hatch, many more to raise
 const petStage = () => !META.pet ? -1 : META.pet.fed >= PET_ADULT ? 2 : META.pet.fed >= PET_HATCH ? 1 : 0;
 let pet = null;
 function spawnPet() { pet = null; if (petStage() < 1 || !P || !PETS[META.pet.kind]) return; pet = { x: P.x - 20, y: P.y - 40, vx: 0, vy: 0, cd: 1.2, face: 1, act: null, t: 0 }; }
@@ -4475,6 +4491,11 @@ function petAttack(t, D, st) {
   else if (META.pet.kind === "haetae") { const r = st >= 2 ? 150 : 110; addFx("pet", D.base + 8, pet.x + pet.face * r * .45, pet.y + 6, r * .9, { life: .4, flip: pet.face < 0 });
     for (const e of enemies) if (e.alive && !ghostly(e) && Math.abs(e.x + e.w / 2 - (pet.x + pet.face * r / 2)) < r / 2 + e.w / 2 && Math.abs(e.y + e.h / 2 - pet.y) < 70) { hurtEnemy(e, false, "pet"); if (e.alive && e.type !== "b") e.stunT = Math.max(e.stunT || 0, .5); }
     Music.sfx("shoot"); }
+  else if (META.pet.kind === "fox") { for (let i = 0; i < (st >= 2 ? 2 : 1); i++) { const a = Math.atan2(ey - pet.y, ex - pet.x) + (i ? .5 : -.5) * (st >= 2 ? 1 : 0); bullets.push({ x: pet.x, y: pet.y, vx: Math.cos(a) * 240, vy: Math.sin(a) * 240, friendly: true, petOrb: true, petFr: D.base + 8, seek: 9, life: 2.4, owner: null, r: 9 }); } Music.sfx("hook"); }
+  else if (META.pet.kind === "crow") { const L = Math.hypot(ex - pet.x, ey - pet.y) || 1, d = { x: (ex - pet.x) / L, y: (ey - pet.y) / L }, reach = 380;   // a sun ray: the young one burns the first body, the grown one the whole line
+    const line = foesInLine(pet.x, pet.y, d, reach).sort((a, b) => Math.hypot(a.x - pet.x, a.y - pet.y) - Math.hypot(b.x - pet.x, b.y - pet.y)).slice(0, st >= 2 ? 9 : 1);
+    beams.push({ x0: pet.x, y0: pet.y, x1: pet.x + d.x * reach, y1: pet.y + d.y * reach, t: 0, life: .3, red: true, w: 1.6 });
+    for (const e of line) { hurtEnemy(e, false, "pet"); addFx("pet", D.base + 8, e.x + e.w / 2, e.y + e.h / 2, 46, { life: .3 }); } Music.sfx("snipe"); }
   else { const L = Math.hypot(ex - pet.x, ey - pet.y) || 1; bullets.push({ x: pet.x, y: pet.y, vx: (ex - pet.x) / L * 300, vy: (ey - pet.y) / L * 300, friendly: true, petOrb: true, seek: 7, life: 2, owner: null, r: 9, pierce: st >= 2, petHit: true }); Music.sfx("hook"); }
 }
 function drawPet(pal) {
@@ -4498,21 +4519,22 @@ function petScreen() { // 둥지: choose an egg, feed it 숨
 // ---------- 거점: the mountain hermitage you walk around in between runs ----------
 // every station is a place you walk up to; the 산문 at the left edge is the road out to 천고
 let hubOn = false, hubNear = null;
-const HUB_W = 70;
+const HUB_W = 40;   // two storeys: the yard below, a long balcony of halls above, steps between
+const HUB_UP = 7;   // the balcony's floor row
 const HUB_ST = [
-  { id: "gate", tx: 5, sheet: "hub", i: 0, h: 128, name: "산문", han: "山門", act: "길 떠나기" },
-  { id: "nest", tx: 9, sheet: "npc", i: 8, h: 0, name: "둥지", han: "巢", act: "영물 키우기" },
-  { id: "dummy", tx: 12, sheet: "hub", i: 2, h: 70, name: "수련 허수아비", han: "修鍊", act: "수련터" },
-  { id: "well", tx: 18, sheet: "hub", i: 1, h: 66, name: "약수터", han: "藥水", act: "숨 다스리기" },
-  { id: "seogo", tx: 25, sheet: "misc", i: 3, h: 104, name: "서고", han: "書庫", act: "서약·심법" },
-  { id: "daejang", tx: 32, sheet: "misc", i: 4, h: 108, name: "대장간", han: "鍛冶間", act: "무기" },
-  { id: "bigeup", tx: 39, sheet: "misc", i: 5, h: 128, name: "비급각", han: "秘笈閣", act: "비급첩" },
-  { id: "sadang", tx: 45, sheet: "misc", i: 6, h: 100, name: "사당", han: "祠堂", act: "기도" },
-  { id: "uibang", tx: 51, sheet: "misc", i: 7, h: 92, name: "의방", han: "衣房", act: "옷·띠" },
-  { id: "drum", tx: 56, sheet: "hub", i: 4, h: 62, name: "큰북", han: "大鼓", act: "수행·기억" },
-  { id: "tower", tx: 61, sheet: "hub", i: 7, h: 150, name: "천고탑", han: "天鼓塔", act: "탑 오르기" },
-  { id: "stele", tx: 66, sheet: "hub", i: 3, h: 86, name: "비석", han: "碑", act: "도감" }];
-const HUB_SLOTS = [15, 22, 29, 36, 48, 59, 68];   // empty ground waiting to be dressed
+  { id: "gate", tx: 3, ty: 12, sheet: "hub", i: 0, h: 128, name: "산문", han: "山門", act: "길 떠나기" },
+  { id: "dummy", tx: 7, ty: 12, sheet: "hub", i: 2, h: 70, name: "수련 허수아비", han: "修鍊", act: "수련터" },
+  { id: "nest", tx: 10, ty: 12, sheet: "npc", i: 8, h: 0, name: "둥지", han: "巢", act: "영물 키우기" },
+  { id: "well", tx: 18, ty: 12, sheet: "hub", i: 1, h: 66, name: "약수터", han: "藥水", act: "숨 다스리기" },
+  { id: "drum", tx: 23, ty: 12, sheet: "hub", i: 4, h: 62, name: "큰북", han: "大鼓", act: "수행·기억" },
+  { id: "stele", tx: 28, ty: 12, sheet: "hub", i: 3, h: 86, name: "비석", han: "碑", act: "도감" },
+  { id: "tower", tx: 37, ty: 12, sheet: "hub", i: 7, h: 150, name: "천고탑", han: "天鼓塔", act: "탑 오르기" },
+  { id: "seogo", tx: 18, ty: HUB_UP, sheet: "misc", i: 3, h: 100, name: "서고", han: "書庫", act: "서약·심법" },
+  { id: "daejang", tx: 22, ty: HUB_UP, sheet: "misc", i: 4, h: 104, name: "대장간", han: "鍛冶間", act: "무기" },
+  { id: "bigeup", tx: 26, ty: HUB_UP, sheet: "misc", i: 5, h: 120, name: "비급각", han: "秘笈閣", act: "비급첩" },
+  { id: "sadang", tx: 30, ty: HUB_UP, sheet: "misc", i: 6, h: 96, name: "사당", han: "祠堂", act: "기도" },
+  { id: "uibang", tx: 34, ty: HUB_UP, sheet: "misc", i: 7, h: 88, name: "의방", han: "衣房", act: "옷·띠" }];
+const HUB_SLOTS = [{ tx: 5, ty: 12 }, { tx: 13, ty: 12 }, { tx: 21, ty: 12 }, { tx: 26, ty: 12 }, { tx: 32, ty: 12 }, { tx: 20, ty: HUB_UP }, { tx: 32, ty: HUB_UP }];   // empty ground waiting to be dressed
 const DECO = [
   { id: "pine", name: "소나무", sheet: "props", i: PROP.pine, h: 96, hon: 30 }, { id: "lantern", name: "석등", sheet: "props", i: PROP.stoneLantern, h: 44, hon: 30 },
   { id: "jars", name: "항아리", sheet: "props", i: PROP.jars, h: 34, hon: 15 }, { id: "jangdok", name: "장독대", sheet: "hub", i: 8, h: 44, hon: 40 },
@@ -4532,20 +4554,22 @@ const WELL = [
 const well = id => !!(META.well && META.well.includes(id));
 function buildHubMap() {
   const rows = []; for (let y = 0; y < 16; y++) rows.push(Array.from({ length: HUB_W }, (_, x) => y >= 12 || x === 0 || x === HUB_W - 1 ? "#" : " "));
-  for (const x of [20, 21, 22]) rows[9][x] = "=";   // a few ledges to hop on while walking
-  for (const x of [42, 43]) rows[8][x] = "="; rows[11][2] = "P";
-  return rows.map(r => r.join(""));
+  for (let x = 16; x <= 35; x++) rows[HUB_UP][x] = "=";   // the balcony: jump up through it, down+jump to drop
+  for (const x of [12, 13]) rows[10][x] = "#"; rows[11][12] = rows[11][13] = "#";   // stone steps up to it
+  for (const x of [14, 15]) rows[HUB_UP + 1][x] = "=";
+  rows[11][5] = "P"; return rows.map(r => r.join(""));
 }
 function enterHub() {
   hubOn = true; mode = "tutorial"; Music.menuBgm(true);
   run = { hub: true, m: 0, breath: Infinity, time: 0, deaths: 0, kills: 0, strikes: 0, slashes: 0, cp: -1, dead: [], perks: [], weapon: META.lastWeapon && WEAPONS[META.lastWeapon] ? META.lastWeapon : "hwando" };
   loadMap(buildHubMap(), PAL[0], []); LV.hub = true; LV.dress = []; needSheets(playSheets());
-  for (const st of HUB_ST) if (st.h) LV.dress.push({ sheet: st.sheet, i: st.i, x: st.tx * T + 16, y: 12 * T + 2, h: st.h, flip: false, ay: 1 });
-  if (petStage() === 0) LV.dress.push({ sheet: "pet", i: PETS[META.pet.kind].base, x: 9 * T + 16, y: 12 * T + 2, h: 34, flip: false, ay: 1 });   // the egg in its nest
+  for (const x of [16, 25, 35]) LV.dress.push({ sheet: "pillars", i: 0, x: x * T + 16, y: 12 * T + 2, h: (12 - HUB_UP) * T + 4, flip: false, ay: 1, w: 0 });   // posts under the balcony
+  for (const st of HUB_ST) if (st.h) LV.dress.push({ sheet: st.sheet, i: st.i, x: st.tx * T + 16, y: st.ty * T + 2, h: st.h, flip: false, ay: 1 });
+  if (petStage() === 0) LV.dress.push({ sheet: "pet", i: PETS[META.pet.kind].base, x: 10 * T + 16, y: 12 * T + 2, h: 34, flip: false, ay: 1 });   // the egg in its nest
   LV.stations = HUB_ST;
-  const dk = hubDeco(); for (let k = 0; k < HUB_SLOTS.length; k++) { const id = dk.slots[k], d = DECO.find(o => o.id === id); if (d) LV.dress.push({ sheet: d.sheet, i: d.i, x: HUB_SLOTS[k] * T + 16, y: 12 * T + 2, h: d.h, flip: k % 2 === 1, ay: 1 }); }
+  const dk = hubDeco(); for (let k = 0; k < HUB_SLOTS.length; k++) { const id = dk.slots[k], d = DECO.find(o => o.id === id); if (d) LV.dress.push({ sheet: d.sheet, i: d.i, x: HUB_SLOTS[k].tx * T + 16, y: HUB_SLOTS[k].ty * T + 2, h: d.h, flip: k % 2 === 1, ay: 1 }); }
   deadIds = new Set(); cpSave = null; enemies = [];
-  if (!P || !P.hubKeep) P = newPlayer(8 * T + 7, LV.start.y); P.hubKeep = true; P.face = 1;
+  if (!P || !P.hubKeep) P = newPlayer(5 * T + 7, LV.start.y); P.hubKeep = true; P.face = 1;
   bullets = []; parts = []; ghosts = []; seals = []; vfx = []; haz = []; beams = []; bolts = []; kegs = []; rings = []; cutLines = []; trails = []; pops = []; pfires = []; clones = []; chungoFx = null;
   songPos = Music.pos(); cam.x = P.x; cam.y = P.y; spawnPet();
   document.body.classList.add("inhub"); setHud(); hubHud(); showScreen(null); state = "play"; hubNear = null; hubPrompt(); hubTitle();
@@ -4561,8 +4585,9 @@ function hubHud() { $("hMadang").textContent = "산중 거점"; $("hJang").inner
 const stationsOn = () => !!(LV && LV.stations && state === "play" && P);
 function hubStep() { // which station (or empty plot) is underfoot — in the 거점, or a person on the road
   if (!stationsOn()) return; const cx = P.x + P.w / 2; let best = null, bd = 44;
-  for (const st of LV.stations) { const d = Math.abs(st.tx * T + 16 - cx); if (d < bd) { bd = d; best = { st }; } }
-  if (LV.hub) for (let k = 0; k < HUB_SLOTS.length; k++) { const d = Math.abs(HUB_SLOTS[k] * T + 16 - cx); if (d < Math.min(bd, 30)) { bd = d; best = { slot: k }; } }
+  const feet = P.y + P.h, on = ty => Math.abs(feet - (ty || 12) * T) < 24;   // only what stands on your own floor
+  for (const st of LV.stations) { const d = Math.abs(st.tx * T + 16 - cx); if (d < bd && on(st.ty)) { bd = d; best = { st }; } }
+  if (LV.hub) for (let k = 0; k < HUB_SLOTS.length; k++) { const d = Math.abs(HUB_SLOTS[k].tx * T + 16 - cx); if (d < Math.min(bd, 30) && on(HUB_SLOTS[k].ty)) { bd = d; best = { slot: k }; } }
   const key = best ? best.st ? best.st.id : "s" + best.slot : ""; if (key !== (hubNear ? hubNear.key : "")) { hubNear = best ? { ...best, key } : null; hubPrompt(); }
 }
 function hubPrompt() {
@@ -4622,10 +4647,10 @@ function sealShelf() { // 비급각: the sealed books and the shelf that holds t
 }
 function drawHubLabels(pal) { // the names of the stations, painted on small boards above them
   if (!LV || !LV.stations) return; ctx.textAlign = "center"; ctx.textBaseline = "middle";
-  for (const st of LV.stations || []) { const x = st.tx * T + 16, y = 12 * T - Math.max(st.h, 44) - 10, near = hubNear && hubNear.st === st;
+  for (const st of LV.stations || []) { const x = st.tx * T + 16, y = (st.ty || 12) * T - Math.max(st.h, 44) - 10, near = hubNear && hubNear.st === st;
     ctx.font = `400 ${near ? 15 : 12}px "Song Myung", serif`; const w = ctx.measureText(st.name).width + 14;
     ctx.fillStyle = near ? "rgba(195,22,28,.92)" : "rgba(23,22,26,.72)"; ctx.fillRect(x - w / 2, y - 10, w, 20); ctx.fillStyle = "#f3ede0"; ctx.fillText(st.name, x, y + 1); }
-  const dk = hubDeco(); if (LV.hub) for (let k = 0; k < HUB_SLOTS.length; k++) if (!dk.slots[k]) { const x = HUB_SLOTS[k] * T + 16, y = 12 * T - 4, near = hubNear && hubNear.slot === k;
+  const dk = hubDeco(); if (LV.hub) for (let k = 0; k < HUB_SLOTS.length; k++) if (!dk.slots[k]) { const x = HUB_SLOTS[k].tx * T + 16, y = HUB_SLOTS[k].ty * T - 4, near = hubNear && hubNear.slot === k;
     ctx.strokeStyle = near ? "rgba(195,22,28,.8)" : "rgba(23,22,26,.3)"; ctx.setLineDash([4, 4]); ctx.lineWidth = 1.5; ctx.beginPath(); ctx.ellipse(x, y, 18, 5, 0, 0, 7); ctx.stroke(); ctx.setLineDash([]); }
 }
 // ---------- screens ----------

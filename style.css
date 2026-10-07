@@ -390,3 +390,7 @@ body.inhub #hud .hl small em:first-child { color: #c3161c; }
 .tr-sh i { width: 22px; height: 22px; }
 .tr-det { min-height: 0; }
 @media (max-height: 430px) { .tr-shl { grid-template-columns: 1fr 1fr; } .tr-shl em { grid-column: 1 / -1; } }
+/* the prompt sits at the top, never over the place you are standing at */
+#bAct { bottom: auto !important; top: calc(58px + env(safe-area-inset-top)); animation-name: actInTop; flex-direction: row; gap: 10px; padding: 6px 18px; }
+#bAct::before { content: "▼"; top: auto; bottom: -13px; }
+@keyframes actInTop { from { opacity: 0; transform: translate(-50%, -8px); } }
