@@ -1244,7 +1244,7 @@ function showInterlude() {
   if (isFinal() && LV.exit) { // the last 마당 ends at 천고 itself instead of a seal
     LV.drums = [{ id: 0, big: true, x: LV.exit.x + LV.exit.w / 2, y: LV.exit.y + LV.exit.h, w: 60, h: 80 }]; LV.exit = null; LV.gate = null;
   }
-  showScreen("interlude");
+  showScreen("interlude"); inkWipe();
   Music.unlock(); Music.stop(); Music.jing();
   setTimeout(() => $("bEnter").focus({ preventScroll: true }), 30);
   needSheets(playSheets());   // start fetching this gate's pictures while the card is read
@@ -1268,7 +1268,8 @@ function enterMadang() {
   Music.start(MADANG[run.tower ? [0, 2, 4][(run.floor - 1) % 3] : MD(run.m)].jd, run.seed + run.m, (1 + .04 * Math.min(4, run.cycle || 0)) * (omen("geupbak") ? 1.15 : 1) * (upOn("fast") ? 1.15 : 1));
   songPos = Music.pos(); spawnEnemies(); spawnPet();
   cam.x = P.x; cam.y = P.y;
-  setHud(); showScreen(null); state = "play";
+  setHud(); showScreen(null); state = "play"; inkWipe();
+  if (mode !== "tutorial") { const sg = stageOf(run.m), road = run.node === "rest" || run.node === "event"; setTimeout(() => gateTitle(run.tower ? `${run.floor}層` : road ? (run.node === "rest" ? "息" : "緣") : sg.han, run.tower ? "천고탑" : road ? (run.node === "rest" ? "쉼터" : "기연") : (run.node === "elite" ? "험로 · " : "") + sg.ko), 260); }
   Music.bak();
   try { navigator.wakeLock && navigator.wakeLock.request("screen").catch(() => {}); } catch (e) {}
 }
@@ -2526,7 +2527,7 @@ function killEnemy(e) {
   hitstop = 0.07; shake = Math.max(shake, 6); P.dashCd = 0; if (mode === "tutorial") P.airDash = Math.max(P.airDash, baseAir());
   if (has("hyeolseon")) P.invT = Math.max(P.invT || 0, .25);
 
-  Music.sfx("kill"); buzz(18);
+  Music.sfx("kill", momTier()); buzz(18);
 }
 function clang(e) {
   P.vx = -Math.sign(e.x + e.w / 2 - (P.x + P.w / 2) || 1) * 300; P.dashT = 0; if (!P.onGround) P.vy = Math.min(P.vy, -150);
@@ -4771,7 +4772,7 @@ function enterHub() {
   if (!P || !P.hubKeep) P = newPlayer(6 * T + 7, LV.start.y); P.hubKeep = true; P.face = 1;
   bullets = []; parts = []; ghosts = []; seals = []; vfx = []; haz = []; beams = []; bolts = []; kegs = []; rings = []; cutLines = []; trails = []; pops = []; pfires = []; clones = []; chungoFx = null;
   songPos = Music.pos(); cam.x = P.x; cam.y = P.y; spawnPet();
-  document.body.classList.add("inhub"); setHud(); hubHud(); showScreen(null); state = "play"; hubNear = null; hubPrompt(); hubTitle();
+  document.body.classList.add("inhub"); setHud(); hubHud(); showScreen(null); inkWipe(); state = "play"; hubNear = null; hubPrompt(); hubTitle();
 }
 let hubTitled = false;
 function hubTitle() { // the name of the game, once, as the hermitage first comes into view
@@ -4859,6 +4860,8 @@ function drawHubLabels(pal) { // the names of the stations, painted on small boa
     ctx.strokeStyle = near ? "rgba(195,22,28,.8)" : "rgba(23,22,26,.3)"; ctx.setLineDash([4, 4]); ctx.lineWidth = 1.5; ctx.beginPath(); ctx.ellipse(x, y, 18, 5, 0, 0, 7); ctx.stroke(); ctx.setLineDash([]); }
 }
 // ---------- screens ----------
+function inkWipe() { const w = $("wipe"); if (!w) return; w.classList.remove("on"); void w.offsetWidth; w.classList.add("on"); }
+function gateTitle(han, ko) { const g = $("gTitle"); if (!g) return; g.querySelector("b").textContent = han; g.querySelector("small").textContent = ko; g.classList.remove("on"); void g.offsetWidth; g.classList.add("on"); }
 function showScreen(id) {
   for (const s of ["menu", "settings", "interlude", "pause", "result", "choice", "board"]) $(s).hidden = s !== id;
   const inGame = id === null;

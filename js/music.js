@@ -177,13 +177,13 @@ const Music = (() => {
     setOffset(ms) { offsetMs = ms; },
     jing() { if (ensure()) jing(ac.currentTime + 0.02); },
     bak() { if (ensure()) bak(ac.currentTime + 0.01); },
-    sfx(kind) {
+    sfx(kind, lv = 0) {
       if (!ac || !volume) return;
       const t = ac.currentTime + 0.005;
       switch (kind) {
         case "slash": noise(t, 0.07, 5200, "highpass", 0.2); kkwaeng(t, .25, 1); break;              // swish + muted 꽹과리 tick
         case "strike": kkwaeng(t, .9, 0); deok(t, 1.2); break;                                       // open 꽹과리 + 채편: 일격
-        case "kill": kung(t, 1.1); gayageum(t + .02, 98, .5, .14); break;                           // 북 + low 가야금 string
+        case "kill": kung(t, 1.1); gayageum(t + .02, 98 * [1, 1.125, 1.25, 1.5, 1.68, 2][lv | 0], .5, .14); if (lv >= 3) gayageum(t + .09, 196 * [1, 1, 1, 1.5, 1.68, 2][lv | 0], .35, .1); break;   // the string climbs with 기세                           // 북 + low 가야금 string
         case "clang": kkwaeng(t, .6, 1); kkwaeng(t + .04, .35, 1); break;
         case "dash": daegeum(t, 520, 300, .22); noise(t, 0.14, 2600, "bandpass", 0.12, 0.6); break;  // breathy 대금 swoop
         case "jump": { const s2 = ac.createBufferSource(), f = ac.createBiquadFilter(), g = ac.createGain(); s2.buffer = noiseBuf; f.type = "bandpass"; f.Q.value = 1.2; f.frequency.setValueAtTime(700, t); f.frequency.exponentialRampToValueAtTime(2600, t + .14); env(g, t, .02, .16, .14); s2.connect(f).connect(g).connect(master); s2.start(t, Math.random() * .5); s2.stop(t + .2); break; }   // coat swish, nothing drum-like
