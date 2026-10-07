@@ -394,3 +394,4 @@ body.inhub #hud .hl small em:first-child { color: #c3161c; }
 #bAct { bottom: auto !important; top: calc(58px + env(safe-area-inset-top)); animation-name: actInTop; flex-direction: row; gap: 10px; padding: 6px 18px; }
 #bAct::before { content: "▼"; top: auto; bottom: -13px; }
 @keyframes actInTop { from { opacity: 0; transform: translate(-50%, -8px); } }
+#hJang.goal { color: #17161a !important; opacity: 1; font-size: 12px; background: rgba(236,230,216,.85); padding: 1px 8px; border-left: 2px solid #c3161c; }
