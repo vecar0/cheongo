@@ -1269,7 +1269,6 @@ function enterMadang() {
   songPos = Music.pos(); spawnEnemies(); spawnPet();
   cam.x = P.x; cam.y = P.y;
   setHud(); showScreen(null); state = "play"; inkWipe();
-  if (mode !== "tutorial") { const sg = stageOf(run.m), road = run.node === "rest" || run.node === "event"; setTimeout(() => gateTitle(run.tower ? `${run.floor}層` : road ? (run.node === "rest" ? "息" : "緣") : sg.han, run.tower ? "천고탑" : road ? (run.node === "rest" ? "쉼터" : "기연") : (run.node === "elite" ? "험로 · " : "") + sg.ko), 260); }
   Music.bak();
   try { navigator.wakeLock && navigator.wakeLock.request("screen").catch(() => {}); } catch (e) {}
 }
@@ -1722,19 +1721,23 @@ function gunShot(hip) { // 총: the aimed release is a shot, and the recoil is t
 function hipShot(G, w) { // a tap: fired from the hip — short, one wound, one round, barely a kick
   const d0 = aimDir(), d = Math.abs(d0.x) < .2 && Math.abs(d0.y) < .2 ? { x: P.face, y: 0 } : d0, { x: cx, y: cy } = muzzleAt(w, d);
   if (G.heat) { P.heat = (P.heat || 0) + 20; if (P.heat >= 100) { P.heat = 100; P.overheat = 1.6; } } else P.ammo = (P.ammo ?? gunMag()) - 1;
-  aimRay(d, w === "seungja" ? 200 : 300, 8, 0, cx, cy, false, {}); muzzleFx(w === "cheonja" ? "jochong" : w, cx, cy, d);
-  shake = Math.max(shake, 3); Music.sfx("shoot"); P.fireT = .16; P.lastShotAt = songPos; P.shotDir = d; P.hipT = .2;
+  const rot = t => ({ x: d.x * Math.cos(t) - d.y * Math.sin(t), y: d.x * Math.sin(t) + d.y * Math.cos(t) });
+  if (w === "seungja") { const once = new Set(); for (const t of [-.2, 0, .2]) aimRay(rot(t), 150, 8, 0, cx, cy, false, { pellet: true, once }); }   // a short spray
+  else if (w === "singi") bullets.push({ x: cx, y: cy, vx: d.x * 520, vy: d.y * 520, friendly: true, rocket: true, split: true, seek: 2.2, blast: 26, strike: false, life: 1.2, owner: null });   // one small rocket
+  else if (w === "cheonja") bullets.push({ x: cx, y: cy, vx: d.x * 520, vy: d.y * 520 - 40, g: 900, friendly: true, cannon: true, blast: 40, strike: false, life: 2, owner: null, r: 8 });   // a light ball
+  else aimRay(d, 300, 8, 0, cx, cy, false, {});
+  muzzleFx(w, cx, cy, d);
+  shake = Math.max(shake, 3); Music.sfx(w === "cheonja" ? "snipe" : "shoot"); P.fireT = .16; P.lastShotAt = songPos; P.shotDir = d; P.hipT = .2;
   P.vx -= d.x * 120; if (Math.abs(d.x) > .2) P.face = Math.sign(d.x); return true;
 }
 const MUZ_L = { jochong: 40, seungja: 30, singi: 30, cheonja: 40 };   // from the body's centre to the barrel's mouth, as drawn
 function muzzleAt(w, d) { const L = MUZ_L[w] || 32; return { x: P.x + P.w / 2 + d.x * L, y: P.y + P.h / 2 - 7 + d.y * L * .8 }; }
-const MUZ = { flash: 0, cone: 1, blast: 2, puff: 3, trail: 4, cloud: 5, sparks: 6 };
+const MUZ = { flash: 0, cone: 1, blast: 2, puff: 3, trail: 4, cloud: 5, sparks: 6, bullet: 7 };
 function muzzleFx(w, x, y, d) { // fire and smoke out of the gun's own mouth (no painted barrel: the gun in his hands is the barrel)
   const rot = Math.atan2(d.y, d.x), fl = d.x < 0, r = fl ? rot - Math.PI : rot, big = w === "cheonja", wide = w === "seungja";
-  if (SPR.muz) { const fi = big ? MUZ.blast : wide ? MUZ.cone : MUZ.flash;
-    addFx("muz", fi, x, y, big ? 74 : wide ? 60 : 34, { life: big ? .2 : .13, grow: .25, ax: 0, ay: .5, rot: r, flip: fl });
+  if (SPR.muz) { if (w === "jochong") addFx("muz", MUZ.flash, x, y, 34, { life: .13, grow: .25, ax: 0, ay: .5, rot: r, flip: fl });
     addFx("muz", big ? MUZ.cloud : MUZ.puff, x + d.x * (big ? 26 : 12), y + d.y * 10, big ? 70 : 30, { life: .55, grow: .6, ay: .5, a: .7, rot: Math.random() * .4 - .2, flip: fl });
-    if (w !== "singi") addFx("muz", MUZ.sparks, x + d.x * 10, y, 24, { life: .25, grow: .3, ay: .5, rot: r, flip: fl }); }
+  }
   else ringFx(x, y, big ? 40 : 18, "rgba(195,22,28,.8)", .15);
 }
 function volleyFire() { // 화차: the overheated box empties itself
@@ -3630,7 +3633,7 @@ function render(rdt) {
   drawBolts(); drawKegsRings(); drawCutLines();
   if (SPR.perkfx) for (const c of clones) { ctx.globalAlpha = .45 + .15 * Math.sin(performance.now() / 40); const cf = CF("clone"); if (cf && SPR[cf[0]]) { drawSprite(cf[0], cf[1], c.x, c.y, HERO_H * 1.15 / SPR[cf[0]].f[cf[1]].h, c.face < 0, .5, false, 1); ctx.globalAlpha = 1; continue; } drawSprite("perkfx", PF.clone, c.x, c.y, kOf("hero3", H3.idle, HERO_H * 1.08) * 1.1, c.face < 0, .5, false, 1); ctx.globalAlpha = 1; }
   drawVfx(pal, true, vw);   // effects that belong behind the body (the 납도 ink at the feet)
-  drawPet(pal);
+  drawPet(pal); drawAmmo();
   if (P && (state === "play" || state === "pause" || state === "result" || state === "dead")) drawPlayer(pal);
   drawHubLabels(pal);   // the names sit above every figure
   for (const p of parts) { // round drops of ink, stretched a little along their flight — never square specks
@@ -4688,6 +4691,14 @@ function petAttack(t, D, st) {
     for (const e of line) { hurtEnemy(e, petStrike() && e.type !== "b", "pet"); addFx("pet", D.base + 8, e.x + e.w / 2, e.y + e.h / 2, 46, { life: .3 }); } Music.sfx("snipe"); }
   else { const L = Math.hypot(ex - pet.x, ey - pet.y) || 1; bullets.push({ x: pet.x, y: pet.y, vx: (ex - pet.x) / L * 300, vy: (ey - pet.y) / L * 300, friendly: true, petOrb: true, seek: 7, life: 2, owner: null, r: 9, pierce: st >= 2, petHit: true }); Music.sfx("hook"); }
 }
+function drawAmmo() { // the rounds left, as little painted balls over the head
+  if (!P || !isGun() || state !== "play" || hubOn || !SPR.muz) return; const G = WEAPONS[wpn()], f = SPR.muz.f[MUZ.bullet]; if (!f) return;
+  const max = G.heat ? 3 : gunMag(), n = G.heat ? ((P.overheat || 0) > 0 ? 0 : Math.max(0, Math.min(3, Math.ceil((100 - (P.heat || 0)) / 38)))) : Math.max(0, P.ammo ?? max);
+  const sw = f.w * .3, h = 7, w = sw * h / (f.h * .5), gap = w + 3, x0 = P.x + P.w / 2 - (max * gap - 3) / 2, y = P.y + P.h - HERO_H - 9;
+  for (let i = 0; i < max; i++) { ctx.globalAlpha = i < n ? .95 : .22; ctx.drawImage(SPR.muz.img, f.x + f.w - sw, f.y + f.h * .25, sw, f.h * .5, x0 + i * gap, y, w, h); }
+  if (G.heat && (P.overheat || 0) > 0) { ctx.globalAlpha = .8; ctx.fillStyle = SEAL; ctx.fillRect(x0, y + h + 2, (max * gap - 2) * Math.min(1, P.overheat / 1.6), 2); }
+  ctx.globalAlpha = 1;
+}
 function drawPet(pal) {
   if (!pet || !SPR.pet) return; const D = PETS[META.pet.kind], ps = petStage(), st = ps >= 3 ? 2 : 1, ev = ps >= 4 && PET_EVO[META.pet.kind] ? PET_EVO[META.pet.kind][META.pet.evo] : null;
   if (pet.rest) ctx.globalAlpha = .35;
@@ -4861,7 +4872,6 @@ function drawHubLabels(pal) { // the names of the stations, painted on small boa
 }
 // ---------- screens ----------
 function inkWipe() { const w = $("wipe"); if (!w) return; w.classList.remove("on"); void w.offsetWidth; w.classList.add("on"); }
-function gateTitle(han, ko) { const g = $("gTitle"); if (!g) return; g.querySelector("b").textContent = han; g.querySelector("small").textContent = ko; g.classList.remove("on"); void g.offsetWidth; g.classList.add("on"); }
 function showScreen(id) {
   for (const s of ["menu", "settings", "interlude", "pause", "result", "choice", "board"]) $(s).hidden = s !== id;
   const inGame = id === null;
