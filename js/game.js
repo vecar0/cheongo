@@ -1466,7 +1466,7 @@ function endRun(won) {
   $("rStats").innerHTML = "";
   const gain = runRewards(reached);
   if (mode !== "tutorial") { gain.sum = Math.max(1, Math.max(0, run.breath) + Math.floor(reached / 2)); META.sum = (META.sum || 0) + gain.sum; saveMeta(); }   // the breath left over goes home to the 거점
-  { const sn = store.get("stage", null); retryGain = !won && sn && sn.seed === run.seed && sn.m === run.m && (sn.cycle || 0) === (run.cycle || 0) && (sn.floor || 0) === (run.floor || 0) ? gain : null; $("bRetryGate").hidden = !retryGain; }   // 절명: the gate can be tried again — the rewards just given are taken back
+  retryGain = null;   /* 다시 시작 is gone: a death is a death */
   for (const [k, v] of [[run.tower ? "오른 층" : "넘은 관문", reached + (!run.tower && (run.cycle || 0) ? ` · ${run.cycle}번 천고를 벰` : "")], ["시간", fmt(run.time)], ["간파", (run.kanpa || 0) + "회"], ["벤 적", run.kills], ["얻은 혼", "+" + gain.hon + (gain.shard ? ` · 천고 조각 +${gain.shard}` : "")], ["모인 숨", "+" + (gain.sum || 0)]]) {
     const a = document.createElement("span"), b = document.createElement("b"); a.textContent = k; b.textContent = v; $("rStats").append(a, b);
   }
@@ -1514,7 +1514,7 @@ function talismans(d) { // 부적 세 장: a fan of paper charms thrown along th
   for (const t of [-.22, 0, .22]) { const vx = d.x * Math.cos(t) - d.y * Math.sin(t), vy = d.x * Math.sin(t) + d.y * Math.cos(t);
     bullets.push({ x: cx + vx * 16, y: cy + vy * 16, vx: vx * 720, vy: vy * 720, ang: Math.atan2(vy, vx), friendly: true, talisman: true, wind: true, strike: true, r: 14, life: .5, owner: null }); }
 }
-const GUN_AX = { gun1: [.5, .3, .25, .45, .28, .5, .5, .38, .3], gun2: [.42, .24, .45, .45, .25, .5, .45, .25, .5], grun: [.5, .5, .49, .44, .47, .46, .41, .41, .4], grun2: [.570, .567, .546, .541, .580, .589, .558, .551, .634, .659, .642, .637, .606, .653, .648, .634, .640, .624, .611, .612, .617, .624, .613, .612, .597, .590, .587, .607, .565, .582, .601, .600] };   // grun: the three heavy guns carried at a run
+const GUN_AX = { gun1: [.5, .3, .25, .45, .28, .5, .5, .38, .3], gun2: [.42, .24, .45, .45, .25, .5, .45, .25, .5], grun: [.5, .5, .49, .44, .47, .46, .41, .41, .4], grun2: [.544, .551, .522, .510, .553, .573, .536, .522, .606, .629, .612, .609, .576, .623, .618, .605, .620, .603, .590, .591, .595, .601, .591, .591, .575, .567, .565, .583, .542, .559, .578, .577] };   // grun: the three heavy guns carried at a run
 const gunMag = () => (WEAPONS[wpn()].mag || 1) + (has("jc_c1") && wpn() === "jochong" ? 0 : 0);
 function gunReload(n, why) { // a round goes back in (a bayonet that bit, a read blow, the slow match)
   const G = WEAPONS[wpn()]; if (!G || !G.gun || !P) return;
@@ -3233,7 +3233,7 @@ function render(rdt) {
 
   ctx.setTransform(1, 0, 0, 1, 0, 0);
   ctx.fillStyle = pal.bg; ctx.fillRect(0, 0, cv.width, cv.height);
-  drawBackdrop(pal);
+  if (!(LV && LV.hub)) drawBackdrop(pal);
   ctx.setTransform(1, 0, 0, 1, 0, 0);
   const ssn0 = LV && state !== "menu" && !pal.night ? season() : 0;   // the season's tint is baked into the paper, so the screen is washed once, not twice
   const paperTex = ssn0 ? tintedPaper(ssn0) : pattern("tex-paper", DPR * 0.9);
@@ -3294,7 +3294,7 @@ function render(rdt) {
     } else if (laserWarn(l) && Math.floor(performance.now() / 60) % 2) { ctx.fillStyle = "rgba(195,22,28,.55)"; ctx.fillRect(l.x - .6, l.y0, 1.2, l.y1 - l.y0); }
   }
   // tiles: the ground is static, so it is painted once into chunks and stamped; a chunk not yet baked falls back to painting live
-  { const k2 = Math.min(SCALE * DPR, MOBILE ? 1.25 : 2), key = (pal === NIGHT ? "n" : "d") + ssn + "|" + (LV.gridVer || 0) + "|" + k2.toFixed(3) + "|" + ["pillars", "objects", "props2"].map(n => SPR[n] ? 1 : 0).join("") + ["tex-stone", "tex-giwa", "tex-slab"].map(n => IMG[n] ? 1 : 0).join(""), CW = 512, top = -96, hh = LV.h * T + 192;
+  if (LV.hub) drawHubScene(pal); else { const k2 = Math.min(SCALE * DPR, MOBILE ? 1.25 : 2), key = (pal === NIGHT ? "n" : "d") + ssn + "|" + (LV.gridVer || 0) + "|" + k2.toFixed(3) + "|" + ["pillars", "objects", "props2"].map(n => SPR[n] ? 1 : 0).join("") + ["tex-stone", "tex-giwa", "tex-slab"].map(n => IMG[n] ? 1 : 0).join(""), CW = 512, top = -96, hh = LV.h * T + 192;
     const gc = LV._gc || (LV._gc = new Map()), c0 = Math.floor((cam.x - vw / 2) / CW), c1 = Math.floor((cam.x + vw / 2) / CW);
     let ready = true; for (let c = c0; c <= c1; c++) if (!gc.has(key + "#" + c)) ready = false;
     if (groundOff) ready = false;
@@ -4449,7 +4449,7 @@ const CHARS = [
   { id: "munyeo", name: "무녀", han: "巫女", desc: "일섬이 스친 탄을 되받아친다. 공중 점프 +1, 베는 범위는 좁다" },
 ];
 const chr = id => !!(run && (id === "posu" ? isGun() : run.char === id));   // 포수 is no longer a person: "posu" now means "holding a gun"
-const MV_AX = { mvrun: [.593, .664, .658, .663, .572, .66, .658, .662],   // the run sheet, aligned on the hat so the head rides level
+const MV_AX = { mvrun: [.627, .694, .688, .694, .604, .692, .689, .695],   // the run sheet, aligned on the hat so the head rides level
   mv0: [.52, .6, .64, .62, .61, .61, .55, .61, .54, .48, .44, .59, .58, .61, .43, .45],   // body axis of each frame, so the feet stay put
   mv1: [.53, .62, .62, .62, .57, .6, .57, .59, .63, .57, .44, .53, .54, .64, .46, .44], mv2: [.46, .5, .52, .49, .48, .5, .49, .46, .52, .41, .41, .44, .39, .45, .42, .42] };
 const VIS = { cut: 0, splat: 1, ring: 2, drum: 3, bigDrum: 4, burst: 5, stroke: 6, seal: 7, drops: 8 };   // blood, stamps and the beat bar, painted to read at a glance
@@ -4519,22 +4519,16 @@ function petScreen() { // 둥지: choose an egg, feed it 숨
 // ---------- 거점: the mountain hermitage you walk around in between runs ----------
 // every station is a place you walk up to; the 산문 at the left edge is the road out to 천고
 let hubOn = false, hubNear = null;
-const HUB_W = 40;   // two storeys: the yard below, a long balcony of halls above, steps between
-const HUB_UP = 7;   // the balcony's floor row
+// the 거점 is one painted courtyard: a yard, a stone terrace (축대) with the main hall on it, and five places to go
+const HUB_W = 40, HUB_UP = 10, HUB_K = .94, HUB_Y = 12 * 32 - 490 * .94;   // the painting's ground line (y 490) sits on row 12; its terrace top lands on row 10
+const HUBIMG = new Image(); HUBIMG.src = "assets/hubscene.webp?v=10029600";
 const HUB_ST = [
-  { id: "gate", tx: 3, ty: 12, sheet: "hub", i: 0, h: 128, name: "산문", han: "山門", act: "길 떠나기" },
-  { id: "dummy", tx: 7, ty: 12, sheet: "hub", i: 2, h: 70, name: "수련 허수아비", han: "修鍊", act: "수련터" },
-  { id: "nest", tx: 10, ty: 12, sheet: "npc", i: 8, h: 0, name: "둥지", han: "巢", act: "영물 키우기" },
-  { id: "well", tx: 18, ty: 12, sheet: "hub", i: 1, h: 66, name: "약수터", han: "藥水", act: "숨 다스리기" },
-  { id: "drum", tx: 23, ty: 12, sheet: "hub", i: 4, h: 62, name: "큰북", han: "大鼓", act: "수행·기억" },
-  { id: "stele", tx: 28, ty: 12, sheet: "hub", i: 3, h: 86, name: "비석", han: "碑", act: "도감" },
-  { id: "tower", tx: 37, ty: 12, sheet: "hub", i: 7, h: 150, name: "천고탑", han: "天鼓塔", act: "탑 오르기" },
-  { id: "seogo", tx: 18, ty: HUB_UP, sheet: "misc", i: 3, h: 100, name: "서고", han: "書庫", act: "서약·심법" },
-  { id: "daejang", tx: 22, ty: HUB_UP, sheet: "misc", i: 4, h: 104, name: "대장간", han: "鍛冶間", act: "무기" },
-  { id: "bigeup", tx: 26, ty: HUB_UP, sheet: "misc", i: 5, h: 120, name: "비급각", han: "秘笈閣", act: "비급첩" },
-  { id: "sadang", tx: 30, ty: HUB_UP, sheet: "misc", i: 6, h: 96, name: "사당", han: "祠堂", act: "기도" },
-  { id: "uibang", tx: 34, ty: HUB_UP, sheet: "misc", i: 7, h: 88, name: "의방", han: "衣房", act: "옷·띠" }];
-const HUB_SLOTS = [{ tx: 5, ty: 12 }, { tx: 13, ty: 12 }, { tx: 21, ty: 12 }, { tx: 26, ty: 12 }, { tx: 32, ty: 12 }, { tx: 20, ty: HUB_UP }, { tx: 32, ty: HUB_UP }];   // empty ground waiting to be dressed
+  { id: "gate", tx: 4, ty: 12, h: 150, name: "산문", han: "山門", act: "길 떠나기 · 천고탑 · 수련터" },
+  { id: "well", tx: 9, ty: 12, h: 80, name: "약수터", han: "藥水", act: "숨 다스리기 · 영물" },
+  { id: "hall", tx: 18, ty: HUB_UP, h: 150, name: "본당", han: "本堂", act: "서약·심법 · 기도 · 비급첩" },
+  { id: "forge", tx: 28, ty: 12, h: 110, name: "대장간", han: "鍛冶間", act: "무기 · 옷·띠" },
+  { id: "drum", tx: 36, ty: 12, h: 110, name: "큰북", han: "大鼓", act: "수행·기억 · 도감" }];
+const HUB_SLOTS = [{ tx: 6, ty: 12 }, { tx: 25, ty: 12 }, { tx: 32, ty: 12 }];   // the front of the yard, where a few things may stand
 const DECO = [
   { id: "pine", name: "소나무", sheet: "props", i: PROP.pine, h: 96, hon: 30 }, { id: "lantern", name: "석등", sheet: "props", i: PROP.stoneLantern, h: 44, hon: 30 },
   { id: "jars", name: "항아리", sheet: "props", i: PROP.jars, h: 34, hon: 15 }, { id: "jangdok", name: "장독대", sheet: "hub", i: 8, h: 44, hon: 40 },
@@ -4554,22 +4548,23 @@ const WELL = [
 const well = id => !!(META.well && META.well.includes(id));
 function buildHubMap() {
   const rows = []; for (let y = 0; y < 16; y++) rows.push(Array.from({ length: HUB_W }, (_, x) => y >= 12 || x === 0 || x === HUB_W - 1 ? "#" : " "));
-  for (let x = 16; x <= 35; x++) rows[HUB_UP][x] = "=";   // the balcony: jump up through it, down+jump to drop
-  for (const x of [12, 13]) rows[10][x] = "#"; rows[11][12] = rows[11][13] = "#";   // stone steps up to it
-  for (const x of [14, 15]) rows[HUB_UP + 1][x] = "=";
-  rows[11][5] = "P"; return rows.map(r => r.join(""));
+  rows[11][13] = "#"; for (let x = 14; x <= 24; x++) rows[10][x] = rows[11][x] = "#";   // the painted steps and the terrace they climb to
+  rows[11][6] = "P"; return rows.map(r => r.join(""));
+}
+function drawHubScene(pal) { // the painting itself is the place; the yard below its ground line is plain earth
+  const top = HUB_Y, w = 1344 * HUB_K, h = 576 * HUB_K;
+  ctx.fillStyle = "#d9d3c4"; ctx.fillRect(-400, top + h - 2, LV.w * T + 800, 1200);
+  if (HUBIMG.complete && HUBIMG.naturalWidth) ctx.drawImage(HUBIMG, (LV.w * T - w) / 2, top, w, h);
 }
 function enterHub() {
   hubOn = true; mode = "tutorial"; Music.menuBgm(true);
   run = { hub: true, m: 0, breath: Infinity, time: 0, deaths: 0, kills: 0, strikes: 0, slashes: 0, cp: -1, dead: [], perks: [], weapon: META.lastWeapon && WEAPONS[META.lastWeapon] ? META.lastWeapon : "hwando" };
   loadMap(buildHubMap(), PAL[0], []); LV.hub = true; LV.dress = []; needSheets(playSheets());
-  for (const x of [16, 25, 35]) LV.dress.push({ sheet: "pillars", i: 0, x: x * T + 16, y: 12 * T + 2, h: (12 - HUB_UP) * T + 4, flip: false, ay: 1, w: 0 });   // posts under the balcony
-  for (const st of HUB_ST) if (st.h) LV.dress.push({ sheet: st.sheet, i: st.i, x: st.tx * T + 16, y: st.ty * T + 2, h: st.h, flip: false, ay: 1 });
-  if (petStage() === 0) LV.dress.push({ sheet: "pet", i: PETS[META.pet.kind].base, x: 10 * T + 16, y: 12 * T + 2, h: 34, flip: false, ay: 1 });   // the egg in its nest
+  if (petStage() === 0) LV.dress.push({ sheet: "pet", i: PETS[META.pet.kind].base, x: 10.6 * T, y: 12 * T - 6, h: 30, flip: false, ay: 1 });   // the egg in the straw nest by the well
   LV.stations = HUB_ST;
   const dk = hubDeco(); for (let k = 0; k < HUB_SLOTS.length; k++) { const id = dk.slots[k], d = DECO.find(o => o.id === id); if (d) LV.dress.push({ sheet: d.sheet, i: d.i, x: HUB_SLOTS[k].tx * T + 16, y: HUB_SLOTS[k].ty * T + 2, h: d.h, flip: k % 2 === 1, ay: 1 }); }
   deadIds = new Set(); cpSave = null; enemies = [];
-  if (!P || !P.hubKeep) P = newPlayer(5 * T + 7, LV.start.y); P.hubKeep = true; P.face = 1;
+  if (!P || !P.hubKeep) P = newPlayer(6 * T + 7, LV.start.y); P.hubKeep = true; P.face = 1;
   bullets = []; parts = []; ghosts = []; seals = []; vfx = []; haz = []; beams = []; bolts = []; kegs = []; rings = []; cutLines = []; trails = []; pops = []; pfires = []; clones = []; chungoFx = null;
   songPos = Music.pos(); cam.x = P.x; cam.y = P.y; spawnPet();
   document.body.classList.add("inhub"); setHud(); hubHud(); showScreen(null); state = "play"; hubNear = null; hubPrompt(); hubTitle();
@@ -4600,6 +4595,12 @@ function hubAct() {
   if (!LV.hub) return stageAct(hubNear.st);
   if (hubNear.slot != null) return decoScreen(hubNear.slot);
   const id = hubNear.st.id;
+  const menu = (title, sub, items) => board(title, sub, items.map(([n, d, fn]) => bdRow(n, d, null, "가기", fn)), [["돌아가기", resumeHub]]);
+  if (id === "gate") return menu("산문 山門", "어디로 갈 것인가", [["길 떠나기", "천고를 향한 한 바퀴", gateScreen], ["천고탑", "층마다 우두머리 · 무한", () => towerScreen()], ["수련터", "조작을 다시 익힌다", () => { leaveHub(); Music.unlock(); loadGate(playSheets(), BASE_IMGS, startTutorial, "수련터를 그리는 중"); }]]);
+  if (id === "well") return menu("약수터 藥水", "숨을 다스리고 영물을 키운다", [["약수", "혼으로 숨을 다스린다", wellScreen], ["둥지", "숨으로 영물을 키운다", petScreen]]);
+  if (id === "hall") return menu("본당 本堂", "산중 암자의 중심", [["서고", "서약과 심법", () => hermitScreen("seogo")], ["사당", "판의 시작을 넉넉하게", () => hermitScreen("sadang")], ["비급각", "봉인한 비급첩", sealShelf]]);
+  if (id === "forge") return menu("대장간 鍛冶間", "벼리고 물들인다", [["무기", "새 무기를 벼린다", () => hermitScreen("daejang")], ["의방", "띠의 빛깔", () => hermitScreen("uibang")]]);
+  if (id === "drum") return menu("큰북 大鼓", "북 곁의 기록", [["수행 · 기억", "오늘의 수행과 되찾은 기억", questScreen], ["도감", "만난 우두머리와 비급", () => codexScreen()]]);
   if (id === "gate") return gateScreen();
   if (id === "dummy") { leaveHub(); Music.unlock(); loadGate(playSheets(), BASE_IMGS, startTutorial, "수련터를 그리는 중"); return; }
   if (id === "well") return wellScreen();
@@ -4647,7 +4648,7 @@ function sealShelf() { // 비급각: the sealed books and the shelf that holds t
 }
 function drawHubLabels(pal) { // the names of the stations, painted on small boards above them
   if (!LV || !LV.stations) return; ctx.textAlign = "center"; ctx.textBaseline = "middle";
-  for (const st of LV.stations || []) { const x = st.tx * T + 16, y = (st.ty || 12) * T - Math.max(st.h, 44) - 10, near = hubNear && hubNear.st === st;
+  for (const st of LV.stations || []) { const x = st.tx * T + 16, y = (st.ty || 12) * T - Math.max(st.h, 44) - 10, near = hubNear && hubNear.st === st; if (LV.hub) continue;   // in the 거점 the name is written in the prompt at the top, not over the painting
     ctx.font = `400 ${near ? 15 : 12}px "Song Myung", serif`; const w = ctx.measureText(st.name).width + 14;
     ctx.fillStyle = near ? "rgba(195,22,28,.92)" : "rgba(23,22,26,.72)"; ctx.fillRect(x - w / 2, y - 10, w, 20); ctx.fillStyle = "#f3ede0"; ctx.fillText(st.name, x, y + 1); }
   const dk = hubDeco(); if (LV.hub) for (let k = 0; k < HUB_SLOTS.length; k++) if (!dk.slots[k]) { const x = HUB_SLOTS[k].tx * T + 16, y = HUB_SLOTS[k].ty * T - 4, near = hubNear && hubNear.slot === k;
@@ -4687,7 +4688,6 @@ function pauseGame() {
   for (const [k, v] of rows) { const a = document.createElement("span"), b = document.createElement("b"); a.textContent = k; b.textContent = v; st.append(a, b); }
   pauseBuild();
   $("bGiveUp").hidden = mode === "tutorial"; $("bTree").hidden = mode === "tutorial" || !run || !TREES[treeKey()]; $("bTree").textContent = `수련${run && run.sp ? ` · ${run.sp}점` : ""}`;
-  const canRe = mode !== "tutorial" && !!run; $("bRestart").hidden = !canRe; $("pRestartNote").hidden = !canRe; $("bRestart").style.setProperty("--p", "0%");
   showScreen("pause");
 }
 function pauseBuild() { // the build so far: hand and weapon, 심법, 서약, 공명, and every 비급 read in this hand's words
@@ -4720,21 +4720,6 @@ $("bResume").addEventListener("click", resumeGame);
 $("bTree").addEventListener("click", () => { if (state === "pause" && run && mode !== "tutorial") showChoice("pause"); });
 $("bGiveUp").addEventListener("click", () => { state = "play"; endRun(false); $("rSub").textContent = stageName(run.m) + "에서 판을 내려놓았다."; });
 $("bToMenu").addEventListener("click", () => { saveRun(); toMenu(); });
-$("bRetryGate").addEventListener("click", () => {   // 절명 → back to the door of this gate, as you first walked in; what the ended run paid out is returned
-  const sn = store.get("stage", null); if (!sn || !retryGain) return;
-  META.hon = Math.max(0, META.hon - retryGain.hon); META.shard = Math.max(0, META.shard - retryGain.shard); META.sum = Math.max(0, (META.sum || 0) - (retryGain.sum || 0)); saveMeta(); retryGain = null; sealable = null;
-  store.set("run", sn); state = "menu"; showScreen(null); toast("관문을 처음부터 다시"); continueRun(); });
-{ // 다시 시작: held for two seconds, and the run is dropped without its rewards — a restart has to be meant
-  const b = $("bRestart"); let t0 = null, raf = 0;
-  const stop = () => { t0 = null; cancelAnimationFrame(raf); b.style.setProperty("--p", "0%"); };
-  const tick = () => { if (t0 == null) return; const q = Math.min(1, (performance.now() - t0) / 800); b.style.setProperty("--p", (q * 100).toFixed(1) + "%");
-    if (q >= 1) { stop(); if (state !== "pause" || !run) return; const snap = store.get("stage", null);
-      if (!snap || snap.seed !== run.seed || snap.m !== run.m || (snap.cycle || 0) !== (run.cycle || 0) || (snap.floor || 0) !== (run.floor || 0)) { toast("이 관문은 처음부터 다시 할 수 없다"); return; }
-      Music.stop(); state = "menu"; showScreen(null); store.set("run", snap); toast("관문을 처음부터 다시"); continueRun(); return; } raf = requestAnimationFrame(tick); };
-  b.addEventListener("pointerdown", e => { e.preventDefault(); t0 = performance.now(); tick(); });
-  for (const ev of ["pointerup", "pointerleave", "pointercancel"]) b.addEventListener(ev, stop);
-  b.addEventListener("click", e => { if (t0 == null) toast("길게 누르면 관문을 처음부터 다시 한다"); });
-}
 $("bPauseSet").addEventListener("click", () => openSettings("pause"));
 $("bSettings").addEventListener("click", () => openSettings("menu"));
 const liteLabel = () => { $("bLite").textContent = LITE() ? "켜짐" : "꺼짐"; $("bFps").textContent = showFps ? "켜짐" : "꺼짐"; };
