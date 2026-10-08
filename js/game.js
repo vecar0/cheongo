@@ -2,7 +2,7 @@
 (() => {
 "use strict";
 const T = 32;
-const ASSET_V = "126";   // bump when any picture changes: the service worker then fetches the new json and webp together
+const ASSET_V = "130";   // bump when any picture changes: the service worker then fetches the new json and webp together
 const $ = id => document.getElementById(id);
 const cv = $("cv"); let ctx = cv.getContext("2d", { alpha: false });   // let: the ground is baked by pointing ctx at an offscreen canvas for a moment   // opaque canvas: cheaper to composite on phones
 let W = 0, H = 0, DPR = 1, SCALE = 1;
@@ -1100,11 +1100,15 @@ function gateGrade() { const g = run.gate, G = GOALS.find(o => o.id === g.goal);
   if (G.ok(g)) sc += 2; if ((run.gHits || 0) === g.hit0) sc++; if (run.time - g.t0 <= 60) sc++; if ((run.gMaxTier || 0) >= 3) sc++;
   return { ch: sc >= 4 ? "甲" : sc >= 2 ? "乙" : "丙", goal: G.ok(g) }; }
 const GRADE_KO = { "甲": "상", "乙": "중", "丙": "하" }, gradeKo = g => GRADE_KO[g] || g;   // shown in Korean: 상 · 중 · 하
+function logGate(outcome) { // 플레이 기록: each gate's time, breaths lost, grade and frame rate — kept on the device, shown at the 큰북
+  if (!run || mode === "tutorial" || run.hub) return; const g = run.gate || {}, pf = perfSnap(); if (pf) META.perf = pf;
+  run.log = run.log || []; run.log.push({ m: run.m, node: run.node || (run.m >= LAST_M ? "boss" : "gate"), t: Math.round(run.time - (g.t0 ?? run.gateT0 ?? run.time)), hits: (run.gHits || 0) - (g.hit0 || 0), out: outcome, fps: pf && pf.fps }); }
 function madangClear() {
   Music.sfx("seal");
   if (mode === "tutorial") { META.firsts.tutDone = 1; saveMeta(); toast("수련을 마쳤다 · 산문으로 걸어가 길을 떠나라"); setTimeout(toMenu, 900); state = "result"; return; }
-  if (run.m >= LAST_M) { endRun(true); return; }
+  if (run.m >= LAST_M) { logGate("clear"); endRun(true); return; }
   if (run.node === "rest" || run.node === "event") { run.m++; run.node = null; run.talked = false; run.cp = -1; run.dead = []; state = "result"; saveRun(); setTimeout(() => { Music.stop(); nextStep(); }, 500); return; }   // walked out of a road stage: on to the next fork
+  if (mode !== "tutorial" && !(run.node === "rest" || run.node === "event")) logGate("clear");
   if (run.gate && !run.tower) { const gr = gateGrade(); run.lastGrade = gr.ch; run.grades = (run.grades || "") + gr.ch;
     seals.push({ x: P.x + P.w / 2, y: P.y - 10, t: 0, rot: -.12, ch: gradeKo(gr.ch), big: true }); toast(`관문 등급 ${gradeKo(gr.ch)}${gr.goal ? " · 과제를 이뤘다" : ""}${gr.ch === "甲" ? " · 수련점 +1" : gr.ch === "乙" ? " · 혼 +10" : ""}`);
     if (gr.ch === "乙") run.honBonus = (run.honBonus || 0) + 10; if (gr.ch === "甲") petJeong(3); run.gate = null; }
@@ -1345,6 +1349,7 @@ function nextGoal() { // the cheapest thing still locked in the 거점, and how 
 }
 let lastKit = null;   // 같은 채비로 다시: the hand, weapon, 심법 and 서약 of the run just ended
 function endRun(won) {
+  if (!won && run && mode !== "tutorial") logGate("dead");
   if (run && !run.tower && mode !== "tutorial") lastKit = { char: run.char, weapon: run.weapon, simbeop: run.simbeop, oath: run.oath, perks: (run.perks || []).filter(id => SIMBEOP.some(m => startOf(m, run.char) === id)).slice(0, 1) };
   state = "result"; Music.stop();
   if (run.daily && !run.tower) { const d = META.daily && META.daily.key === run.daily ? META.daily : { key: run.daily, reached: -1, time: 0 }, rc = (run.cycle || 0) * (LAST_M + 1) + run.m + (won ? 1 : 0);
@@ -1358,6 +1363,8 @@ function endRun(won) {
   $("rSub").textContent = run.tower ? (won ? "천고가 다시 울렸다." : `천고탑 ${run.floor}층에서 숨이 다했다.`) : won ? "천고는 아직 위에서 울린다." : stageName(run.m) + (run.lastCause ? `에서 ${run.lastCause}에 마지막 숨을 잃었다.` : "에서 숨이 다했다.");
   $("rStats").innerHTML = "";
   const gain = runRewards(reached);
+  if (mode !== "tutorial") { META.log = (Array.isArray(META.log) ? META.log : []).slice(-29); META.log.push({ d: todayKey(), w: run.weapon, diff: settings.diff, r: reached, won: !!won, hon: gain.hon, cause: won ? null : run.lastCause || null, t: Math.round(run.time), g: (run.log || []).slice(-8) });   // the last thirty runs, for the 기록 board
+    const last = META.log.slice(-3); if (settings.diff === 1 && last.length === 3 && last.every(l => !l.won && l.r <= 1) && !(META.tips || {}).suggestEasy) { (META.tips = META.tips || {}).suggestEasy = 1; setTimeout(() => toast("초반이 벅차면 설정에서 난이도 \"수월\"을 고를 수 있다"), 1800); } }
   if (mode !== "tutorial" && run.petJ && petMeta()) { const b4 = petStage(); META.pet.jeong = (META.pet.jeong || 0) + run.petJ; gain.jeong = run.petJ; run.petJ = 0; if (petStage() > b4) gain.petUp = PET_ST[petStage()]; }
   if (mode !== "tutorial") { gain.sum = Math.max(1, Math.max(0, run.breath) + Math.floor(reached / 2)); META.sum = (META.sum || 0) + gain.sum; saveMeta(); }   // the breath left over goes home to the 거점
   retryGain = null;   /* 다시 시작 is gone: a death is a death */
@@ -2913,6 +2920,8 @@ function stepBullets(dt) {
 let last = performance.now(), cvInverted = false;
 const GPU_SOFT = (() => { try { const g = document.createElement("canvas").getContext("webgl"), d = g && g.getExtension("WEBGL_debug_renderer_info"); return !!(d && /swiftshader|llvmpipe|software/i.test(g.getParameter(d.UNMASKED_RENDERER_WEBGL))); } catch (e) { return false; } })();   // the browser drawing without the GPU
 if (GPU_SOFT && MOBILE) { dprCap = 1; setTimeout(resize, 0); }   // no GPU on this phone's browser: draw at native 1x from the start
+const gatePerf = { t: 0, n: 0, slow: 0 };
+function perfSnap() { if (gatePerf.n < 60) return null; const fps = Math.round(gatePerf.n / gatePerf.t), slow = Math.round(gatePerf.slow / gatePerf.n * 100); gatePerf.t = gatePerf.n = gatePerf.slow = 0; return { fps, slow, dpr: DPR, lite: LITE() }; }
 let showFps = localStorage.getItem("chungo.fps") === "1", fpsNow = 0, fpsAcc = 0, fpsCnt = 0;
 let vsyncMs = 16.7, lastTick = 0, workMs = 0;
 let loopErrN = 0;
@@ -2925,6 +2934,7 @@ function frameBody(now) {
   const t0 = performance.now();
   const raw = (now - last) / 1000, rdt = Math.min(0.05, raw); last = now;
   fpsAcc += raw; fpsCnt++; if (fpsAcc >= 1) { fpsNow = Math.round(fpsCnt / fpsAcc); fpsAcc = fpsCnt = 0; hudCache = ""; }
+  if (state === "play" && raw < .5 && !hubOn) { gatePerf.t += raw; gatePerf.n++; if (raw > 1 / 40) gatePerf.slow++; }   // 진단: how this gate ran on this device
   if (state === "play" && raw < .5) { perfT += raw; perfN++; if (perfN >= 60) { const avg = perfT / perfN; perfT = perfN = 0;   // three seconds of slow frames: draw at a lower resolution
     if (avg > 1 / 45 && dprCap > 1) { dprCap = Math.max(1, +(dprCap - .25).toFixed(2)); resize(); }
     else if (avg > 1 / 40 && !autoLite) autoLite = true; } }   // still slow at 1x: drop the full-screen paper wash, weather and vignette
@@ -4543,7 +4553,7 @@ function hubAct() {
   if (id === "well") return menu("약수터 藥水", "숨을 다스리고 영물을 키운다", [["약수", "혼으로 숨을 다스린다", wellScreen], ["둥지", "숨으로 영물을 키운다", petScreen]]);
   if (id === "hall") return menu("본당 本堂", "산중 암자의 중심", [["서고", "서약과 심법", () => hermitScreen("seogo")], ["수련 깨치기", "무기 트리의 3단·4단·합류를 연다", treeOpenScreen], ["사당", "판의 시작을 넉넉하게", () => hermitScreen("sadang")], ["비급각", "봉인한 비급첩", sealShelf]]);
   if (id === "forge") return menu("대장간 鍛冶間", "벼리고 물들인다", [["무기", "새 무기를 벼린다", () => hermitScreen("daejang")], ["의방", "띠의 빛깔", () => hermitScreen("uibang")]]);
-  if (id === "drum") return menu("큰북 大鼓", "북 곁의 기록", [["수행 · 기억", "오늘의 수행과 되찾은 기억", questScreen], ["도감", "만난 우두머리와 비급", () => codexScreen()]]);
+  if (id === "drum") return menu("큰북 大鼓", "북 곁의 기록", [["수행 · 기억", "오늘의 수행과 되찾은 기억", questScreen], ["도감", "만난 우두머리와 비급", () => codexScreen()], ["플레이 기록", "최근 판·관문 시간·자주 쓰러진 곳·기기 성능", logScreen]]);
   if (id === "gate") return gateScreen();
   if (id === "dummy") { leaveHub(); Music.unlock(); loadGate(playSheets(), BASE_IMGS, startTutorial, "수련터를 그리는 중"); return; }
   if (id === "well") return wellScreen();
@@ -4590,6 +4600,20 @@ function sealShelf() { // 비급각: the sealed books and the shelf that holds t
   if (!META.books.length) rows.push(bdRow("봉인된 비급첩이 없다", "천고를 한 번 이상 벤 판이 끝나면 그 빌드를 비급첩에 봉인해 천고탑에 들고 갈 수 있다"));
   for (const bk of META.books) rows.push(bdRow(bk.name, bookLine(bk)));
   board("비급각 秘笈閣", `비급첩 ${META.books.length} / ${shelfCap()}`, rows, [["돌아가기", resumeHub]]);
+}
+function logScreen() { // 플레이 기록: what the last runs looked like, so the tuning can follow real play
+  const L = Array.isArray(META.log) ? META.log.filter(l => l && typeof l === "object") : [], rows = [];
+  if (!L.length) rows.push(bdRow("아직 기록이 없다", "판을 하나 마치면 여기에 쌓인다"));
+  else { const gates = L.flatMap(l => Array.isArray(l.g) ? l.g : []), cl = gates.filter(g => g.out === "clear" && g.node !== "boss"), avg = a => a.length ? Math.round(a.reduce((x, y) => x + y, 0) / a.length) : 0;
+    const causes = {}; for (const l of L) if (l.cause) causes[l.cause] = (causes[l.cause] || 0) + 1; const top = Object.entries(causes).sort((a, b) => b[1] - a[1]).slice(0, 3);
+    const deaths = {}; for (const g of gates) if (g.out === "dead") deaths[g.m] = (deaths[g.m] || 0) + 1; const hard = Object.entries(deaths).sort((a, b) => b[1] - a[1])[0];
+    rows.push(bdRow(`최근 ${L.length}판`, `평균 ${avg(L.map(l => l.r))}관문 · 판당 혼 ${avg(L.map(l => l.hon || 0))} · 천고를 벤 판 ${L.filter(l => l.won).length}`));
+    rows.push(bdRow("관문 하나에", cl.length ? `평균 ${avg(cl.map(g => g.t))}초 · 잃는 숨 평균 ${(cl.reduce((a, g) => a + (g.hits || 0), 0) / cl.length).toFixed(1)}` : "아직 넘은 관문이 없다"));
+    if (top.length) rows.push(bdRow("자주 쓰러진 까닭", top.map(([c, n]) => `${c} ${n}번`).join(" · ")));
+    if (hard) rows.push(bdRow("가장 많이 막힌 곳", `${stageOf(+hard[0]).ko} — ${hard[1]}번`));
+    for (const l of L.slice(-6).reverse()) rows.push(bdRow(`${l.d || ""} · ${(WEAPONS[l.w] || {}).name || l.w} · ${(TUNING.DIFF[l.diff] || TUNING.DIFF[1]).name}`, `${l.won ? "천고를 벴다" : `${l.r}관문 · ${l.cause || "끝"}`} · ${fmt(l.t || 0)} · 혼 +${l.hon || 0}`)); }
+  const pf = META.perf; rows.push(bdRow("이 기기의 성능", pf ? `최근 관문 평균 ${pf.fps}fps · 느린 프레임 ${pf.slow}% · 해상도 ×${pf.dpr}${pf.lite ? " · 가벼운 그래픽" : ""}` : "관문을 하나 넘으면 잰다"));
+  board("플레이 기록", "이 기기에만 남는다 · 기록 옮기기로 함께 내보낼 수 있다", rows, [["돌아가기", resumeHub]]);
 }
 function hubReady(id) { // a red dot on the board where something can be opened right now
   const bld = b => { const B = BUILDINGS.find(o => o.id === b), nx = B && B.lv[META.bld[b] || 0]; return nx && META.hon >= (nx.hon || 0) && META.shard >= (nx.shard || 0); };
@@ -4714,6 +4738,7 @@ $("bPadDone").addEventListener("click", () => { document.body.classList.remove("
   const end = e => { if (!drag) return; e.stopPropagation(); drag = null; store.set("pad3", padCfg); };
   $("pad").addEventListener("pointerup", end, true); $("pad").addEventListener("pointercancel", end, true); }
 $("bSetClose").addEventListener("click", () => { if (settingsBack === "pause") showScreen("pause"); else if (settingsBack === "hub") resumeHub(); else toMenu(); });
+$("bSoundTest").addEventListener("click", () => { Music.unlock(); if (!settings.sound) { toast("소리가 꺼져 있다 · 위에서 소리를 켜라"); return; } if (!Music.preview()) toast("판 중에는 들을 수 없다 · 지금 들리는 것이 그 소리다"); });
 $("bDiff").addEventListener("click", () => { settings.diff = (settings.diff + 1) % 3; saveSettings(); });
 { // 기록 옮기기: the whole 거점 (and settings) as one line of text — copy it out, paste it in on another device
   const enc = o => btoa(unescape(encodeURIComponent(JSON.stringify(o)))), dec = t => JSON.parse(decodeURIComponent(escape(atob(t.trim()))));

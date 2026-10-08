@@ -204,6 +204,12 @@ const Music = (() => {
     setOffset(ms) { offsetMs = ms; },
     jing() { if (ensure()) { bus = sfxGain; jing(ac.currentTime + 0.02); bus = musGain; } },
     bak() { if (ensure()) { bus = sfxGain; bak(ac.currentTime + 0.01); bus = musGain; } },
+    preview() { // 소리 들어 보기: two bars of 중모리 with the 가야금 over them, then a cut, a read blow and the 징 — what a gate sounds like
+      if (!ensure() || running) return false; const d = JANGDAN.jungmori, saved = [def, rng, rate, mel, tier]; def = Object.assign({}, d); rng = Math.random; rate = 1; mel = { deg: 0 }; tier = 0; bus = musGain;
+      const bl = 60 / d.bpm, t0 = ac.currentTime + .1;
+      for (let i = 0; i < 12; i++) { const ch = d.pat[i % d.pat.length]; if (ch !== "0") stroke(ch, t0 + i * bl, i % 12 === 0, .7); melodyBeat(t0 + i * bl, bl, i); }
+      [def, rng, rate, mel, tier] = saved;
+      setTimeout(() => this.sfx("slash"), 1000); setTimeout(() => this.sfx("strike"), 2400); setTimeout(() => this.sfx("kill", 3), 3700); setTimeout(() => this.jing(), 5200); return true; },
     setTier(t) { tier = Math.max(0, Math.min(5, t | 0)); },
     accent(kind) { // the 가야금 answers a read blow on the next half-beat: a bent note, or for a perfect read a long shaken one
       if (!ac || !running || !def) return; bus = musGain; const sl = subLen(), t = audioAt(Math.ceil((songAt(ac.currentTime) + .02) / sl) * sl);
