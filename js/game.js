@@ -2,7 +2,7 @@
 (() => {
 "use strict";
 const T = 32;
-const ASSET_V = "130";   // bump when any picture changes: the service worker then fetches the new json and webp together
+const ASSET_V = "131";   // bump when any picture changes: the service worker then fetches the new json and webp together
 const $ = id => document.getElementById(id);
 const cv = $("cv"); let ctx = cv.getContext("2d", { alpha: false });   // let: the ground is baked by pointing ctx at an offscreen canvas for a moment   // opaque canvas: cheaper to composite on phones
 let W = 0, H = 0, DPR = 1, SCALE = 1;
@@ -12,10 +12,14 @@ let liteSaved = (() => { try { return localStorage.getItem("chungo.lite") === "1
 const LITE = () => autoLite || liteSaved;
 let dprCap = LITE() ? 1 : MOBILE ? 1.25 : 2;   // phones: 1.5x is sharp enough and much lighter on the GPU; lowered further if frames run long
 const PORTRAIT = () => H > W * 1.05;
-const padH = () => PORTRAIT() ? Math.round(H * .3) : 0;   // 세로: the lowest part of the screen is for the thumbs, the stage sits above it
+let SAT = 0, SAB = 0, hudBot = 46, hudBotAt = 0;   // the phone's notch and home bar, and where the HTML top bar ends
+const saProbe = (() => { const d = document.createElement("div"); d.style.cssText = "position:fixed;left:0;top:0;width:0;visibility:hidden;pointer-events:none;height:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)"; document.body.appendChild(d); return d; })();
+function hudBottom() { const now = performance.now(); if (now - hudBotAt > 700) { hudBotAt = now; const h = $("hud"); let b = 0; if (h) for (const c of h.children) { if (!c.offsetParent) continue; const r = c.getBoundingClientRect(); if (r.width && r.bottom > b && r.bottom < H * .3) b = r.bottom; } hudBot = b || SAT + 46; } return hudBot; }
+const padH = () => PORTRAIT() ? Math.round(Math.max(H * .3, SAB + 268)) : 0;   // 세로: the lowest part of the screen is for the thumbs, the stage sits above it
 function resize() {
   DPR = Math.min(dprCap, window.devicePixelRatio || 1);
   for (const k in PAT) delete PAT[k];   // patterns carry the old pixel scale
+  { const cs = getComputedStyle(saProbe); SAT = parseFloat(cs.height) || 0; SAB = parseFloat(cs.paddingBottom) || 0; hudBotAt = 0; }
   const r = cv.getBoundingClientRect(); W = Math.round(r.width) || window.innerWidth; H = Math.round(r.height) || window.innerHeight;   // the canvas's real laid-out box, not the (often stale) window size
   cv.width = Math.round(W * DPR); cv.height = Math.round(H * DPR);
   SCALE = PORTRAIT() ? Math.max(0.5, W / (T * 11)) : Math.max(0.5, Math.min(W / (T * 13), H / (T * 11)));   // upright phone: eleven tiles across, the controls get the bottom of the screen
@@ -3225,6 +3229,7 @@ function render(rdt) {
     if (!visible(d.x) || !SPR[d.sheet]) continue;
     const f = SPR[d.sheet].f[d.i];
     if (d.w) { ctx.drawImage(pal.night ? SPR[d.sheet].inv : SPR[d.sheet].img, f.x, f.y, f.w, f.h, d.x - d.w / 2, d.y, d.w, d.h); continue; }
+    if (d.ay === 1 && d.sheet !== "pet") { const rw = Math.min(f.w * d.h / f.h * .42, 90); ctx.fillStyle = pal.night ? "rgba(0,0,0,.28)" : "rgba(40,34,30,.16)"; ctx.beginPath(); ctx.ellipse(d.x, d.y - 1, rw, Math.max(3, rw * .12), 0, 0, Math.PI * 2); ctx.fill(); }   // a wash of shadow seats them on the ground
     drawSprite(d.sheet, d.i, d.x, d.y, d.h / f.h, d.flip, .5, pal.night, d.ay);
   }
   // ink stains
@@ -3547,7 +3552,7 @@ let beatHitAt = 0;   // when the last 일격 landed, for the burst on the ring
 function drawBeatBar(pal) {
   // drums slide in at an even spacing and are struck as they reach the ring on the left: that moment is the 일격 window
   const def = Music.def; if (!def) return;
-  const bl = Music.beatLen, pos = Music.pos(), gap = 64, mx = W / 2 - 96, y = H - 30, ahead = 4;
+  const bl = Music.beatLen, pos = Music.pos(), ahead = 4, gap = Math.max(44, Math.min(64, (W - 40 - 104) / ahead)), mx = PORTRAIT() ? (W - gap * ahead) / 2 : W / 2 - 96, y = H - 30 - SAB;   // 세로: the board shrinks to the screen's width and sits centred above the home bar
   ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
   const bf = SPR.props2 && SPR.props2.f[P2.board];
   if (bf) { // lacquered board: end caps keep their proportions, only the plain middle stretches
@@ -3932,13 +3937,13 @@ function drawCombatHud(pal) { // 기력 under the 숨, the chain's numeral at th
   if (chungoFx && !chungoFx.done) { ctx.fillStyle = "rgba(14,10,12,.38)"; ctx.fillRect(0, 0, W, H); }   // 오의: the world goes dark while the strokes are laid
   if (flashDim > 0) { ctx.fillStyle = `rgba(20,10,12,${flashDim * (settings.calm ? 1 : 3)})`; ctx.fillRect(0, 0, W, H); flashDim = Math.max(0, flashDim - 1 / 60); }   // the screen draws a breath as a glint opens
   drawOugiName(1 / 60);
-  if (momOn()) { const v = run.mom || 0, t = momTier(), bx = 48, by = 72, sw = 19, tr = (run.trance || 0) > 0;   // 기세: five brush cells, the tier's numeral beside them
+  if (momOn()) { const v = run.mom || 0, t = momTier(), bx = 48, by = Math.max(72, hudBottom() + 26), sw = 19, tr = (run.trance || 0) > 0;   // 기세: five brush cells, the tier's numeral beside them
     ctx.font = `400 ${t ? 17 : 12}px "Song Myung", serif`; ctx.textAlign = "left"; ctx.textBaseline = "middle"; ctx.fillStyle = tr ? SEAL : pal.text; ctx.globalAlpha = .85; ctx.fillText(t ? `${t}단` : "기세", 18, by + 5);
     for (let i = 0; i < 5; i++) { const fill = Math.max(0, Math.min(1, (v - i * 100) / 100)); ctx.globalAlpha = .18; ctx.fillStyle = pal.text; ctx.fillRect(bx + i * (sw + 2), by, sw, 8);
       if (fill > 0) { ctx.globalAlpha = .9; ctx.fillStyle = tr ? (Math.floor(performance.now() / 80) % 2 ? SEAL : "#f3c35a") : i >= 3 ? SEAL : pal.text; ctx.fillRect(bx + i * (sw + 2), by, sw * fill, 8); } }
     ctx.globalAlpha = 1;
     if (t >= 4 || tr) { const g = ctx.createRadialGradient(W / 2, H / 2, Math.min(W, H) * .45, W / 2, H / 2, Math.max(W, H) * .7); g.addColorStop(0, "rgba(195,22,28,0)"); g.addColorStop(1, `rgba(195,22,28,${tr ? .32 : .16})`); ctx.fillStyle = g; ctx.fillRect(0, 0, W, H); } }   // 四 and up: red ink at the edges
-  if (mode !== "tutorial") { const ki = Math.max(0, Math.min(1, P.ki ?? 1)), bx = 18, by = 54, bw = 104, bh = 10, f = SPR.mech && SPR.mech.f[MECH.bar];
+  if (mode !== "tutorial") { const ki = Math.max(0, Math.min(1, P.ki ?? 1)), bx = 18, by = Math.max(54, hudBottom() + 8), bw = 104, bh = 10, f = SPR.mech && SPR.mech.f[MECH.bar];
     const low = ki < .25 && Math.sin(performance.now() / 90) > 0;
     ctx.font = `400 11px "Song Myung", serif`; ctx.fillStyle = pal.text; ctx.globalAlpha = .8; ctx.fillText("기력", bx, by + bh - 1);
     const x0 = bx + 30;
@@ -3948,7 +3953,7 @@ function drawCombatHud(pal) { // 기력 under the 숨, the chain's numeral at th
     else { ctx.globalAlpha = .25; ctx.fillStyle = pal.text; ctx.fillRect(x0, by, bw, bh); ctx.globalAlpha = 1; ctx.fillRect(x0, by, bw * ki, bh); }
     ctx.globalAlpha = 1; }
   const n = P.chain || 0;
-  if (n >= 1) { P.chainPop = Math.max(0, (P.chainPop || 0) - 1 / 60); const g = Math.min(5, n), k = 1 + P.chainPop * 1.6, x = W - 54, y = 86;
+  if (n >= 1) { P.chainPop = Math.max(0, (P.chainPop || 0) - 1 / 60); const g = Math.min(5, n), k = 1 + P.chainPop * 1.6, x = W - 54, y = Math.max(86, hudBottom() + 40);
     const nf = SPR.mech && SPR.mech.f[MECH.n1 + g - 1];
     if (!(nf && drawSprite("mech", MECH.n1 + g - 1, x, y, Math.min(26 / nf.h, 36 / nf.w) * k, false, .5, pal.night, .5))) { ctx.font = `400 34px "Song Myung", serif`; ctx.textAlign = "center"; ctx.fillStyle = pal.text; ctx.fillText("一二三四五"[g - 1], x, y + 12); }
     ctx.font = `400 12px "Song Myung", serif`; ctx.textAlign = "center"; ctx.fillStyle = g >= 5 ? SEAL : pal.text; ctx.fillText(`${n} 연속`, x, y + 24); ctx.textAlign = "left"; }
