@@ -50,15 +50,19 @@ const Music = (() => {
   }
   function stopBgm() { if (tag) tag.pause(); if (bgmSrc) { try { bgmSrc.stop(); } catch (e) {} bgmSrc.disconnect(); bgmSrc = null; } }
 
+  function wire(c) { // the mixing desk: music and effects buses → master → 먹먹함 filter → limiter → volume
+    out = c.createGain(); out.gain.value = volume;
+    filt = c.createBiquadFilter(); filt.type = "lowpass"; filt.frequency.value = 18000; filt.Q.value = 0.4;
+    const lim = c.createDynamicsCompressor(); lim.threshold.value = -6; lim.knee.value = 4; lim.ratio.value = 12; lim.attack.value = .003; lim.release.value = .18;   // stacked hits never clip
+    master = c.createGain(); master.gain.value = 0.9;
+    master.connect(filt).connect(lim).connect(out).connect(c.destination);
+    musGain = c.createGain(); musGain.gain.value = musVol; musGain.connect(master); sfxGain = c.createGain(); sfxGain.gain.value = sfxVol; sfxGain.connect(master); bus = musGain;
+  }
   function ensure() {
     if (!ac) {
       try { ac = new (window.AudioContext || window.webkitAudioContext)({ latencyHint: "interactive" }); } catch (e) { ac = null; }
       if (ac) {
-        out = ac.createGain(); out.gain.value = volume;
-        filt = ac.createBiquadFilter(); filt.type = "lowpass"; filt.frequency.value = 18000; filt.Q.value = 0.4;
-        master = ac.createGain(); master.gain.value = 0.9;
-        master.connect(filt).connect(out).connect(ac.destination);
-        musGain = ac.createGain(); musGain.gain.value = musVol; musGain.connect(master); sfxGain = ac.createGain(); sfxGain.gain.value = sfxVol; sfxGain.connect(master); bus = musGain;
+        wire(ac);
         noiseBuf = ac.createBuffer(1, ac.sampleRate, ac.sampleRate);
         const d = noiseBuf.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
       }
@@ -210,14 +214,30 @@ const Music = (() => {
       for (let i = 0; i < 12; i++) { const ch = d.pat[i % d.pat.length]; if (ch !== "0") stroke(ch, t0 + i * bl, i % 12 === 0, .7); melodyBeat(t0 + i * bl, bl, i); }
       [def, rng, rate, mel, tier] = saved;
       setTimeout(() => this.sfx("slash"), 1000); setTimeout(() => this.sfx("strike"), 2400); setTimeout(() => this.sfx("kill", 3), 3700); setTimeout(() => this.jing(), 5200); return true; },
+    // 소리 검사 (offline): render a stretch of one 장단 with its 가야금, plus a burst of fighting sounds, into a buffer and measure it
+    async render(sec = 8, key = "jungmori", withSfx = true, withMusic = true) {
+      const OC = window.OfflineAudioContext || window.webkitOfflineAudioContext; if (!OC) return null;
+      const keep = { ac, out, filt, master, musGain, sfxGain, bus, def, rng, rate, mel, tier, noiseBuf };
+      const oc = new OC(2, Math.round(44100 * sec), 44100); ac = oc; wire(oc);
+      noiseBuf = oc.createBuffer(1, oc.sampleRate, oc.sampleRate); { const d = noiseBuf.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1; }
+      def = Object.assign({}, JANGDAN[key]); rng = Math.random; rate = 1; mel = { deg: 0 }; tier = 0; const bl = 60 / def.bpm, sl = bl / def.sub;
+      let notes = 0; const g0 = gayageum; gayageum = (...a) => { notes++; return g0(...a); };
+      try {
+        if (withMusic) for (let i = 0; i * sl < sec - .2; i++) { bus = musGain; const ch = def.pat[i % def.pat.length]; if (ch !== "0") stroke(ch, .05 + i * sl, i % def.pat.length === 0, .7); if (i % def.sub === 0) melodyBeat(.05 + i * sl, bl, i / def.sub); }
+        if (withSfx) for (let k = 0, t = .6; t < sec - .5; k++, t += .45) this.sfx(["slash", "strike", "kill", "slash", "shoot", "clang", "dash", "kill"][k % 8], 3, t);
+        const buf = await oc.startRendering(); let peak = 0, sum = 0, n = 0, clip = 0;
+        for (let c = 0; c < buf.numberOfChannels; c++) { const d = buf.getChannelData(c); for (let i = 0; i < d.length; i++) { const v = Math.abs(d[i]); if (v > peak) peak = v; if (v > .99) clip++; sum += d[i] * d[i]; n++; } }
+        return { peak: +peak.toFixed(3), rmsDb: +(10 * Math.log10(sum / n + 1e-12)).toFixed(1), clip, notes, sec };
+      } finally { gayageum = g0; ({ ac, out, filt, master, musGain, sfxGain, bus, def, rng, rate, mel, tier, noiseBuf } = keep); }
+    },
     setTier(t) { tier = Math.max(0, Math.min(5, t | 0)); },
     accent(kind) { // the 가야금 answers a read blow on the next half-beat: a bent note, or for a perfect read a long shaken one
       if (!ac || !running || !def) return; bus = musGain; const sl = subLen(), t = audioAt(Math.ceil((songAt(ac.currentTime) + .02) / sl) * sl);
       const hi = note(mel.deg + 2); if (kind === "perfect") { gayageum(t, hi * 1.0595, .9 / rate, .085); gayageum(t + .14 / rate, hi, 1.1 / rate, .07); } else { gayageum(t, hi * 1.12, .25 / rate, .06); gayageum(t + .09 / rate, hi, .5 / rate, .055); } },
     setMix(m, f) { musVol = m; sfxVol = f; if (musGain) musGain.gain.setTargetAtTime(m, ac.currentTime, .03); if (sfxGain) sfxGain.gain.setTargetAtTime(f, ac.currentTime, .03); },
-    sfx(kind, lv = 0) {
+    sfx(kind, lv = 0, at) {
       if (!ac || !volume) return;
-      const t = ac.currentTime + 0.005; bus = sfxGain;
+      const t = at ?? ac.currentTime + 0.005; bus = sfxGain;
       try { switch (kind) {
         case "slash": noise(t, 0.07, 5200, "highpass", 0.2); kkwaeng(t, .25, 1); break;              // swish + muted 꽹과리 tick
         case "strike": kkwaeng(t, .9, 0); deok(t, 1.2); break;                                       // open 꽹과리 + 채편: 일격
