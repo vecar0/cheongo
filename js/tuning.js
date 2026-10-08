@@ -22,6 +22,10 @@ const TUNING = Object.freeze({
   HON_PER_GATE: 5, HON_PER_FLOOR: 9,
   SP_GAIN: { madang: 1, cycle: 2, bonus: 1, tower: 1, stage: 1 },
   TREE_OPEN_HON: [60, 100, 140],
+  // 난이도: 숨, 간파 판정(초), 적이 다시 공격하기까지 걸리는 배수, 우두머리 체력, 혼
+  DIFF: [{ name: "수월", desc: "숨 +2 · 간파가 넉넉하다 · 적이 느긋하다", breath: 2, kan: .08, fire: 1.4, bossHp: .8, hon: 1 },
+         { name: "보통", desc: "의도한 장단", breath: 0, kan: 0, fire: 1, bossHp: 1, hon: 1 },
+         { name: "험난", desc: "숨 −1 · 적이 몰아친다 · 우두머리가 질기다 · 혼 ×1.3", breath: -1, kan: -.03, fire: .85, bossHp: 1.2, hon: 1.3 }],
   // 영물
   PET_NEED: [null, { fed: 5 }, { jeong: 60 }, { jeong: 200 }, { jeong: 400, fed: 15 }, { jeong: 800, fed: 35 }]
 });
