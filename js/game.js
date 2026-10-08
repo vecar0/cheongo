@@ -3906,7 +3906,7 @@ function gunPose() { // 무명 with a gun: aim, fire, recoil, thrust, reload —
   if (!SPR.gun1 || (!j && !SPR.gun2)) return null;
   if (P.fireT > 0) return j ? ["gun1", 2] : ["gun2", b + 1];
   if (P.focus && !P.focusTap && P.focusT > TAP_T) { const a = aimDir(); if (j) return a.y > .6 ? ["gun1", 5] : !P.onGround ? ["gun1", 8] : ["gun1", 1]; return w === "singi" && a.y < -.5 ? ["gun2", 5] : w === "cheonja" && a.y > .5 ? ["gun2", 8] : ["gun2", b]; }
-  if (P.slashT > 0 || P.bayoLunge) return ["gun1", 4];
+  if (P.slashT > 0 || P.bayoLunge) return j ? ["gun1", 4] : ["gun2", b];   // 근접: the 조총 thrusts its bayonet; the others ram with the barrel they hold
   if (!P.onGround && P.lastShotAt != null && songPos - P.lastShotAt < .6) return j ? ["gun1", 3] : ["gun2", w === "seungja" ? 2 : b];
   if (P.reloadT > 0 && P.onGround && j) return ["gun1", 6];
   if (!P.onGround) return j ? ["gun1", 8] : ["gun2", b];
@@ -4009,7 +4009,8 @@ function drawPlayer(pal) {
     ctx.fillStyle = g; ctx.fillRect(cx - 46, P.y + P.h / 2 - 46, 92, 92);
   }
   const h3wall = (sheet === "hero3" || sheet === "mu" || sheet === "po") && fr === H3.wall, f3 = h3wall ? P.wall : face, breathe = (sheet === "hero3" || sheet === "mu" || sheet === "po") && fr === H3.idle ? 1 + Math.sin(performance.now() / 380) * .012 : 1;
-  ctx.save(); ctx.translate(cx, P.y + P.h + 1 + (sheet === "mvrun" ? RUN_BOB[fr] : sheet === "grun2" ? RUN_BOB[fr % 8] : 0)); ctx.scale(1, breathe);
+  const ram = sheet === "gun2" && P.slashT > 0 && isGun() ? Math.sin(Math.PI * Math.min(1, 1 - P.slashT / (P.slashDur || .13))) * 10 * (face < 0 ? -1 : 1) : 0;   // the barrel-ram lunges a step forward
+  ctx.save(); ctx.translate(cx + ram, P.y + P.h + 1 + (sheet === "mvrun" ? RUN_BOB[fr] : sheet === "grun2" ? RUN_BOB[fr % 8] : 0)); ctx.scale(1, breathe);
   drawSprite(sheet, fr, 0, 0, k, f3 < 0, GUN_AX[sheet] ? GUN_AX[sheet][fr] : sheet === "swm" ? SWM_AX[fr] : MV_BASE[sheet] ? (MV_AX[sheet][fr] ?? .5) : sheet === "mu" ? MU_AX[fr] : sheet === "po" ? PO_AX[fr] : sheet === "arms" ? AF_AX[fr] : sheet === "chars" ? CF_AX[fr] : sheet === "weapons" ? WF_AX[fr] : sheet === "slashfx" ? SF_AX[fr] : sheet === "hero3" ? H3_AX[fr] : sheet === "hero" ? (HERO_AX[fr] ?? .55) : (wallPose ? .62 : .5), !!LV.pal.night);
   ctx.restore();
   ctx.globalAlpha = 1;
