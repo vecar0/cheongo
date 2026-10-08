@@ -421,10 +421,7 @@ body.inhub #hud .hl small em:first-child { color: #c3161c; }
 @media (max-height: 430px) { #choice.tree .tr-graph { height: 214px; min-height: 0; } }
 #choice.route .card .ds { white-space: pre-line; }
 /* 먹 번짐: a brush of ink sweeps across between places */
-#wipe { position: fixed; inset: 0 -40%; z-index: 60; pointer-events: none; transform: translateX(-140%); visibility: hidden;
-  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 100' preserveAspectRatio='none'%3E%3Cpath d='M30 0 L170 0 C176 8 166 14 174 22 C182 30 168 38 176 48 C184 58 170 66 178 76 C186 86 172 92 178 100 L30 100 C22 92 36 84 26 74 C18 64 32 56 24 46 C16 36 30 28 22 18 C16 10 28 6 30 0Z' fill='%2317161a'/%3E%3C/svg%3E") center / 100% 100% no-repeat; }
-#wipe.on { visibility: visible; animation: inkWipe .62s cubic-bezier(.6,.05,.35,1) both; }
-@keyframes inkWipe { 0% { transform: translateX(-140%); } 45%, 55% { transform: translateX(0); } 100% { transform: translateX(140%); } }
+#wipe { position: fixed; inset: 0; width: 100%; height: 100%; z-index: 60; pointer-events: none; visibility: hidden; }
 /* 관문 제목: brushed in, left to right, then it fades */
 #gTitle { position: fixed; left: 50%; top: 30%; transform: translate(-50%, -50%); z-index: 40; pointer-events: none; text-align: center; opacity: 0; color: var(--ink); text-shadow: 0 0 18px rgba(236,230,216,.9); }
 #gTitle b { display: block; font-family: "Nanum Myeongjo", var(--f-head); font-weight: 800; font-size: clamp(40px, 9vw, 76px); letter-spacing: .25em; text-indent: .25em; line-height: 1.1; }
@@ -433,7 +430,7 @@ body.inhub #hud .hl small em:first-child { color: #c3161c; }
 #gTitle.on b { animation: brushIn .9s cubic-bezier(.5,0,.3,1) both; }
 @keyframes brushIn { from { clip-path: inset(0 100% 0 0); filter: blur(3px); } to { clip-path: inset(0 0 0 0); filter: none; } }
 @keyframes gtFade { 0% { opacity: 1; } 70% { opacity: 1; } 100% { opacity: 0; } }
-@media (prefers-reduced-motion: reduce) { #wipe.on { animation: none; visibility: hidden; } #gTitle.on b { animation: none; } }
+@media (prefers-reduced-motion: reduce) { #gTitle.on b { animation: none; } }
 /* one 한지 frame for every panel: the same paper, the same ink edge, the same red corner seal */
 :root { --hanji: url("assets/tex-paper.webp") 0 0 / 256px 256px; --hanji-edge: inset 0 0 0 1px rgba(23,22,26,.28), inset 0 0 18px rgba(120,96,60,.18), 0 2px 6px rgba(23,22,26,.12); }
 .bd-row, .tr-det, .tr-sh, .tr-graph, #choice.wpick .wp-det { background: linear-gradient(rgba(240,234,220,.78), rgba(240,234,220,.78)), var(--hanji); box-shadow: var(--hanji-edge); border-radius: 2px; }

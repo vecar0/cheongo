@@ -1391,7 +1391,7 @@ function endRun(won) {
   $("rRec").textContent = rec;
   lastResult = { daily: run.daily, reached, rate, kanpa: run.kanpa || 0, time: run.time, won };
   if (mode !== "tutorial") { const w = wpn(); META.mastery[w] = (META.mastery[w] || 0) + run.kills; if ((run.aimK || 0) >= 40) META.firsts.beat = true; saveMeta(); checkTitles(); }
-  showScreen("result");
+  showScreen("result"); inkWipe();
 }
 let lastResult = null, sealable = null, retryGain = null;
 // 혼 for everything done, 천고 조각 for the rare things (cutting 천고, every tenth floor); 업 multiplies both
@@ -4649,7 +4649,52 @@ function drawHubLabels(pal) { // the names of the stations, painted on small boa
     ctx.strokeStyle = near ? "rgba(195,22,28,.8)" : "rgba(23,22,26,.3)"; ctx.setLineDash([4, 4]); ctx.lineWidth = 1.5; ctx.beginPath(); ctx.ellipse(x, y, 18, 5, 0, 0, 7); ctx.stroke(); ctx.setLineDash([]); }
 }
 // ---------- screens ----------
-function inkWipe() { const w = $("wipe"); if (!w) return; w.classList.remove("on"); void w.offsetWidth; w.classList.add("on"); }
+// 먹 번짐 (scene change): a loaded brush sweeps across and covers the page, a drop of 주홍 blooms in the wet ink,
+// then the ink soaks away from the middle with a ragged edge and leaves a few drips behind
+let wipeRun = null;
+function inkWipe(kind = "") {
+  const cvW = $("wipe"); if (!cvW || !cvW.getContext) return;
+  const calm = settings.calm || matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const k = .5, w = Math.ceil(innerWidth * k), h = Math.ceil(innerHeight * k);   // half resolution: ink edges are soft anyway
+  cvW.width = w; cvW.height = h; const c = cvW.getContext("2d");
+  const rnd = mulberry((Math.random() * 1e9) >>> 0), J = Array.from({ length: 160 }, () => rnd());
+  const dir = rnd() < .5 ? 1 : -1, red = kind !== "plain";
+  const D = calm ? .35 : 1.1, T_COVER = .3, T_OPEN = .52, diag = Math.hypot(w, h);
+  const spl = Array.from({ length: 26 }, (_, i) => ({ a: J[i] * 6.28, d: .3 + J[i + 30] * .5, r: 1 + J[i + 60] * 5 }));
+  if (wipeRun) cancelAnimationFrame(wipeRun.raf);
+  const me = {};
+  const t0 = performance.now(); cvW.style.visibility = "visible";
+  const ink = "#17161a", easeO = x => 1 - Math.pow(1 - Math.min(1, Math.max(0, x)), 3), easeIO = x => { x = Math.min(1, Math.max(0, x)); return x < .5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2; };
+  const blob = (x, y, r, n, seed, amp) => { c.beginPath(); for (let i = 0; i <= n; i++) { const a = i / n * 6.283, q = 1 + amp * (Math.sin(a * 3 + seed) * .5 + Math.sin(a * 7 + seed * 2.3) * .3 + (J[(i + (seed * 13 | 0)) % 160] - .5) * .4); const px = x + Math.cos(a) * r * q, py = y + Math.sin(a) * r * q; i ? c.lineTo(px, py) : c.moveTo(px, py); } c.closePath(); };
+  const frame = now => {
+    const t = window.__wipeT ?? (now - t0) / 1000; c.globalCompositeOperation = "source-over"; c.clearRect(0, 0, w, h);
+    if (wipeRun !== me) return;
+    if (t >= D) { cvW.style.visibility = "hidden"; wipeRun = null; return; }
+    if (calm) { c.globalAlpha = Math.sin(Math.PI * t / D); c.fillStyle = ink; c.fillRect(0, 0, w, h); c.globalAlpha = 1; me.raf = requestAnimationFrame(frame); return; }
+    // 1. the stroke: stamps along a gently bowed diagonal, wide enough at full press to hide the whole page
+    const p = easeO(t / T_COVER), R = diag * .62, N = 34;
+    c.fillStyle = ink;
+    for (let i = 0; i < N * p; i++) { const u = i / N, x = dir > 0 ? -R * .6 + u * (w + R * 1.2) : w + R * .6 - u * (w + R * 1.2), y = h * (.5 + .18 * Math.sin(u * 3.1 + J[3] * 3)) ;
+      const press = Math.min(1, u * 5) * (1 - .1 * Math.sin(u * 9)); blob(x, y, R * press * (.3 + .7 * easeO(t / T_COVER)), 28, i * .7, .12); c.fill(); }
+    // dry-brush bristles trailing off the stroke's edges
+    if (p < 1) { c.strokeStyle = ink; c.lineCap = "round"; for (let b = 0; b < 22; b++) { const off = (J[b + 80] - .5) * h * 1.3, len = (w + R) * p, a = .25 + J[b + 100] * .5; c.globalAlpha = a; c.lineWidth = 1 + J[b + 120] * 4; c.beginPath(); const x0 = dir > 0 ? -20 : w + 20; c.moveTo(x0, h / 2 + off); c.lineTo(x0 + dir * len * (.7 + J[b + 40] * .3), h / 2 + off * (1 + .1 * J[b])); c.stroke(); } c.globalAlpha = 1; }
+    // splashes flung from the press
+    for (const s of spl) { const g = easeO((t - .05) / .3); if (g <= 0) continue; c.globalAlpha = 1 - Math.max(0, (t - .8) / .25); c.beginPath(); c.arc(w / 2 + Math.cos(s.a) * diag * s.d * g, h / 2 + Math.sin(s.a) * diag * s.d * .7 * g, s.r * (1 + g), 0, 6.283); c.fill(); }
+    c.globalAlpha = 1;
+    // 2. 주홍: a drop of red blooms in the wet ink and spreads its feathered rim
+    if (red && t > .22) { const q = easeO((t - .22) / .35), fade = 1 - Math.max(0, (t - .62) / .3), r = Math.min(w, h) * (.05 + .07 * q);
+      const g = c.createRadialGradient(w / 2, h / 2, 0, w / 2, h / 2, r * 1.6); g.addColorStop(0, `rgba(205,30,34,${.95 * fade})`); g.addColorStop(.55, `rgba(178,22,28,${.85 * fade})`); g.addColorStop(1, "rgba(120,10,16,0)");
+      c.fillStyle = g; blob(w / 2, h / 2, r * 1.5, 40, 4.2, .18); c.fill(); }
+    // 3. the ink soaks away from the middle: a ragged hole that widens, with a soft wet rim
+    if (t > T_OPEN) { const q = easeIO((t - T_OPEN) / (D - T_OPEN)), r = q * diag * .62; c.globalCompositeOperation = "destination-out"; c.fillStyle = "#000";
+      c.globalAlpha = .45; blob(w / 2, h / 2, r * 1.12 + 6, 48, 1.7, .22); c.fill();
+      c.globalAlpha = 1; blob(w / 2, h / 2, r, 48, 1.7, .22); c.fill();
+      for (let i = 0; i < 9; i++) { const a = J[i + 140] * 6.28, rr = r * (.85 + J[i + 10] * .3); c.beginPath(); c.arc(w / 2 + Math.cos(a) * rr, h / 2 + Math.sin(a) * rr * .8, r * .22 * J[i + 20], 0, 6.283); c.fill(); }
+      c.globalCompositeOperation = "source-over"; }
+    me.raf = requestAnimationFrame(frame);
+  };
+  wipeRun = me; me.raf = requestAnimationFrame(frame);
+}
 function showScreen(id) {
   if (id !== null && typeof tipT !== "undefined") { tipT = 0; $("tip").classList.remove("on"); $("tip").hidden = true; }   // a play tip never hangs over a menu
   for (const s of ["menu", "settings", "interlude", "pause", "result", "choice", "board"]) $(s).hidden = s !== id;
@@ -4784,7 +4829,7 @@ $("bInstall").addEventListener("click", async () => { if (!installEvt) return; i
 const standalone = matchMedia("(display-mode: standalone)").matches || matchMedia("(display-mode: fullscreen)").matches || navigator.standalone;
 
 
-if (location.hash === "#debug" && /^(localhost|127\.0\.0\.1)$/.test(location.hostname)) window.__dbg = { get missing() { return ALL_SHEETS.filter(n => !LAZY_SHEETS.has(n) && !SPR[n]).concat(BASE_IMGS.filter(k => !IMG[k])); }, tp(tx, ty) { P.x = tx * T + 7; P.y = (ty + 1) * T - 30; P.vx = P.vy = 0; }, get state() { return state; }, get P() { return P; }, get LV() { return LV; }, get state2() { return state; }, get SC() { return LV.scenery; }, get E() { return enemies; }, get run() { return run; }, set hs(v) { hitstop = v; }, kill(e) { killEnemy(e); }, hurt(e, s, k) { hurtEnemy(e, s, k); }, die(k, d) { die(k, d); }, banner(a, b, c) { banner(a, b === "red" ? SEAL : JJOK, c); }, chungo() { chungo(); }, clear() { madangClear(); }, hubAct() { hubAct(); }, get hub() { return { hubOn, hubNear }; }, get songPos() { return songPos; }, get FLASH() { return FLASH; }, get hold() { return bulletHold; }, get bolts() { return bolts; }, get rings() { return rings; }, get B() { return bullets; }, get beams() { return beams; }, flashing: e => isFlashing(e), enlighten: f => enlighten(f), syncCombos: () => syncCombos(), has: id => has(id), get FL() { flashSync(); return FLASH; } };
+if (location.hash === "#debug" && /^(localhost|127\.0\.0\.1)$/.test(location.hostname)) window.__dbg = { get missing() { return ALL_SHEETS.filter(n => !LAZY_SHEETS.has(n) && !SPR[n]).concat(BASE_IMGS.filter(k => !IMG[k])); }, tp(tx, ty) { P.x = tx * T + 7; P.y = (ty + 1) * T - 30; P.vx = P.vy = 0; }, get state() { return state; }, get P() { return P; }, get LV() { return LV; }, get state2() { return state; }, get SC() { return LV.scenery; }, get E() { return enemies; }, get run() { return run; }, set hs(v) { hitstop = v; }, kill(e) { killEnemy(e); }, hurt(e, s, k) { hurtEnemy(e, s, k); }, die(k, d) { die(k, d); }, banner(a, b, c) { banner(a, b === "red" ? SEAL : JJOK, c); }, chungo() { chungo(); }, clear() { madangClear(); }, hubAct() { hubAct(); }, get hub() { return { hubOn, hubNear }; }, get songPos() { return songPos; }, get FLASH() { return FLASH; }, get hold() { return bulletHold; }, get bolts() { return bolts; }, get rings() { return rings; }, get B() { return bullets; }, get beams() { return beams; }, flashing: e => isFlashing(e), wipe: k => inkWipe(k), enlighten: f => enlighten(f), syncCombos: () => syncCombos(), has: id => has(id), get FL() { flashSync(); return FLASH; } };
 window.addEventListener("pointerdown", () => Music.unlock(), { once: true, capture: true });   // first tap anywhere starts the sound
 resize();
 toMenu();
