@@ -129,16 +129,18 @@ const Music = (() => {
   const songAt = at => basePos + (at - baseTime) * rate;
   // 가야금 산조 선율: made up as it goes, in 계면조, one phrase per eight beats — walking by steps, resting now and then,
   // landing on 라 at the end of a phrase; the 아쟁 holds the low 라 under each 장단 cycle. No two gates sound alike.
-  let mel = { deg: 0, beat: 0 };
+  let mel = { deg: 0, beat: 0 }, tier = 0;
+  const GYE2 = GYE.concat([659.3, 784.0, 880.0]);   // 기세 lifts the tune: each step up starts the walk one note higher
+  const note = d => GYE2[Math.max(0, Math.min(GYE2.length - 1, d + Math.min(3, tier)))];
   function melodyBeat(t, beatLen, beatIdx) {
     const ph = beatIdx % 8, last = ph === 7, v = .055;
     if (beatIdx % Math.max(4, def.beats) === 0) drone(t, 220, beatLen * Math.max(4, def.beats) * .98 / rate);
     if (ph === 0 && rng() < .35) daegeum(t, GYE[4 + ((rng() * 3) | 0)] , GYE[3 + ((rng() * 3) | 0)], beatLen * 2 / rate);
-    if (last) { mel.deg = rng() < .6 ? 0 : 5; gayageum(t, GYE[mel.deg], beatLen * 1.8 / rate, v * 1.2); return; }   // 퇴성: the phrase settles on 라
+    if (last) { mel.deg = rng() < .6 ? 0 : 5; gayageum(t, note(mel.deg), beatLen * 1.8 / rate, v * 1.2); return; }   // 퇴성: the phrase settles on 라
     if (rng() < .28) return;   // breath between notes
     const step = [-2, -1, -1, 1, 1, 2][(rng() * 6) | 0]; mel.deg = Math.max(0, Math.min(GYE.length - 1, mel.deg + step));
-    gayageum(t, GYE[mel.deg], beatLen * .9 / rate, v);
-    if (def.bpm >= 96 && rng() < .35) { const d2 = Math.max(0, Math.min(GYE.length - 1, mel.deg + (rng() < .5 ? -1 : 1))); gayageum(t + beatLen / 2 / rate, GYE[d2], beatLen * .45 / rate, v * .8); mel.deg = d2; }   // faster 장단: the hand doubles up
+    gayageum(t, note(mel.deg), beatLen * .9 / rate, v * (1 + .12 * tier));
+    if (def.bpm >= 96 && rng() < .35) { const d2 = Math.max(0, Math.min(GYE.length - 1, mel.deg + (rng() < .5 ? -1 : 1))); gayageum(t + beatLen / 2 / rate, note(d2), beatLen * .45 / rate, v * .8); mel.deg = d2; }   // faster 장단: the hand doubles up
   }
   function tick() {
     if (!running || !ac) return;
@@ -169,7 +171,7 @@ const Music = (() => {
       ensure(); this.stop();
       const base = JANGDAN[key] || JANGDAN.jungmori; def = Object.assign({}, base, { bpm: Math.round(base.bpm * speed) });
       let s = (seed >>> 0) || 1; rng = () => ((s = (s * 1664525 + 1013904223) >>> 0) / 4294967296);
-      nextIdx = 0; running = true; rate = 1; mel = { deg: 0 }; wantBgm = false; clearInterval(ambTimer); ambTimer = null; stopBgm();
+      nextIdx = 0; running = true; rate = 1; mel = { deg: 0 }; tier = 0; wantBgm = false; clearInterval(ambTimer); ambTimer = null; stopBgm();
       if (bgmSrc) bgmSrc.playbackRate.value = 1; if (tag) tag.playbackRate = 1;
       if (ac) { t0 = ac.currentTime + 0.25; baseTime = t0; basePos = 0; timer = setInterval(tick, 25); tick(); }
       else { fallbackStart = performance.now() / 1000 + 0.25; }
@@ -202,6 +204,10 @@ const Music = (() => {
     setOffset(ms) { offsetMs = ms; },
     jing() { if (ensure()) { bus = sfxGain; jing(ac.currentTime + 0.02); bus = musGain; } },
     bak() { if (ensure()) { bus = sfxGain; bak(ac.currentTime + 0.01); bus = musGain; } },
+    setTier(t) { tier = Math.max(0, Math.min(5, t | 0)); },
+    accent(kind) { // the 가야금 answers a read blow on the next half-beat: a bent note, or for a perfect read a long shaken one
+      if (!ac || !running || !def) return; bus = musGain; const sl = subLen(), t = audioAt(Math.ceil((songAt(ac.currentTime) + .02) / sl) * sl);
+      const hi = note(mel.deg + 2); if (kind === "perfect") { gayageum(t, hi * 1.0595, .9 / rate, .085); gayageum(t + .14 / rate, hi, 1.1 / rate, .07); } else { gayageum(t, hi * 1.12, .25 / rate, .06); gayageum(t + .09 / rate, hi, .5 / rate, .055); } },
     setMix(m, f) { musVol = m; sfxVol = f; if (musGain) musGain.gain.setTargetAtTime(m, ac.currentTime, .03); if (sfxGain) sfxGain.gain.setTargetAtTime(f, ac.currentTime, .03); },
     sfx(kind, lv = 0) {
       if (!ac || !volume) return;

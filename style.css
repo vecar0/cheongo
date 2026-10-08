@@ -449,3 +449,6 @@ body.inhub #hud .hl small em:first-child { color: #c3161c; }
 #pad .tb { opacity: .62; transition: opacity .15s; }
 #pad .tb.down { opacity: .9; }
 #pad .tb.over:not(.down) { opacity: .22; }
+/* 세로: the result line wraps under the seal instead of running beneath it */
+body.portrait .rsub { white-space: normal; word-break: keep-all; padding-right: 76px; line-height: 1.45; }
+body.portrait #rStats { font-size: 13px; }
