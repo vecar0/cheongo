@@ -7,7 +7,8 @@ const cv = $("cv"); let ctx = cv.getContext("2d", { alpha: false });   // let: t
 let W = 0, H = 0, DPR = 1, SCALE = 1;
 const MOBILE = matchMedia("(pointer:coarse)").matches || /Android|iPhone|iPad/i.test(navigator.userAgent);
 let autoLite = false;   // set for this session when frames stay slow even at 1x
-const LITE = () => autoLite || localStorage.getItem("chungo.lite") === "1";
+let liteSaved = (() => { try { return localStorage.getItem("chungo.lite") === "1"; } catch (e) { return false; } })();   // read once: storage can be blocked, and this is asked every frame
+const LITE = () => autoLite || liteSaved;
 let dprCap = LITE() ? 1 : MOBILE ? 1.25 : 2;   // phones: 1.5x is sharp enough and much lighter on the GPU; lowered further if frames run long
 function resize() {
   DPR = Math.min(dprCap, window.devicePixelRatio || 1);
@@ -579,8 +580,20 @@ const oath = id => !!(run && run.oath === id);
 const startBreath = () => 3 + (META.bld.sadang >= 1 ? 1 : 0) + (META.well && META.well.includes("start1") ? 1 : 0) + (META.well && META.well.includes("start2") ? 1 : 0);
 const breathCap = () => oath("pi") ? 2 : oath("jangdan") ? 3 : 5 + (META.well && META.well.includes("cap1") ? 1 : 0);   // five breaths (six once the 약수 deepens the vessel)
 // 영구 기록: currencies, unlocks, sealed books, story, codex (one save, survives runs)
-const META = Object.assign({ hon: 0, shard: 0, bld: { seogo: 0, daejang: 0, bigeup: 0, sadang: 0, uibang: 0 }, tfs: ["sunbo", "hwalgong", "yeonbal", "bangyeok", "heup"], oaths: ["gonggung", "goyo2", "jangdan", "jilpung2", "geommu"],
-  weapons: ["hwando"], chars: ["mumyeong"], books: [], strokes: 0, mem: [], ended: false, upBest: 0, towerBest: 0, codex: {}, titles: [], title: null, mastery: {}, quests: null, sash: "red", firsts: {} }, store.get("meta", {}));
+const META_DEF = () => ({ hon: 0, shard: 0, bld: { seogo: 0, daejang: 0, bigeup: 0, sadang: 0, uibang: 0 }, tfs: ["sunbo", "hwalgong", "yeonbal", "bangyeok", "heup"], oaths: ["gonggung", "goyo2", "jangdan", "jilpung2", "geommu"],
+  weapons: ["hwando"], chars: ["mumyeong"], books: [], strokes: 0, mem: [], ended: false, upBest: 0, towerBest: 0, codex: {}, titles: [], title: null, mastery: {}, quests: null, sash: "red", firsts: {} });
+const META = Object.assign(META_DEF(), (() => { const m = store.get("meta", {}); return m && typeof m === "object" && !Array.isArray(m) ? m : {}; })());
+{ // a save written by an older or broken build: every field keeps its kind, or falls back to the default (never a dead load screen)
+  const D = META_DEF(), kind = v => Array.isArray(v) ? "array" : v === null ? "null" : typeof v;
+  for (const k in D) { const d = D[k], v = META[k]; if (d === null) continue; if (kind(v) !== kind(d) || (typeof d === "number" && !Number.isFinite(v))) META[k] = d; }
+  for (const k in D.bld) if (!Number.isFinite(META.bld[k])) META.bld[k] = 0;
+  for (const k of ["well", "simbeop", "deco"]) if (META[k] != null && !Array.isArray(META[k])) delete META[k];
+  for (const k of ["treeOpen", "deck"]) if (META[k] != null && (typeof META[k] !== "object" || Array.isArray(META[k]))) delete META[k];
+  if (!Number.isFinite(META.sum) || META.sum < 0) META.sum = 0;
+  if (META.pet != null && (typeof META.pet !== "object" || typeof META.pet.kind !== "string")) META.pet = null;
+  if (META.pet) for (const k of ["fed", "jeong"]) if (!Number.isFinite(META.pet[k]) || META.pet[k] < 0) META.pet[k] = 0;
+  META.hon = Math.max(0, META.hon); META.shard = Math.max(0, META.shard);
+  META.books = META.books.filter(bk => bk && typeof bk === "object" && Array.isArray(bk.perks)); }
 for (const o of ["jilpung2", "geommu"]) if (!META.oaths.includes(o)) META.oaths.push(o);   // oaths added after a save was made
 if (META.bld.seogo >= 1 && !META.oaths.includes("godok")) META.oaths.push("godok");
 if (!META.simbeop) META.simbeop = ["noe", "hwa"];
@@ -1219,7 +1232,9 @@ function startPicks(step = 0) {
 }
 function continueRun() {
   if (hubOn) leaveHub();
-  const s = store.get("run", null); if (!s) return;
+  const s = store.get("run", null); if (!s || typeof s !== "object" || Array.isArray(s)) return;
+  if (!WEAPONS[s.weapon]) s.weapon = "hwando"; if (!Array.isArray(s.perks)) s.perks = []; if (!Array.isArray(s.dead)) s.dead = []; if (!Number.isFinite(s.m) || s.m < 0) s.m = 0;   // a broken save still plays
+  if (!s.tower) s.breath = Math.max(1, Math.min(9, Number.isFinite(s.breath) ? s.breath : 3));
   run = s; mode = s.tower ? "tower" : "run"; delete s.daily; if (run.char === "posu") { run.char = "mumyeong"; run.weapon = "jochong"; } if (run.char === "shadowc") run.char = "mumyeong"; run.perks = fitPerks((run.perks || []).filter(id => CHOSIK.some(c => c.id === id)));   // older saves may hold more than the slots allow
   if (!s.v && !s.tower) { s.m = [0, 2, 5][s.m] ?? s.m; s.v = 2; }   // a run saved when a turn was three long gates
   if (s.tower) s.m = LAST_M; if (s.m > LAST_M) s.m = LAST_M;
@@ -1236,11 +1251,11 @@ function showInterlude() {
   const om = OMENS.find(o => o.id === run.omen);
   const bk = isFinal() && BOSSES[bossKindOf(run)];
   $("iLine").textContent = road ? (run.node === "rest" ? "주막 불빛이 보인다. 잠시 숨을 고르고 가자." : "길가에 누군가 서 있다.") : run.m === 0 && run.cycle ? SEASON[season()].line : bk ? `${bk.line} ${josa(bk.name, "을", "를")} 베면 그 뒤에 천고가 있다.` : md.line;
-  $("iMeta").textContent = ((run.cycle || 0) ? `${run.cycle + 1}번째 판 · ${SEASON[season()].name} · ` : "") + `${sg.ko} (${ORD[run.m]} 관문) · ` + jd.name + " · " + "●".repeat(run.breath) + "○".repeat(Math.max(0, 3 - run.breath)) + (om && !om.calm ? " · 징조 " + om.name : "");
+  $("iMeta").textContent = ((run.cycle || 0) ? `${run.cycle + 1}번째 판 · ${SEASON[season()].name} · ` : "") + `${sg.ko} (${ORD[run.m]} 관문) · ` + jd.name + " · " + "●".repeat(Math.max(0, Math.min(20, run.breath | 0))) + "○".repeat(Math.max(0, 3 - (run.breath | 0))) + (om && !om.calm ? " · 징조 " + om.name : "");
   $("interlude").classList.remove("night");
   if (run.tower) { // 천고탑: every floor is a guardian's stage, crowded, with all the omens gathered so far
     const tier = [0, 2, 4][(run.floor - 1) % 3];
-    $("iMeta").textContent = `천고탑 ${run.floor}층 · ${SEASON[season()].name} · ` + Music.JANGDAN[MADANG[tier].jd].name + " · " + "●".repeat(run.breath) + (run.omens.length ? " · 징조 " + run.omens.map(id => OMENS.find(o => o.id === id).name).join("·") : "");
+    $("iMeta").textContent = `천고탑 ${run.floor}층 · ${SEASON[season()].name} · ` + Music.JANGDAN[MADANG[tier].jd].name + " · " + "●".repeat(Math.max(0, Math.min(20, run.breath | 0))) + (run.omens.length ? " · 징조 " + run.omens.map(id => OMENS.find(o => o.id === id).name).join("·") : "");
     loadMap(buildMadangMap(run.seed + run.floor * 7919, tier, run.cycle || 0, run.omens, true, Math.min(2, run.floor >> 3), Math.min(5, 1 + (run.floor >> 2)), 3), PAL[tier]); LV.ledgeStone = tier >= 3;   // higher floors: harder ground
   } else
   if (!run.tower && (run.node === "rest" || run.node === "event")) { loadMap(buildRoadMap(), PAL[MD(run.m)]); setupRoad(); }
@@ -3228,7 +3243,7 @@ function frameBody(now) {
     if (state === "dead") ts = 0.3;
     const wdt = rdt * ts, n = Math.max(1, Math.ceil(wdt / (1 / 120))), sdt = wdt / n;
     for (let i = 0; i < n; i++) {
-      if (state === "play") { stepPlayer(sdt); stepPet(sdt); P.slashT = Math.max(0, P.slashT - sdt); slashHits(); playerHazards(); }
+      if (state === "play") { stepPlayer(sdt); if (LV) P.x = Math.max(0, Math.min(LV.w * T - P.w, P.x)); stepPet(sdt); P.slashT = Math.max(0, P.slashT - sdt); slashHits(); playerHazards(); }
       if (state === "play" || state === "dead") { stepEnemies(sdt); stepBullets(sdt); if (state === "play") stepHazards(); }
       if (state !== "play" && state !== "dead") break;
     }
@@ -4661,7 +4676,7 @@ const PET_EVO = { kkachi: [["흑작", "黑鵲", "#3a1630", "쪼면 잡졸은 단
   yong: [["적룡", "赤龍", "#a8202a", "물구슬이 잡졸을 단번에 꿰뚫는다"], ["청룡", "靑龍", "#1f6a5a", "더 자주 뱉고, 관문마다 두 번 막아 준다"]],
   fox: [["구미호", "九尾狐", "#7a1e5a", "여우불이 잡졸을 단번에 태운다"], ["은호", "銀狐", "#5a6a8a", "더 자주 띄우고, 관문마다 두 번 막아 준다"]],
   crow: [["금오", "金烏", "#b8862b", "햇살이 잡졸을 단번에 꿰뚫는다"], ["흑오", "黑烏", "#2a1a4a", "더 자주 쏘고, 관문마다 두 번 막아 준다"]] };
-const petMeta = () => { const m = META.pet; if (m && m.jeong == null) { m.jeong = m.fed >= 20 ? 200 : 0; m.evo = null; } return m; };   // older nests: a grown one keeps its growth
+const petMeta = () => { if (META.pet && !PETS[META.pet.kind]) META.pet = null; const m = META.pet; if (m && m.jeong == null) { m.jeong = m.fed >= 20 ? 200 : 0; m.evo = null; } return m; };   // older nests: a grown one keeps its growth
 const petStage = () => { const m = petMeta(); if (!m) return -1; let s = 0; for (let k = 1; k < PET_NEED.length; k++) { const n = PET_NEED[k]; if ((m.fed || 0) < (n.fed || 0) || (m.jeong || 0) < (n.jeong || 0) || (k >= 4 && m.evo == null)) break; s = k; } return s; };
 const petNextNeed = () => PET_NEED[petStage() + 1] || null;
 const petIntimacy = () => Math.min(8, Math.floor(((petMeta() || {}).jeong || 0) / 100));
@@ -4962,7 +4977,7 @@ $("bPauseSet").addEventListener("click", () => openSettings("pause"));
 $("bSettings").addEventListener("click", () => openSettings("menu"));
 const liteLabel = () => { $("bLite").textContent = LITE() ? "켜짐" : "꺼짐"; $("bFps").textContent = showFps ? "켜짐" : "꺼짐"; };
 liteLabel();
-$("bLite").addEventListener("click", () => { localStorage.setItem("chungo.lite", LITE() ? "0" : "1"); dprCap = LITE() ? 1 : MOBILE ? 1.25 : 2; resize(); liteLabel(); });
+$("bLite").addEventListener("click", () => { liteSaved = !liteSaved; try { localStorage.setItem("chungo.lite", liteSaved ? "1" : "0"); } catch (e) {} dprCap = LITE() ? 1 : MOBILE ? 1.25 : 2; resize(); liteLabel(); });
 $("bFps").addEventListener("click", () => { showFps = !showFps; localStorage.setItem("chungo.fps", showFps ? "1" : "0"); liteLabel(); });
 // touch buttons: a size for all of them and a place for each, kept on this device
 const padCfg = Object.assign({ s: 1.2, pos: {} }, store.get("pad3", {}));   // "pad2": the new default layout replaces any older arrangement

@@ -151,6 +151,14 @@
   <div id="tip" hidden><b id="tipT"></b><span id="tipD"></span><small id="tipK"></small></div>
 </div>
 <div id="wipe" aria-hidden="true"></div>
+<script>
+// 마지막 안전망: 시작하다 오류가 나서 로딩에 멈추면, 저장을 백업으로 옮기고 다시 시작할 수 있게 한다
+(function () { var shown = false; function rescue() { if (shown) return; var ld = document.getElementById("loading"); if (!ld || ld.hidden) return; shown = true;
+  var b = document.createElement("button"); b.className = "btn"; b.textContent = "시작이 멈췄다 · 저장을 비우고 다시 시작"; b.style.marginTop = "14px";
+  b.onclick = function () { try { for (var k of ["meta", "run", "stage"]) { var v = localStorage.getItem("chungo." + k); if (v != null) localStorage.setItem("chungo." + k + ".bak", v); localStorage.removeItem("chungo." + k); } } catch (e) {} location.reload(); };
+  (ld.querySelector(".ld-in") || ld).appendChild(b); }
+  window.addEventListener("error", function () { setTimeout(rescue, 1500); }); setTimeout(rescue, 25000); })();
+</script>
 <script src="js/data.js?v=10030100"></script>
 <script src="js/music.js?v=10030100"></script>
 <script src="js/game.js?v=10030100"></script>
