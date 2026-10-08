@@ -1,0 +1,400 @@
+4:  const T = 32;
+6:  const cv = $("cv"); let ctx = cv.getContext("2d", { alpha
+7:  let W = 0, H = 0, DPR = 1, SCALE = 1;
+8:  const MOBILE = matchMedia("(pointer
+9:  let autoLite = false;   // set for this session when frames stay slow even at 1x
+10:  const LITE = () => autoLite || localStorage.getItem("chungo.lite") === "1";
+11:  let dprCap = LITE() ? 1 
+12:  function resize() {
+29:  const store = {
+34:  const settings = Object.assign({ sound
+38:  const ORD = ["첫째", "둘째", "셋째", "넷째", "다섯째", "여섯째"];
+40:  const LAST_M = 5, MD = m => [0, 1, 2, 2, 3, 4][Math.min(LAST_M, m)];   // a turn
+42:  const STAGE = [{ han
+44:  const LAIR = { sumun
+47:  function bossKindOf(r = run, m = r && r.m) {
+51:  function stageOf(m, r = run) {
+56:  const stageName = (m, r) => { const s = stageOf(m, r); return `${s.ko} ${s.han}`; };
+57:  const MNAME = ["초입", "연비", "망루", "승천", "결전"];   // 初入 鳶飛 望�
+58:  const MADANG = [
+67:  const PAL = [
+74:  const BODY_FONT = getComputedStyle(document.documentElement).getPropertyValue("--f-body");
+75:  const HAT_WEAVE = { "#ece6d8"
+77:  const NIGHT = { bg
+78:  const SEAL = "#c3161c", JJOK = "#27466a", JJOK_L = "#5f86b5";
+84:  function gpuize(c, put) { if (window.createImageBitmap && c && c.getContext) createImageBi
+85:  const IMG = {}, PAT = {};
+86:  let perfT = 0, perfN = 0, perfSlow = 0;   // frame-time watch for the automatic quality dr
+88:  function tintedPaper(ssn) { // paper texture with the season's colour multiplied in once
+93:  function pattern(key, scale) { // world- or screen-anchored repeating pattern, built once 
+100:  function softened(c, px) { // blur once at load, so the backdrop recedes behind the sharp 
+104:  function seamlessStrip(img) {
+119:  const SPR = {};
+120:  const HERO = { idle
+122:  const H3 = { idle
+123:  const H3_AX = [.48, .58, .64, .63, .65, .58, .62, .59, .58, .54, .62, .46, .32, .42, .52, 
+124:  const SF = { fwd
+125:  const PF = { fire
+126:  const WF = { ssIdle
+127:  const SF_AX = [.44, .55, .6], SLASH_K = 1.18;   // measured on the sliced poses
+128:  const HFX = { dash
+129:  const HERO_AX = { 0
+130:  const FOE = { g
+131:  const FOE_AX = { 0
+132:  const F2 = { mudang
+133:  const FX = { slashA
+134:  const HUD = { bigDrum
+136:  const H2 = { idle
+141:  const CHOSIK = [
+201:  const SLOT = { 방어
+205:  let _tsRun = null, _tsKey = "", _tsSum = {};   // summed tree stats, rebuilt only when the
+206:  function treeStat(k) { if (!run || !run.perks) return 0; const key = run.perks.length + "
+209:  let CHOSIK_BY = null;
+210:  const TREES = {
+316:  const treeKey = () => { const w = wpn(), W = WEAPONS[w]; return W && W.gun ? w 
+320:  const G = (id, name, han, desc, o = {}) => ({ id, name, han, desc, grant
+321:  const TREE_EXT = {
+363:  const RARITY = { d_janmyeong
+364:  const RAR_NAME = ["", "일반", "희귀", "전설"];
+365:  const COMBOS = [
+370:  const COMBO_NEED = { cb_musim
+380:  const nodeOf = id => CHOSIK.find(c => c.id === id && c.tree);
+381:  const treeNodesHeld = () => (run.perks || []).filter(id => nodeOf(id));
+383:  const TREE_OPEN = [{ hon
+384:  const treeOpen = tk => ((META.treeOpen || {})[tk] || 0);
+385:  const lockLv = c => c.merge ? 3 
+386:  function treeOffer() { // the nodes you could take now
+394:  function syncCombos() { // two 비급 held together reveal a third
+398:  function enlighten(then) {
+408:  const kindOf = id => (CHOSIK.find(c => c.id === id) || {}).kind;
+409:  const fitPerks = list => { const n = {}; return list.filter(id => { const k = kindOf(id); 
+412:  const OMENS = [
+422:  const SEASON = [{ name
+423:  let _hasRun = null, _hasKey = "", _hasSet = new Set();   // held ids plus what held tree n
+424:  const has = id => { if (!run || !run.perks) return false; const k = run.perks.length + "
+428:  const PV = {
+474:  const ICON_ORDER = {
+477:  const PV_ICON = {};
+483:  const pv = c => { const o = run && PV[run.char] && PV[run.char][c.id], ic = run && PV_ICON
+485:  const TF_NAME = { dash
+487:  const SCHOOLS = {
+493:  const TIER_SHORT = { noe
+495:  const SCHOOL_OF = {};
+504:  const schoolN = k => !run ? 0 
+505:  const res = () => false;   // 공명 is gone
+507:  const SIMBEOP = [
+513:  const simb = k => !!(run && run.simbeop === k);
+515:  const WEAPONS = {
+534:  const isGun = () => !!(run && WEAPONS[wpn()] && WEAPONS[wpn()].gun);
+535:  const wpn = () => (run && run.weapon && WEAPONS[run.weapon]) ? run.weapon 
+536:  const wk = () => WEAPONS[wpn()].kind || wpn();   // the rules a weapon plays by
+537:  const wrule = () => { const w = WEAPONS[wpn()]; return w.kind || (w.ch ? "hwando" 
+538:  function regainAir() { P.airDash = Math.max(P.airDash, baseAir()); P.dashCd = 0; P.djN = 0
+539:  function ilseomCheon() { // 일섬천격
+543:  const frenzy = () => !!(P && has("ss_a1") && (P.frenzyUntil || 0) > songPos);
+544:  function counterCut(e) { // 환도 받아치기
+553:  function quakeSlam() { P.slamLandT = .3; const drop = Math.max(0, P.y - (P.slamFrom ?? P.y
+560:  function pogo() { // 내려베기
+566:  const BASE_W = { mumyeong
+568:  const OATHS = [
+578:  const oath = id => !!(run && run.oath === id);
+579:  const startBreath = () => 3 + (META.bld.sadang >= 1 ? 1 
+580:  const breathCap = () => oath("pi") ? 2 
+582:  const META = Object.assign({ hon
+591:  function saveMeta() { store.set("meta", META); }
+592:  const baseAir = () => (has("d_air") ? 2 
+593:  const cyc = () => (run && mode !== "tutorial" ? (run.tower ? Math.floor((run.floor - 1) / 
+594:  const omen = id => !!(run && mode !== "tutorial" && (run.omen === id || (run.omens && run.
+595:  const upOn = id => !!(run && run.up && run.up.includes(id));
+596:  const isFinal = () => !!(run && (run.tower || run.m === LAST_M));   // a stage that ends a
+597:  const season = () => { const c = cyc(); return c ? ((c - 1) % 3) + 1 
+598:  const ghostly = e => (e.type === "r" && e.ph === "gone") || !!e.hidden;
+599:  const bossAlive = () => enemies.some(e => e.alive && e.type === "b");
+600:  const F3 = { orb
+601:  const maxv = () => (frenzy() ? 1.3 
+602:  const strikeWin = () => STRIKE_WIN * (upOn("narrow") ? .7 
+603:  const PINE_N = 5, DEATH_SEAL = 5;   // pines sheet
+604:  const P2 = { plank
+605:  const CAL = { title
+606:  const PROP = { rope
+607:  const DRESS = [[PROP.pine, 74, 3], [PROP.stoneLantern, 34, 2], [PROP.jars, 26, 1], [PROP.b
+608:  const OBJ = { lanternOn
+609:  const LAZY_SHEETS = new Set(["gun1", "gun2", "grun2", "mv0", "mvrun", "weapons", "mu", "mv
+610:  const CHAR_SHEETS = { mumyeong
+611:  const sheetLoading = new Set();
+612:  function loadSheet(n) { // one atlas
+621:  const sheetTry = {};
+622:  function bossSheets(kind) { const B = BOSSES[kind]; if (!B) return []; const out = ["bossf
+625:  function loadGate(sheets, imgs, then, label) {
+637:  const BASE_IMGS = ["far", "mid", "tex-paper", "tex-stone", "tex-giwa"];
+640:  function bootLoad() {
+658:  function playSheets() { const ch = (run && run.char) || "mumyeong", out = ALL_SHEETS.filte
+661:  function needSheets(list) { for (const n of list) loadSheet(n); }   // phones
+662:  const ALL_SHEETS = ["hero", "hero2", "foes", "objects", "ui", "fx", "hud", "hudsolid", "pr
+664:  function inkInverted(img) { // night palette
+675:  function drawSprite(sheet, i, x, y, sc, flip, ax = .5, night = false, ay = 1) {
+681:  const HERO_H = 58, FOE_H = 62; // drawn heights in world units (hitboxes stay smaller, whi
+682:  const kOf = (sheet, ref, worldH) => SPR[sheet] ? worldH / SPR[sheet].f[ref].h 
+683:  function uiPatch(i, x, y, w, h, alpha = 1) { const s = SPR.ui; if (!s) return false; const
+684:  function applyUiSprites() { // brush-painted UI pieces become CSS images
+718:  function buildScenery() {
+784:  const baked = new Map();   // brightness/contrast done once per image, never with ctx.filt
+785:  function bake(img, br, ct) {
+792:  function drawPillar(c, pal) { // stacked rock segments; a grounded pillar fades into the g
+804:  function drawCliff(c, img, alpha) {
+812:  function mulberry(a) { return () => { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a 
+813:  function hashStr(s) { let h = 2166136261; for (const c of s) { h ^= c.charCodeAt(0); h = M
+814:  function todayKey() { const d = new Date(); return d.getFullYear() + "-" + String(d.getMon
+817:  const held = { left
+818:  const press = { jump
+819:  const stick = { x
+820:  let slashReq = null;   // {dir|null, ts, dash}
+821:  const trail = [];      // swipe ink trail, screen space
+822:  function keyAct(code) {
+847:  let iaiFrom = null;
+848:  const IAI_FULL = .32, IAI_MASTER = .75, iaiF = () => IAI_FULL * (has("bd_c1") ? .7 
+850:  function markTouch() { document.body.classList.add("touch"); }
+856:  const zone = $("stickZone"), sBase = $("stickBase"), sKnob = $("stickKnob"), STICK_R = 50;
+878:  function stickEnd(e) { if (e.pointerId !== stick.id) return; stick.id = null; stick.x = st
+883:  const swipes = new Map(), swipeZone = $("swipeZone");
+884:  let drumHit = null;
+904:  function swipeEnd(e) {
+917:  function axis() {
+922:  const START_PIECE = (() => { const r = []; for (let y = 0; y < 16; y++) r.push(y >= 12 ? "
+923:  const END_PIECE = (() => { const r = []; for (let y = 0; y < 16; y++) r.push(y >= 12 ? "##
+926:  function genPiece(rng, m, ropes, ctl = 0) {   // ctl (천고탑)
+987:  const ARENA_PIECE = (() => { const r = []; for (let y = 0; y < 16; y++) r.push(y >= 12 ? "
+988:  function buildMadangMap(seed, m, cy = 0, omIn = null, arena = m === 4, crowd = 0, ctl = 0,
+1042:  let LV = null;
+1043:  function loadMap(map, pal, hints) {
+1108:  function tileAt(tx, ty) { if (tx < 0 || tx >= LV.w) return 1; if (ty < 0 || ty >= LV.h) re
+1109:  function rectSolid(x, y, w, h) {
+1114:  function solidPt(x, y) { return tileAt(Math.floor(x / T), Math.floor(y / T)) === 1; }
+1115:  function los(x0, y0, x1, y1) { const n = Math.ceil(Math.hypot(x1 - x0, y1 - y0) / 10); for
+1116:  function moveX(o, dx) { o.x += dx; if (!rectSolid(o.x, o.y, o.w, o.h)) return false; o.x =
+1117:  function moveY(o, dy) { o.y += dy; if (!rectSolid(o.x, o.y, o.w, o.h)) return false; o.y =
+1119:  function ledgeBelow(o, prevBottom) {
+1127:  function onLedge(o) { const b = o.y + o.h, r = Math.round(b / T); if (Math.abs(b - r * T) 
+1128:  const groundPt = (x, y) => { const v = tileAt(Math.floor(x / T), Math.floor(y / T)); retur
+1129:  function overlap(a, b) { return a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a
+1130:  function makeRidges(worldW, seed) {
+1141:  let state = "menu";      // menu | interlude | play | dead | pause | result
+1142:  let mode = null;         // "run" | "tower" | "tutorial"
+1143:  let run = null;
+1144:  let P = null, enemies = [], bullets = [], parts = [], ghosts = [], seals = [];
+1145:  let deadIds = new Set(), cpSave = null, vfx = [], beams = [], clones = [], inBloom = false
+1146:  let lastHitDir = null, deathT = 0, hitstop = 0, shake = 0, songPos = 0, flash = 0;
+1147:  let cam = { x
+1149:  function newPlayer(x, y) {
+1154:  const TYPE_HP = { d
+1155:  function spawnEnemies() {
+1177:  function newRun() {
+1186:  function pickScreen(title, sub, items, onPick) {
+1200:  function startPicks(step = 0) {
+1220:  function continueRun() {
+1231:  function saveRun() { if (run && mode !== "tutorial") store.set("run", run); }
+1232:  function showInterlude() {
+1256:  function enterMadang() {
+1279:  function startTutorial() {
+1293:  function respawn() {
+1300:  function die(kind, dmg = 1) {
+1325:  function guardBlow(kind) { // 방어 비급
+1336:  function afterDeath() {
+1342:  const MOM_HAN = ["", "一", "二", "三", "四", "五"];
+1343:  const momOn = () => !!(run && mode !== "tutorial" && !hubOn && P);
+1344:  const momTier = () => momOn() ? Math.min(5, Math.floor((run.mom || 0) / 100)) 
+1345:  function momAdd(n) {
+1350:  function momHit() { if (!momOn()) return; run.mom = Math.max(0, Math.floor((run.mom || 0) 
+1351:  function stepMom(dt) {
+1359:  const GOALS = [
+1365:  const gateGoalOn = () => !!(run && run.gate && mode !== "tutorial" && !hubOn && !(run.node
+1366:  function gateGoalText() { if (!gateGoalOn()) return null; const G = GOALS.find(o => o.id =
+1367:  function gateGrade() { const g = run.gate, G = GOALS.find(o => o.id === g.goal); let sc = 
+1370:  function madangClear() {
+1386:  const SP_GAIN = { madang
+1387:  const spCost = c => c.tier >= 3 ? 2 
+1388:  function showChoice(kind) {   // kind
+1463:  const ROUTE = {
+1468:  function nextStep() {
+1474:  function routeOptions() {
+1480:  const FOE_NAME = { p
+1481:  function foeComp(node) { // read the gate ahead from the same seed that will build it
+1486:  function showRoute() {
+1496:  function routeTrail() { // the road so far drawn as a line of seals above the cards
+1500:  function stepOn() { run.m++; run.choosing = null; saveRun(); nextStep(); }
+1502:  const NPC = { jumo
+1505:  const EVENT_NPC = { blood
+1506:  function stepOn() { run.m++; run.choosing = null; saveRun(); nextStep(); }
+1507:  function buildRoadMap() { const rows = []; for (let y = 0; y < 16; y++) rows.push(Array.fr
+1508:  function setupRoad() { // the small road stage
+1515:  function resumeStage() { state = "play"; showScreen(null); Music.resume(); hubNear = null;
+1516:  function stageAct(st) {
+1530:  const EVENTS = [
+1537:  function treeStrip(offer = []) {
+1550:  function weaponPick(ws, onPick) {
+1564:  const PERK_MAX = 4;
+1565:  const heldPerks = () => (run.perks || []).filter(id => id !== "sum" && SLOT[kindOf(id)]);
+1566:  const slotFull = k => !!SLOT[k] && heldPerks().filter(id => kindOf(id) === k).length >= SL
+1567:  function replaceScreen(nc, done) { // the slot is taken
+1573:  const START_ALT = {};   // every hand now starts from the same shared 비급
+1574:  const startOf = (m, ch) => ((START_ALT[ch] || {})[m.start]) || m.start;
+1575:  const SIMBEOP_START = () => { const m = SIMBEOP.find(m => m.id === run.simbeop); return m 
+1576:  function discardScreen(kind) { // trade a 비급 that no longer fits the build for one bre
+1581:  function showOmen() {   // the rule for the coming turn
+1603:  function endRun(won) {
+1633:  let lastResult = null, sealable = null, retryGain = null;
+1635:  function runRewards(reached) {
+1642:  function shareText() {
+1650:  const CLIMBV = 270, CLIMB_T = 0.5, GRAV = 1900, JUMPV = 640, MAXV = 300, DASHV = 1000, HOO
+1651:  function aimDir() { const a = axis(), m = Math.hypot(a.x, a.y); let d = m < 0.35 ? { x
+1656:  const TAP_T = .12;   // released sooner than this, the dash button is a tap
+1657:  const focusLen = () => (upOn("narrow") ? .5 
+1658:  function talismans(d) { // 부적 세 장
+1663:  const GUN_AX = { gun1
+1664:  const gunMag = () => (WEAPONS[wpn()].mag || 1) + treeStat("mag");
+1665:  function gunReload(n, why) { // a round goes back in (a bayonet that bit, a read blow, the
+1670:  function blast(x, y, r, strike, opts = {}) { // a gun's explosion
+1680:  function chainBlast(x, y, depth) { if (has("sj_c3") && depth) ougiArt(["ogB", 5], x, y, 11
+1681:  let pfires = [];   // fire left on the ground by your own shots
+1682:  function pfire(x, y, w, t) { pfires.push({ x, y, w, h
+1683:  function gunShot(hip) { // 총
+1725:  function hipShot(G, w) { // a tap
+1737:  const MUZ_L = { jochong
+1738:  function muzzleAt(w, d) { const L = MUZ_L[w] || 32; return { x
+1739:  const MUZ = { flash
+1740:  function muzzleFx(w, x, y, d) { // fire and smoke out of the gun's own mouth (no painted b
+1747:  function volleyFire() { // 화차
+1754:  const EDGE = { hwando
+1755:  const edgeOn = () => !!(P && run && mode !== "tutorial" && !isGun() && EDGE[wk()]);
+1756:  const edgeMax = () => (EDGE[wk()] || [4])[0] + treeStat("edge");
+1757:  function stepEdge(dt) { if (!edgeOn()) return; if (P.edge == null) P.edge = edgeMax();
+1759:  function whet(n = 99) { if (P && edgeOn()) P.edge = Math.min(edgeMax(), (P.edge ?? edgeMax
+1760:  function stepGun(dt) { // the slow match
+1771:  function aimRay(d, L0, wide, bounce, ox, oy, str = false, o = {}) { // one aimed shot
+1797:  function sunbo() { // 순보
+1810:  function startDash(dir, forced) { P.trail = null; P.yongArt = false;
+1836:  const KAN_REACH = 300;
+1837:  function kanLunge(d, own) {   // own
+1851:  function musket(d, arrow) { // 포수
+1861:  function shot(d, arrow) {
+1952:  let kegs = [], rings = [], killCam = 0, cutLines = [], trails = [];   // trails
+1954:  let bossIntro = null, bossOut = null, bossBanner = null, roar = null;   // roar
+1955:  const ACT_NAME = { slam
+1959:  const RAGE_ADD = { sumun
+1962:  const BC = { gyeoljeon
+1963:  const BV = { rage
+1964:  const WF2 = { streak
+1965:  function wfxLine(i, x0, y0, x1, y1, h, sheet = "wfx") { // a painted streak laid along a s
+1969:  const KF = { bead
+1970:  let flashDim = 0;
+1971:  const KR = { thin
+1972:  const MECH = { glint
+1973:  const BNAME = { sumun
+1974:  function spr(sheet, i, x, y, h, flip = false) { const S = SPR[sheet]; if (!S || !S.f[i]) r
+1975:  function sprW(sheet, i, h) { const S = SPR[sheet]; return S && S.f[i] ? S.f[i].w * h / S.f
+1976:  function banner(text, col, sub) { bossBanner = { text, col, sub, t
+1977:  function sealArena(e, on) { // a talisman barrier closes both sides of the arena while the
+1986:  function killCamOn(e) {
+1993:  function drawCutLines() { // a short wet cut of blood across the body, drawn in one stroke
+2000:  function ringFx(x, y, r, col, life) { rings.push({ x, y, r, col, t
+2001:  let pops = [];   // small floating words
+2002:  function popText(x, y, txt, col) { pops.push({ x, y, txt, col
+2003:  function trailFx(x0, y0, x1, y1, w, life, fr = WF2.streak, sheet = "wfx") { const t = { x0
+2004:  function stepKegs() { // 화약통
+2009:  function drawFlame(b) { // a painted flame that flickers, sways and gutters out — each o
+2026:  function drawKegsRings() {
+2034:  function stepGuards(dt) { // 비검's orbiting swords and 흑룡's coil
+2049:  function nearestFoes(x, y, n, r) { return enemies.filter(e => e.alive && !ghostly(e) && Ma
+2050:  function shintong(d) { // what an 일격 sets loose
+2070:  function foesInLine(x, y, d, L) { // who stands within reach of a straight line
+2074:  function boltLunge(d, L, isDash) { // 뇌전검·뇌섬
+2091:  let bolts = [];
+2092:  function boltFx(x0, y0, x1, y1, life, w) { // a jagged lightning stroke, re-forked every f
+2096:  const nightNow = () => !!(LV && LV.pal.night) || !!(P && (P.focus || killCam > 0) && state
+2097:  const GSET = col => col === SEAL ? [3, 4, 5, false] 
+2098:  function guideSprite(i, x, y, ang, w, h, inv) { const S = SPR.guide, f = S.f[i]; ctx.save(
+2100:  const hrnd = (a, b) => { const x = Math.sin(a * 127.1 + b * 311.7) * 43758.5453; return x 
+2101:  function inkDab(x, y, ang, len, w, col) { // one press of a dry brush
+2110:  function brushLine(x0, y0, x1, y1, col, w, dashed, seed = 0) { // dashed
+2122:  function inkRing(x, y, r, w, seed) { // a thin dry-brush circle
+2128:  function inkLine(x0, y0, x1, y1, w, seed) { // the same brush drawn straight
+2134:  function brushRing(x, y, r, col, w, seed = 0) { // a circle swept by a dry brush
+2143:  function inkWash(x, y, w, h, col, seed = 0) { // a zone washed in with horizontal dry stro
+2150:  function drawBolts() {
+2163:  function fireFx(x, y, r) { // 화 공명
+2168:  function shadeFx(x, y, n) { // 영 공명
+2171:  function resDashEnd() {
+2179:  function resKill(e) {
+2186:  function resFx(k, line) { const S = SCHOOLS[k]; addFx("hud", HUD.spark, P.x + P.w / 2, P.y
+2187:  function flow(kind) { // 기세
+2195:  function findHook() {
+2207:  function frameInput(rdt) {
+2263:  const approach = (v, t, a) => v < t ? Math.min(t, v + a) 
+2264:  function stepPlayer(dt) {
+2393:  function ghost(gap) { const l = ghosts[ghosts.length - 1]; if (!l || l.age > gap) ghosts.p
+2395:  function addFx(sheet, i, x, y, h, o = {}) { if (vfx.length > (MOBILE ? 60 
+2397:  function heroFx(kind, x, y, dir = 1, ang = 0) {
+2403:  function findFloor(x, y) { let ty = Math.floor(y / T); while (ty < LV.h && tileAt(Math.flo
+2404:  function bleed(x, y, dir, big) { // blood burst + spray along the blow + a pool where it l
+2411:  function puff(x, y, n) { for (let i = 0; i < n; i++) parts.push({ x, y, vx
+2412:  function stain(x, y, n, col) {
+2416:  function laserOn(l) { const b = Math.floor(songPos / Music.beatLen); return (((b + l.phase
+2417:  function laserWarn(l) { const bl = Music.beatLen, b = Math.floor(songPos / bl), frac = son
+2418:  function playerHazards() {
+2439:  function hurtEnemy(e, strike, kind) {
+2489:  function killEnemy(e) {
+2539:  function clang(e) {
+2544:  function stepEnemies(dt) {
+2611:  function stepFoe3(e, dt, pcx, pcy, dist, live, bl) { // 순라 · 자객 · 북잡이
+2651:  function dashThrough(e) { if (state === "play" && P.dashT > 0 && overlap(e, P) && !P.dashH
+2652:  let inChain = false;
+2653:  const FLASH_BASE = .3; let FLASH = FLASH_BASE;   // the glint before a blow lands
+2654:  function flashSync() { FLASH = (FLASH_BASE + (simb("noe") ? .1 
+2655:  function kanPerks(e) { // what the held 간파 비급 gives back for one read blow
+2671:  let bulletHold = 0;
+2672:  function blowAt(e) { // when this foe's blow lands (null when nothing is coming)
+2680:  function isFlashing(e) { if (e && e.alive && e.openT > songPos) return true; const t = blo
+2681:  const CLOSE = .35;   // the ring's approach before the glint opens
+2682:  function preFlash(e) { const t = blowAt(e); return t != null && songPos >= t - FLASH - CLO
+2683:  function drawKanAura(e) { // behind the body
+2688:  function drawKanFlash(e, tt) { // 간파
+2700:  const viaMua = () => !!(P && P.aimDash && !P.tapDash);   // the cut came out of 무아경
+2701:  function chainAdd(n) { if (!P) return; const g0 = Math.min(5, P.chain || 0); P.chain = (P.
+2702:  function addQi(n) { // 천고 기운
+2707:  let chungoFx = null;
+2709:  const OUGI = {
+2719:  const ougiOf = () => OUGI[wpn()] || OUGI[wrule()] || OUGI.hwando;
+2720:  function ougiArt(key, x, y, h, o = {}) { const [sh, i] = key; if (SPR[sh]) { addFx(sh, i, 
+2721:  function ougiCall(o) { flashDim = Math.max(flashDim, .1); }   // the art speaks for itself
+2722:  let bossBannerLite = null;   // the 오의's name brushed large for a moment
+2723:  function chungo() { // the full drum
+2733:  function gunOugi(w, o) { // the four guns' 오의
+2755:  function stepChungo(rdt) {
+2768:  function drawChungo(tt) { // painted, laid in order — each weapon writes its own
+2784:  function breakTarget(g) { // 과녁
+2789:  function dashHurt(e) { // what a dash does to whatever it passes through
+2795:  function stepMudang(e, dt, pcx, dist, live) {
+2806:  function stepReaper(e, dt, pcx, pcy, dist, live) {
+2834:  const BOSSES = {
+2857:  const BOSS_POSE = {
+2869:  const cyc4 = (sh, r) => [0, 1, 2, 3].map(i => [sh, r * 4 + i]);
+2870:  const BOSS_ANIM = { gumiho
+2871:  const animK = {};
+2872:  function animScale(kind) { // size a loop so its frames match the boss's idle painting (by
+2878:  const SHEET_SC = { bossA
+2885:  function shadowBook() { const others = META.books.filter(b => !run || b.id !== run.book); 
+2886:  const BOSS_ORDER = ["gumiho", "dokkaebi", "imugi", "wongwi", "jangseung", "haetae", "bulga
+2887:  const MASKS = ["양반탈", "각시탈", "말뚝이탈"];
+2888:  function bossFor(seed, cy, m) { // one guardian per turn, 수문장 first, then a run-seed
+2895:  const josa = (w, a, b) => { const c = w.charCodeAt(w.length - 1) - 0xAC00; return w + (c >
+2897:  let haz = [];
+2898:  function addHaz(kind, x, y, w, h, at, end) { const z = { kind, x, y, w, h, at, end, t0
+2899:  function hurtsPlayer() { return state === "play" && P.dashT <= 0 && !((P.invT || 0) > 0); 
+2900:  function stepHazards() {
+2914:  function bossFloor(e) { return e.floor; }
+2915:  function leap(e, tx, t) { const g = 1900, ecx = e.x + e.w / 2; e.vx = (tx - ecx) / t; e.vy
+2916:  function summonHawks(e, n = 2) {
+2921:  const slowShot = () => (has("malli") ? .5 
+2922:  function aimShot(e, x, y, tx, ty, sp, o = {}) { const d = Math.hypot(tx - x, ty - y) || 1;
+2923:  function lob(e, x, y, tx, ty, t, o = {}) { const g = 900; bullets.push({ x, y, vx
+2924:  function waves(e, sp) { const ecx = e.x + e.w / 2; for (const dir of [-1, 1]) bullets.push
