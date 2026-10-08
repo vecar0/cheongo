@@ -406,7 +406,7 @@ body.inhub #hud .hl small em:first-child { color: #c3161c; }
 #choice.tree .tr-n span { top: 33px; font-size: 10px; opacity: 0; transition: opacity .15s; pointer-events: none; z-index: 2; background: rgba(236,230,216,.92); padding: 0 3px; }
 #choice.tree .tr-n.rt span, #choice.tree .tr-n.sel span { opacity: 1; }
 #choice.tree .tr-n.lk i { filter: grayscale(1) opacity(.25); border-style: dashed; }
-#choice.tree .tr-n.lk::after { content: "鎖"; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-family: var(--f-head); font-size: 13px; color: var(--ink-2); }
+#choice.tree .tr-n.lk::after { content: "잠김"; font-size: 9px !important; letter-spacing: -.04em; white-space: nowrap; color: var(--ink-3) !important; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-family: var(--f-head); font-size: 13px; color: var(--ink-2); }
 #choice.tree .tr-n.og:not(.on) i { border-color: #9a1424; border-style: dotted; }
 #choice.tree .tr-n.aw i { box-shadow: 0 0 0 2px var(--paper), 0 0 0 4px var(--seal), 0 0 14px 4px rgba(195,22,28,.55); }
 /* 비급 grades: a card turned face up, rarer ones edged in colour */

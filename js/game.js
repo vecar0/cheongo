@@ -176,7 +176,7 @@ const treeNodesHeld = () => (run.perks || []).filter(id => nodeOf(id));
 // 서고 수련: 0 → 3단까지, 1 → 4단까지, 2 → 합류까지 (META.treeOpen[weapon] counts what has been learned)
 const TREE_OPEN = [{ hon: TUNING.TREE_OPEN_HON[0], ms: 0, name: "3단 깨치기", desc: "모든 무기의 갈래마다 둘 중 하나를 고르는 3단이 열린다" }, { hon: TUNING.TREE_OPEN_HON[1], ms: 1, name: "4단 깨치기", desc: "모든 무기의 3단 뒤 4단이 열린다 (어느 무기든 숙련 1)" }, { hon: TUNING.TREE_OPEN_HON[2], ms: 2, name: "합류 깨치기", desc: "모든 무기에서 이웃한 두 갈래를 잇는 합류가 열린다 (어느 무기든 숙련 2)" }];
 const treeOpen = () => { const o = META.treeOpen || {}; return Math.max(o.all || 0, ...Object.values(o).filter(Number.isFinite)); };   // learned once for every weapon (older saves: the furthest any weapon got)
-const lockLv = c => c.merge ? 3 : c.lock || 0;
+const lockLv = c => c.merge ? 3 : c.ougi ? 1 : c.lock || 0;   // 오의 too stays sealed until the 서고 opens the deeper steps
 function treeOffer() { // the nodes you could take now: the root, then step by step along a branch; 오의 never (깨달음 gives it)
   const T = treeKey(), held = new Set(run.perks || []), out = [], hasRoot = CHOSIK.some(o => o.tree === T && o.tier === 0);
   const got = (br, tier) => CHOSIK.some(o => o.tree === T && o.br === br && o.tier === tier && held.has(o.id));
@@ -193,6 +193,7 @@ function enlighten(then) {
   then = then || (() => showChoice("cycle"));
   const tk = treeKey(), held = new Set(run.perks || []);
   if (run.ougiId) { if (!run.ougiAwake) { run.ougiAwake = true; saveRun(); const c = CHOSIK_BY[run.ougiId]; toast(`각성 · ${c ? c.name : "오의"} — 천고 오의가 더 넓고, 쓰면 기운 절반이 돌아온다`); Music.jing(); } run.choosing = "cycle"; saveRun(); return then(); }
+  if (treeOpen() < 1) { toast("깨달음이 오지 않았다 · 본당 서고에서 \"3단 깨치기\"를 먼저 해야 오의를 깨칠 수 있다"); run.choosing = "cycle"; saveRun(); return then(); }
   const els = CHOSIK.filter(c => c.tree === tk && c.ougi && CHOSIK.some(o => o.tree === tk && o.br === c.br && o.tier === 2 && held.has(o.id)));
   if (!els.length) { toast("깨달음이 오지 않았다 · 한 갈래를 2단까지 걸어야 한다"); run.choosing = "cycle"; saveRun(); return then(); }
   pickScreen("깨달음", "천고를 베었다 — 걸어온 갈래 끝에서 오의 하나가 열린다", els.map(c => ({ id: c.id, name: pv(c).name, han: pv(c).han, desc: pv(c).desc.replace(/^오의 — /, ""), icon: pv(c).icon })), it => {
@@ -939,6 +940,7 @@ function continueRun() {
   const s = store.get("run", null); if (!s || typeof s !== "object" || Array.isArray(s)) return;
   if (!WEAPONS[s.weapon]) s.weapon = "hwando"; if (!Array.isArray(s.perks)) s.perks = []; if (!Array.isArray(s.dead)) s.dead = []; if (!Number.isFinite(s.m) || s.m < 0) s.m = 0;   // a broken save still plays
   if (!s.tower) s.breath = Math.max(1, Math.min(9, Number.isFinite(s.breath) ? s.breath : 3));
+  s.perks = s.perks.filter(id => { const c = CHOSIK.find(o => o.id === id); return !(c && c.ougi && c.tree) || id === s.ougiId; });   // 오의 only by 깨달음
   run = s; mode = s.tower ? "tower" : "run"; if (run.char === "posu") { run.char = "mumyeong"; run.weapon = "jochong"; } if (run.char === "shadowc") run.char = "mumyeong"; run.perks = fitPerks((run.perks || []).filter(id => CHOSIK.some(c => c.id === id)));   // older saves may hold more than the slots allow
   if (!s.v && !s.tower) { s.m = [0, 2, 5][s.m] ?? s.m; s.v = 2; }   // a run saved when a turn was three long gates
   if (s.tower) s.m = LAST_M; if (s.m > LAST_M) s.m = LAST_M;
@@ -1110,7 +1112,7 @@ function madangClear() {
   if (run.node === "rest" || run.node === "event") { run.m++; run.node = null; run.talked = false; run.cp = -1; run.dead = []; state = "result"; saveRun(); setTimeout(() => { Music.stop(); nextStep(); }, 500); return; }   // walked out of a road stage: on to the next fork
   if (mode !== "tutorial" && !(run.node === "rest" || run.node === "event")) logGate("clear");
   if (run.gate && !run.tower) { const gr = gateGrade(); run.lastGrade = gr.ch; run.grades = (run.grades || "") + gr.ch;
-    seals.push({ x: P.x + P.w / 2, y: P.y - 10, t: 0, rot: -.12, ch: gradeKo(gr.ch), big: true }); toast(`관문 등급 ${gradeKo(gr.ch)}${gr.goal ? " · 과제를 이뤘다" : ""}${gr.ch === "甲" ? " · 수련점 +1" : gr.ch === "乙" ? " · 혼 +10" : ""}`);
+    seals.push({ x: P.x + P.w / 2, y: P.y - 10, t: 0, rot: -.12, ch: gr.ch, big: true }); popText(P.x + P.w / 2, P.y - 58, `${gradeKo(gr.ch)} 등급`, gr.ch === "甲" ? SEAL : "#17161a"); toast(`관문 등급 ${gradeKo(gr.ch)}${gr.goal ? " · 과제를 이뤘다" : ""}${gr.ch === "甲" ? " · 수련점 +1" : gr.ch === "乙" ? " · 혼 +10" : ""}`);
     if (gr.ch === "乙") run.honBonus = (run.honBonus || 0) + 10; if (gr.ch === "甲") petJeong(3); run.gate = null; }
   if (!run.tower && !oath("godok") && !upOn("noheal") && run.breath < TUNING.GATE_HEAL_TO) { run.breath++; toast(`숨을 골랐다 · 숨 ${run.breath}`); }   // each gate passed lets you catch one breath back (up to three)
   run.cleared = run.node || "gate"; if (run.cleared === "elite") { run.honBonus = (run.honBonus || 0) + 20; addQi(40); }
@@ -1163,8 +1165,8 @@ function showChoice(kind) {   // kind: "madang" after a cleared gate, "cycle" af
   const detail = c => { sel = c; graph.querySelectorAll(".tr-n").forEach(n => n.classList.toggle("sel", n.dataset.id === c.id)); side.querySelectorAll(".tr-sh").forEach(n => n.classList.toggle("sel", n.dataset.id === c.id));
     const v = pv(c), mine = owned(c.id), can = c.tree ? canTake.has(c.id) : true, cost = c.tree ? spCost(c) : 1;
     const lk = c.tree && lockLv(c) > treeOpen(), r = !c.tree && RARITY[c.id] || 1, otherFork = c.fork != null && CHOSIK.some(o => o.tree === tk && o.br === c.br && o.tier === 3 && o.id !== c.id && owned(o.id));
-    const d = side.querySelector(".tr-det"); d.innerHTML = `<em class="tag kind${c.ougi ? " ougi" : ""}">${c.tree ? `${T.name} · ${c.brName} ${c.ougi ? "오의" : c.tier ? c.tier + "단" : ""}` : `${c.kind || "숨"}${c.kind ? " · " + RAR_NAME[r] : ""}`}</em><b>${v.name}</b><small>${v.han || ""}</small><p>${v.desc}</p>`;
-    const b = document.createElement("button"); b.className = "btn pri"; b.textContent = mine ? "익혔다" : c.ougi ? "천고를 베면 깨닫는다" : lk ? "서고에서 먼저 깨쳐야 한다" : otherFork ? "다른 갈래를 골랐다" : !can ? "앞 단계를 먼저" : `익히기 · ${cost}점`; b.disabled = mine || !can || (run.sp || 0) < cost; b.addEventListener("click", () => learn(c)); d.appendChild(b); };
+    const d = side.querySelector(".tr-det"); d.innerHTML = `<em class="tag kind${c.ougi ? " ougi" : ""}">${c.tree ? `${T.name} · ${c.brName} ${c.ougi ? "오의" : c.tier ? c.tier + "단" : ""}` : `${c.kind || "숨"}${c.kind ? " · " + RAR_NAME[r] : ""}`}</em><b>${v.name}</b><p>${v.desc}</p>`;
+    const b = document.createElement("button"); b.className = "btn pri"; b.textContent = mine ? "익혔다" : c.ougi ? (treeOpen() < 1 ? "서고에서 먼저 깨쳐야 한다" : "천고를 베면 깨닫는다") : lk ? "서고에서 먼저 깨쳐야 한다" : otherFork ? "다른 갈래를 골랐다" : !can ? "앞 단계를 먼저" : `익히기 · ${cost}점`; b.disabled = mine || !can || (run.sp || 0) < cost; b.addEventListener("click", () => learn(c)); d.appendChild(b); };
   if (T) { // the graph: root on the left, three branches → 1단 · 2단 · a fork of two · 4단 · 오의, two 합류 on the far right
     const ys = [14, 50, 86], X = { 0: 5, 1: 18, 2: 31, 3: 46, 4: 61, 5: 76 }, mx = 91, at = c => c.tier === 0 ? [X[0], 50] : c.merge ? [mx, (ys[c.merge[0]] + ys[c.merge[1]]) / 2] : [X[c.tier], ys[c.br] + (c.fork != null ? (c.fork ? 11 : -11) : 0)];
     const nodes = CHOSIK.filter(c => c.tree === tk), on = c => owned(c.id), line = (p, q, lit) => `<path d="M${p[0]} ${p[1]} C ${(p[0] + q[0]) / 2} ${p[1]}, ${(p[0] + q[0]) / 2} ${q[1]}, ${q[0]} ${q[1]}" class="${lit ? "on" : ""}"/>`;
@@ -1278,7 +1280,7 @@ function treeStrip(offer = []) {
   if (T) { h += `<div class="ts-tree"><b class="ts-w">${T.name}</b>`;
     T.br.forEach((b, bi) => { h += `<span class="ts-br"><em>${b.name}</em>`; for (let t = 1; t <= 5; t++) { const cs = CHOSIK.filter(o => o.tree === tk && o.br === bi && o.tier === t); if (!cs.length) continue;
       const c = cs.find(o => mine.has(o.id)) || cs.find(o => off.has(o.id)) || cs[0];
-      h += `<i class="ts-n${c.ougi ? " og" : ""}${mine.has(c.id) ? " on" : ""}${off.has(c.id) ? " next" : ""}" title="${c.name} — ${c.desc}">${c.ougi ? "奧" : ""}</i>`; } h += `</span>`; });
+      h += `<i class="ts-n${c.ougi ? " og" : ""}${mine.has(c.id) ? " on" : ""}${off.has(c.id) ? " next" : ""}" title="${c.name} — ${c.desc}">${c.ougi ? "오" : ""}</i>`; } h += `</span>`; });
     h += `</div>`; }
   h += `<div class="ts-slots">` + SLOT_ORDER.map(k => { const ids = heldPerks().filter(id => kindOf(id) === k);
     return `<span class="ts-k"><em>${k}</em>` + Array.from({ length: SLOT[k] }, (_, n) => { const c = ids[n] && CHOSIK.find(o => o.id === ids[n]); return c ? `<i class="ts-s on" title="${c.name} — ${c.desc}" style="--ic:var(--chosik-${pv(c).icon})"></i>` : `<i class="ts-s"></i>`; }).join("") + `</span>`; }).join("") + `</div>`;
@@ -4644,6 +4646,7 @@ function drawHubLabels(pal) { // the names of the stations, painted on small boa
 // ---------- screens ----------
 function inkWipe() { const w = $("wipe"); if (!w) return; w.classList.remove("on"); void w.offsetWidth; w.classList.add("on"); }
 function showScreen(id) {
+  if (id !== null && typeof tipT !== "undefined") { tipT = 0; $("tip").classList.remove("on"); $("tip").hidden = true; }   // a play tip never hangs over a menu
   for (const s of ["menu", "settings", "interlude", "pause", "result", "choice", "board"]) $(s).hidden = s !== id;
   const inGame = id === null;
   $("hud").hidden = !(inGame || id === "pause");
