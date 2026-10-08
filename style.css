@@ -445,3 +445,7 @@ body.inhub #hud .hl small em:first-child { color: #c3161c; }
 .bd-row { position: relative; }
 .bd-row::after { content: ""; position: absolute; right: 4px; top: 4px; width: 6px; height: 6px; background: var(--seal); opacity: .5; border-radius: 1px; }
 .bd-row > .btn { position: relative; z-index: 1; }
+/* touch buttons stay out of the way: softer by default, nearly clear when the swordsman passes behind them */
+#pad .tb { opacity: .62; transition: opacity .15s; }
+#pad .tb.down { opacity: .9; }
+#pad .tb.over:not(.down) { opacity: .22; }

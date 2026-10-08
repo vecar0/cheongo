@@ -74,6 +74,12 @@
     <div class="panel">
       <h2>설정</h2>
       <div class="set"><span>소리</span><button class="btn" id="bSound">켜짐</button></div>
+      <div class="set"><span>음악 크기<small>장구·가야금·아쟁</small></span>
+        <div class="step"><button class="btn" id="bMusDn" aria-label="음악 줄이기">−</button><b id="musVal">80%</b><button class="btn" id="bMusUp" aria-label="음악 키우기">+</button></div></div>
+      <div class="set"><span>효과음 크기<small>베기·총·징</small></span>
+        <div class="step"><button class="btn" id="bFxDn" aria-label="효과음 줄이기">−</button><b id="fxVal">100%</b><button class="btn" id="bFxUp" aria-label="효과음 키우기">+</button></div></div>
+      <div class="set"><span>장단 빠르기<small>박자가 벅차면 늦춘다 · 적도 함께 느려진다</small></span>
+        <div class="step"><button class="btn" id="bTempoDn" aria-label="장단 늦추기">−</button><b id="tempoVal">100%</b><button class="btn" id="bTempoUp" aria-label="장단 빠르게">+</button></div></div>
       <div class="set"><span>가벼운 그래픽<small>휴대폰이 버벅이면 켜세요 · 해상도와 날씨·종이 질감을 줄인다</small></span><button class="btn" id="bLite">꺼짐</button></div>
       <div class="set"><span>프레임 표시</span><button class="btn" id="bFps">꺼짐</button></div>
       <div class="set"><span>박자 보정<small>일격이 늦게 판정되면 −, 빠르면 +</small></span>
@@ -83,7 +89,7 @@
       <div class="set"><span>버튼 위치<small>버튼을 직접 끌어서 옮긴다</small></span>
         <div class="step"><button class="btn" id="bPadEdit">옮기기</button><button class="btn ghost" id="bPadReset">처음대로</button></div></div>
       <div class="set"><span>조작</span><small class="keys">터치: 왼쪽 끌기 이동 · 오른쪽 긋기 베기 · 길게 빠르게 그으면 돌진베기<br>키보드: ←→ 이동 · Space 점프 · J 베기 · K 대시 · L 연</small></div>
-      <div class="set"><span>배경음악<small>「국악 효과음 #572」 © 주식회사 아이티앤, 공유마당(gongu.copyright.or.kr), CC BY 라이선스. 반복 재생을 위해 앞뒤 여백과 여운을 잘라 0.09~3.95초(박 아홉 개) 구간을 이어 붙였습니다.</small></span></div>
+      <div class="set"><span>음악<small>장단과 계면조 가야금 선율을 판마다 게임이 즉석에서 짓는다. 그림은 Higgsfield로 생성.</small></span></div>
       <button class="btn pri" id="bSetClose">닫기</button>
     </div>
   </section>
@@ -111,6 +117,7 @@
       <div class="row2">
         <button class="btn pri" id="bResume">계속</button>
         <button class="btn" id="bTree">수련</button>
+        <button class="btn" id="bHelp">조작법</button>
         <button class="btn" id="bPauseSet">설정</button>
         <button class="btn" id="bGiveUp">판 포기</button>
         <button class="btn ghost" id="bToMenu">메뉴로</button>
@@ -128,7 +135,8 @@
       <div class="stats" id="rStats"></div>
       <div class="rec" id="rRec"></div>
       <div class="row2">
-        <button class="btn pri" id="bAgain">다시 한 판</button>
+        <button class="btn pri" id="bSame" hidden>같은 채비로 다시</button>
+        <button class="btn" id="bAgain">다시 한 판</button>
         <button class="btn pri" id="bSeal" hidden>비급첩에 봉인</button>
         <button class="btn" id="bShare">결과 공유</button>
         <button class="btn ghost" id="bResMenu">메뉴</button>

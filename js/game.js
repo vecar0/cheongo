@@ -32,8 +32,9 @@ const store = {
   set(k, v) { try { localStorage.setItem("chungo." + k, JSON.stringify(v)); } catch (e) {} },
   del(k) { try { localStorage.removeItem("chungo." + k); } catch (e) {} }
 };
-const settings = Object.assign({ sound: true, offset: 0 }, store.get("settings", {}));
-Music.setVolume(settings.sound ? 1 : 0); Music.setOffset(settings.offset);
+const settings = Object.assign({ sound: true, offset: 0, mus: .8, fx: 1, tempo: 1 }, (() => { const v = store.get("settings", {}); return v && typeof v === "object" ? v : {}; })());
+for (const [k, d, lo, hi] of [["mus", .8, 0, 1], ["fx", 1, 0, 1], ["tempo", 1, .7, 1], ["offset", 0, -200, 200]]) if (!Number.isFinite(settings[k])) settings[k] = d; else settings[k] = Math.max(lo, Math.min(hi, settings[k]));
+Music.setVolume(settings.sound ? 1 : 0); Music.setOffset(settings.offset); Music.setMix(settings.mus, settings.fx);
 
 // ---------- 마당 definitions & palettes ----------
 const ORD = ["첫째", "둘째", "셋째", "넷째", "다섯째", "여섯째"];
@@ -654,7 +655,7 @@ const BASE_IMGS = ["far", "mid", "tex-paper", "tex-stone", "tex-giwa"];
 function bootLoad() {
   const el = $("loading"), bar = $("ldBar"), txt = $("ldTxt"), t0 = performance.now();
   const urls = []; for (const n of LAZY_SHEETS) urls.push(`assets/sprites/${n}.json`, `assets/sprites/${n}.webp`);   // the core sheets and textures are already on their way through their own loaders — fetching them twice would only double the download
-  urls.push("assets/lore.webp", "assets/tex-granite.webp", "assets/audio/bgm.mp3?v=572");
+  urls.push("assets/lore.webp", "assets/tex-granite.webp");
   const core = ALL_SHEETS.filter(n => !LAZY_SHEETS.has(n));
   let got = 0, q = urls.slice();
   const one = async u => { for (let a = 0; ; a++) { try { const r = await fetch(u); if (r.ok) { await r.arrayBuffer(); break; } } catch (e) {} await new Promise(r => setTimeout(r, Math.min(5000, 800 * (a + 1)))); } got++; };   // keeps trying until it arrives
@@ -1189,13 +1190,13 @@ function spawnEnemies() {
 }
 
 // ---------- run flow ----------
-function newRun() {
+function newRun(quiet) {
   if (hubOn) leaveHub();
   const key = todayKey();
   run = { v: 2, seed: (Math.random() * 2 ** 32) >>> 0, dateKey: key, m: 0, cp: -1, dead: [],
     breath: startBreath(), time: 0, deaths: 0, kills: 0, strikes: 0, slashes: 0, perks: [], weapon: "hwando", oath: null, char: "mumyeong", picking: true };
   mode = "run";
-  saveRun(); startPicks();
+  saveRun(); if (quiet !== true) startPicks();
 }
 // a row of cards for one decision; items: { name, han, desc, cost?, glyph? }
 function pickScreen(title, sub, items, onPick) {
@@ -1287,7 +1288,7 @@ function enterMadang() {
     run.gate = { goal: GOALS[(rg() * GOALS.length) | 0].id, t0: run.time, kan0: run.gKan || 0, hit0: run.gHits || 0, pf0: run.perfectN || 0 }; run.gMaxTier = Math.floor((run.mom || 0) / 100); }
   P = newPlayer(s.x, s.y); run.hosinUsed = 0; run.shadeUsed = false; run.cutDrums = run.cutDrums || []; 
   bullets = []; parts = []; ghosts = []; seals = []; vfx = []; haz = []; beams = []; bolts = []; kegs = []; rings = []; cutLines = []; trails = []; pops = []; pfires = []; bulletHold = 0; killCam = 0; clones = []; bossIntro = bossOut = bossBanner = roar = null; chungoFx = null; sealArena(null, false);
-  Music.start(MADANG[run.tower ? [0, 2, 4][(run.floor - 1) % 3] : MD(run.m)].jd, run.seed + run.m, (1 + .04 * Math.min(4, run.cycle || 0)) * (omen("geupbak") ? 1.15 : 1) * (upOn("fast") ? 1.15 : 1));
+  Music.start(MADANG[run.tower ? [0, 2, 4][(run.floor - 1) % 3] : MD(run.m)].jd, run.seed + run.m, settings.tempo * (1 + .04 * Math.min(4, run.cycle || 0)) * (omen("geupbak") ? 1.15 : 1) * (upOn("fast") ? 1.15 : 1));
   songPos = Music.pos(); spawnEnemies(); spawnPet();
   cam.x = P.x; cam.y = P.y;
   setHud(); showScreen(null); state = "play"; inkWipe();
@@ -1303,7 +1304,7 @@ function startTutorial() {
   deadIds = new Set(); cpSave = null;
   P = newPlayer(LV.start.x, LV.start.y);
   bullets = []; parts = []; ghosts = []; seals = []; vfx = [];
-  Music.unlock(); Music.start(TUTORIAL.jd, 7);
+  Music.unlock(); Music.start(TUTORIAL.jd, 7, settings.tempo);
   songPos = Music.pos(); spawnEnemies();
   cam.x = P.x; cam.y = P.y;
   setHud(); showScreen(null); state = "play";
@@ -1315,8 +1316,16 @@ function respawn() {
   P = newPlayer(s.x, s.y); clones = [];
   spawnEnemies(); spawnPet(); state = "play"; setHud();
 }
+function hitCause(kind) { // what took the breath: a fall, a shot (and whose), the nearest blade, or the ground's own traps
+  if (kind === "fall") return "낭떠러지"; const cx = P.x + P.w / 2, cy = P.y + P.h / 2, nm = e => e.type === "b" ? (BOSSES[e.kind] || {}).name || "우두머리" : FOE_NAME[e.type] || "적";
+  const b = bullets.filter(b => !b.friendly && b.life > 0).sort((a, c) => Math.hypot(a.x - cx, a.y - cy) - Math.hypot(c.x - cx, c.y - cy))[0];
+  if (b && Math.hypot(b.x - cx, b.y - cy) < 60) return b.owner ? `${nm(b.owner)}의 ${b.red ? "붉은 탄" : "탄"}` : "날아든 탄";
+  const e = enemies.filter(e => e.alive).sort((a, c) => Math.hypot(a.x + a.w / 2 - cx, a.y + a.h / 2 - cy) - Math.hypot(c.x + c.w / 2 - cx, c.y + c.h / 2 - cy))[0];
+  if (e && Math.hypot(e.x + e.w / 2 - cx, e.y + e.h / 2 - cy) < (e.type === "b" ? 260 : 130)) return nm(e); return "함정";
+}
 function die(kind, dmg = 1) {
   if (state !== "play" || (P.invT || 0) > 0) return;
+  if (run && mode !== "tutorial") run.lastCause = hitCause(kind);
   if (has("hosin") && (run.hosinUsed || 0) < (has("bulmyeol") ? 2 : 1) && P.y < LV.h * T) { // talisman burns instead of the swordsman
     run.hosinUsed = (run.hosinUsed || 0) + 1; P.invT = has("geumgang") ? 2 : 1.2;
     if (has("geumgang")) for (const b of bullets) if (!b.friendly && Math.hypot(b.x - P.x, b.y - P.y) < 320) b.life = 0; flash = .3; shake = 8; Music.sfx("clang"); toast("호신부가 타올랐다");
@@ -1387,7 +1396,7 @@ function gateGrade() { const g = run.gate, G = GOALS.find(o => o.id === g.goal);
   return { ch: sc >= 4 ? "甲" : sc >= 2 ? "乙" : "丙", goal: G.ok(g) }; }
 function madangClear() {
   Music.sfx("seal");
-  if (mode === "tutorial") { toast("수련을 마쳤다"); setTimeout(toMenu, 900); state = "result"; return; }
+  if (mode === "tutorial") { META.firsts.tutDone = 1; saveMeta(); toast("수련을 마쳤다 · 산문으로 걸어가 길을 떠나라"); setTimeout(toMenu, 900); state = "result"; return; }
   if (run.m >= LAST_M) { endRun(true); return; }
   if (run.node === "rest" || run.node === "event") { run.m++; run.node = null; run.talked = false; run.cp = -1; run.dead = []; state = "result"; saveRun(); setTimeout(() => { Music.stop(); nextStep(); }, 500); return; }   // walked out of a road stage: on to the next fork
   if (run.gate && !run.tower) { const gr = gateGrade(); run.lastGrade = gr.ch; run.grades = (run.grades || "") + gr.ch;
@@ -1619,7 +1628,18 @@ function showOmen() {   // the rule for the coming turn: two omens drawn at rand
   }
   state = "choice"; Music.pause(); if (P) P.focus = false; for (const k in held) held[k] = 0; showScreen("choice");
 }
+function nextGoal() { // the cheapest thing still locked in the 거점, and how much 혼 it wants
+  const c = [];
+  for (const B of BUILDINGS) { const nx = B.lv[META.bld[B.id] || 0]; if (nx && nx.hon && !nx.shard) c.push([nx.hon, `${B.name} · ${nx.desc}`]); }
+  for (const w of WELL) if (!well(w.id) && (!w.need || well(w.need))) c.push([w.hon, `약수 · ${w.name}`]);
+  for (const [id, w] of Object.entries(WEAPONS)) if (w.cost && !w.ch && !META.weapons.includes(id)) c.push([w.cost, `무기 · ${w.name}`]);
+  const t = TREE_OPEN[treeOpen()]; if (t) c.push([t.hon, `수련 · ${t.name}`]);
+  c.sort((a, b) => a[0] - b[0]); const g = c[0]; if (!g) return null;
+  return META.hon >= g[0] ? `${g[1]} — 지금 거점에서 열 수 있다` : `${g[1]} — 혼 ${g[0] - META.hon} 더`;
+}
+let lastKit = null;   // 같은 채비로 다시: the hand, weapon, 심법 and 서약 of the run just ended
 function endRun(won) {
+  if (run && !run.tower && mode !== "tutorial") lastKit = { char: run.char, weapon: run.weapon, simbeop: run.simbeop, oath: run.oath, perks: (run.perks || []).filter(id => SIMBEOP.some(m => startOf(m, run.char) === id)).slice(0, 1) };
   state = "result"; Music.stop();
   if (mode !== "tutorial") { META.runN = (Number.isFinite(META.runN) ? META.runN : 0) + 1; if (META.runN === 2) setTimeout(() => toast("산문에서 이제 심법을 고를 수 있다"), 1200); if (META.runN === 4) setTimeout(() => toast("산문에서 이제 서약을 걸 수 있다"), 1200); }
   store.del("run");
@@ -1627,7 +1647,7 @@ function endRun(won) {
   const rate = run.slashes ? Math.round(run.strikes / run.slashes * 100) : 0;
   $("rSeal").textContent = won ? "登" : "終";
   $("rTitle").textContent = won ? "등천" : "절명";
-  $("rSub").textContent = run.tower ? (won ? "천고가 다시 울렸다." : `천고탑 ${run.floor}층에서 숨이 다했다.`) : won ? "천고는 아직 위에서 울린다." : stageName(run.m) + "에서 숨이 다했다.";
+  $("rSub").textContent = run.tower ? (won ? "천고가 다시 울렸다." : `천고탑 ${run.floor}층에서 숨이 다했다.`) : won ? "천고는 아직 위에서 울린다." : stageName(run.m) + (run.lastCause ? `에서 ${run.lastCause}에 마지막 숨을 잃었다.` : "에서 숨이 다했다.");
   $("rStats").innerHTML = "";
   const gain = runRewards(reached);
   if (mode !== "tutorial" && run.petJ && petMeta()) { const b4 = petStage(); META.pet.jeong = (META.pet.jeong || 0) + run.petJ; gain.jeong = run.petJ; run.petJ = 0; if (petStage() > b4) gain.petUp = PET_ST[petStage()]; }
@@ -1636,6 +1656,8 @@ function endRun(won) {
   for (const [k, v] of [[run.tower ? "오른 층" : "넘은 관문", reached + (!run.tower && (run.cycle || 0) ? ` · ${run.cycle}번 천고를 벰` : "")], ["시간", fmt(run.time)], ["간파", (run.kanpa || 0) + "회"], ["벤 적", run.kills], ["얻은 혼", "+" + gain.hon + (gain.shard ? ` · 천고 조각 +${gain.shard}` : "")], ["모인 숨", "+" + (gain.sum || 0)], ...(gain.jeong ? [["영물의 정", "+" + gain.jeong + (gain.petUp ? ` · ${gain.petUp}!` : "")]] : []), ...(run.grades ? [["관문 등급", run.grades]] : [])]) {
     const a = document.createElement("span"), b = document.createElement("b"); a.textContent = k; b.textContent = v; $("rStats").append(a, b);
   }
+  { const nx = nextGoal(); if (nx) { const a = document.createElement("span"), b = document.createElement("b"); a.textContent = "다음 목표"; b.textContent = nx; $("rStats").append(a, b); } }   // what this run's 혼 is walking toward
+  $("bSame").hidden = !(lastKit && !won);
   let rec = "";
   sealable = ((!run.tower && (run.cycle || 0) >= 1) || (run.fresh && run.floor > 3)) ? JSON.parse(JSON.stringify(run)) : null; $("bSeal").hidden = !sealable;
   if (run.tower) {
@@ -3405,7 +3427,7 @@ function bakeGround(gc, key, c, CW, top, hh, k, pal, ssn) { // paint one chunk o
   gc.set(key + "#" + c, { cv: cvs, used: performance.now() });
   while (gc.size > (MOBILE ? 4 : 10)) { let old = null; for (const [kk, v] of gc) if (!old || v.used < old[1].used) old = [kk, v]; old[1].cv.width = old[1].cv.height = 0; gc.delete(old[0]); }   // iOS frees canvas memory only when the canvas is emptied   // keep memory small: drop the stalest
 }
-const camView = { x0: 0, y0: 0, x1: 0, y1: 0 };
+const camView = { x0: 0, y0: 0, x1: 0, y1: 0 }; let padFadeT = 0;
 function render(rdt) {
   if (!paperPat) makePaper();
   const rz = roar ? Math.min(1, roar.t / .25) * Math.min(1, (1.4 - roar.t) / .4) : 0, zoom = LV && LV.hub ? hubZoom() : 1 + .22 * rz * (2 - rz) / 1;   // the roar leans the camera in, then lets go; the 거점 is framed by its painting
@@ -3420,6 +3442,8 @@ function render(rdt) {
     const maxY = lh - vh / 2 + 8; cam.y = Math.min(maxY, Math.max(Math.min(maxY, vh / 2 - 96), cam.y));
     if (LV.hub) { const r = hubRect(); cam.x = r.w <= vw ? r.x + r.w / 2 : Math.max(r.x + vw / 2, Math.min(r.x + r.w - vw / 2, cam.x)); cam.y = r.h <= vh ? r.y + r.h / 2 : Math.max(r.y + vh / 2, Math.min(r.y + r.h - vh / 2, cam.y)); }   // the 거점: the screen never leaves the painting
   }
+  if (P && state === "play" && (padFadeT = (padFadeT || 0) - rdt) <= 0) { padFadeT = .2; const px = (P.x + P.w / 2 - cam.x) * SCALE * zoom + W / 2, py = (P.y + P.h / 2 - cam.y) * SCALE * zoom + H / 2;   // a button over the swordsman goes see-through
+    for (const el of document.querySelectorAll("#pad .tb")) { const r = el.getBoundingClientRect(); el.classList.toggle("over", px > r.left - 30 && px < r.right + 30 && py > r.top - 40 && py < r.bottom + 30); } }
   camView.x0 = cam.x - vw / 2; camView.y0 = cam.y - vh / 2; camView.x1 = cam.x + vw / 2; camView.y1 = cam.y + vh / 2;
   const sx = (Math.random() - .5) * shake, sy = (Math.random() - .5) * shake;
 
@@ -3631,6 +3655,7 @@ function render(rdt) {
       continue;
     }
     if (b.petOrb && SPR.pet) { ctx.save(); ctx.translate(b.x, b.y); ctx.rotate(performance.now() / 120); drawSprite("pet", b.petFr || 26, 0, 0, 22 / SPR.pet.f[b.petFr || 26].h, false, .5, false, .5); ctx.restore(); continue; }
+    if (b.red) { const r = 9 + Math.sin(performance.now() / 60) * 1.5; ctx.strokeStyle = "#17161a"; ctx.lineWidth = 1.6; ctx.beginPath(); for (let k = 0; k < 16; k++) { const a = k * Math.PI / 8, rr = k % 2 ? r : r + 5; ctx.lineTo(b.x + Math.cos(a) * rr, b.y + Math.sin(a) * rr); } ctx.closePath(); ctx.stroke(); }   // the shot you cannot turn: a spiked ring, not only a colour
     if (b.red && SPR.mech) { ctx.save(); ctx.translate(b.x, b.y); ctx.rotate(Math.atan2(b.vy, b.vx) + Math.PI); drawSprite("mech", MECH.fire, 0, 0, 30 / SPR.mech.f[MECH.fire].h, false, .2, false, .5); ctx.restore(); continue; }
     const sp = Math.hypot(b.vx, b.vy) || 1, tl = b.sniper ? 34 : 18;
     const tr = ctx.createLinearGradient(b.x, b.y, b.x - b.vx / sp * tl, b.y - b.vy / sp * tl);
@@ -4917,8 +4942,8 @@ function showScreen(id) {
 }
 let settingsBack = "menu";
 function openSettings(back) { settingsBack = back; showScreen("settings"); refreshSettings(); }
-function refreshSettings() { $("bSound").textContent = settings.sound ? "켜짐" : "꺼짐"; $("offVal").textContent = (settings.offset > 0 ? "+" : "") + settings.offset + "ms"; }
-function saveSettings() { store.set("settings", settings); Music.setVolume(settings.sound ? 1 : 0); Music.setOffset(settings.offset); refreshSettings(); }
+function refreshSettings() { $("musVal").textContent = Math.round(settings.mus * 100) + "%"; $("fxVal").textContent = Math.round(settings.fx * 100) + "%"; $("tempoVal").textContent = Math.round(settings.tempo * 100) + "%"; $("bSound").textContent = settings.sound ? "켜짐" : "꺼짐"; $("offVal").textContent = (settings.offset > 0 ? "+" : "") + settings.offset + "ms"; }
+function saveSettings() { store.set("settings", settings); Music.setVolume(settings.sound ? 1 : 0); Music.setOffset(settings.offset); Music.setMix(settings.mus, settings.fx); refreshSettings(); }
 function buildMenu() {
   const s = store.get("run", null);
   $("bContinue").hidden = !s;
@@ -5005,9 +5030,18 @@ $("bPadDone").addEventListener("click", () => { document.body.classList.remove("
   $("pad").addEventListener("pointerup", end, true); $("pad").addEventListener("pointercancel", end, true); }
 $("bSetClose").addEventListener("click", () => { if (settingsBack === "pause") showScreen("pause"); else if (settingsBack === "hub") resumeHub(); else toMenu(); });
 $("bSound").addEventListener("click", () => { settings.sound = !settings.sound; saveSettings(); });
+{ const st = (k, d, lo, hi) => () => { settings[k] = Math.round(Math.max(lo, Math.min(hi, settings[k] + d)) * 100) / 100; saveSettings(); Music.sfx("hook"); };
+  $("bMusDn").addEventListener("click", st("mus", -.1, 0, 1)); $("bMusUp").addEventListener("click", st("mus", .1, 0, 1)); $("bFxDn").addEventListener("click", st("fx", -.1, 0, 1)); $("bFxUp").addEventListener("click", st("fx", .1, 0, 1));
+  $("bTempoDn").addEventListener("click", st("tempo", -.1, .7, 1)); $("bTempoUp").addEventListener("click", st("tempo", .1, .7, 1)); }
 $("bOffDn").addEventListener("click", () => { settings.offset = Math.max(-200, settings.offset - 10); saveSettings(); });
 $("bOffUp").addEventListener("click", () => { settings.offset = Math.min(200, settings.offset + 10); saveSettings(); });
 $("bAgain").addEventListener("click", () => newRun());
+$("bHelp").addEventListener("click", () => { // the controls and the hidden rules, one board, back to the pause
+  const T2 = MOBILE ? [["이동", "왼쪽 화면을 끌기"], ["베기", "오른쪽 화면을 긋거나 탭 — 그은 방향으로 벤다"], ["점프", "점프 버튼 · 벽에 붙어 누르면 벽차기"], ["대시", "짧게 = 돌진 · 길게 누르기 = 무아경(시간이 느려짐) → 떼면 일섬"], ["연", "연 버튼 — 가까운 연을 잡고 날아오른다"]]
+    : [["이동", "← → (↑ ↓ 조준)"], ["베기", "J 또는 X"], ["점프", "Space · 벽에 붙어 누르면 벽차기"], ["대시", "K/C/Shift 짧게 = 돌진 · 길게 = 무아경 → 떼면 일섬"], ["연", "L"], ["멈춤", "Esc"]];
+  const R2 = [["간파", "적 몸의 원이 점으로 닫히는 순간 베면 무조건 쓰러지고 기세·날·탄이 돌아온다"], ["일격", "북이 울리는 박에 맞춰 베면 붉은 일격"], ["총", "탭 = 허리 사격(가까이·한 발) · 길게 = 걸으며 조준 → 떼면 조준 사격 · 번쩍이는 적을 쏘면 탄이 가득"], ["방패", "등패수는 정면을, 북잡이는 모든 방향을 막는다 — 간파·일섬·일격으로 벤다 (총은 뚫는다)"], ["붉은 탄", "가시 테두리 탄은 되받아칠 수 없다 — 피하거나 쏘기 전에 간파"], ["숨", "맞으면 하나 잃는다 · 관문을 넘으면 셋까지 하나 돌아온다"]];
+  board("조작법", "멈춘 동안 읽어 둔다", [...T2, ...R2].map(([a, b]) => bdRow(a, b)), [["돌아가기", () => { state = "pause"; showScreen("pause"); }]]); });
+$("bSame").addEventListener("click", () => { if (!lastKit) return newRun(); const k = lastKit; newRun(true); Object.assign(run, { char: k.char, weapon: k.weapon, simbeop: k.simbeop, oath: k.oath, perks: k.perks.slice(), picking: false }); if (k.oath === "pi") run.breath = Math.min(run.breath, 2); run.breath = Math.min(run.breath, breathCap()); saveRun(); Music.stop(); showInterlude(); });
 $("bResMenu").addEventListener("click", () => showMemories(toMenu));
 $("bShare").addEventListener("click", async () => {
   const text = shareText();
@@ -5028,6 +5062,7 @@ window.addEventListener("pointerdown", () => Music.unlock(), { once: true, captu
 resize();
 toMenu();
 if (!hubOn) { P = null; cam.x = 600; cam.y = 300; }
+if (!META.firsts.tutDone && !META.runN) { META.firsts.tutDone = 1; saveMeta(); loadGate(playSheets(), BASE_IMGS, () => { Music.unlock(); startTutorial(); }, "수련터를 그리는 중"); }   // the very first time: straight into the 수련터, the 거점 comes after
 requestAnimationFrame(t => { last = t; requestAnimationFrame(frame); });
 bootLoad();   // boot: every picture and sound is fetched before the menu opens
 })();

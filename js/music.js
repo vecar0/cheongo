@@ -17,10 +17,10 @@ const JANGDAN = {
 const GYE = [220.0, 261.6, 293.7, 329.6, 392.0, 440.0, 523.3, 587.3];
 
 const Music = (() => {
-  let ac = null, out = null, master = null, filt = null, noiseBuf = null;
+  let ac = null, out = null, master = null, filt = null, noiseBuf = null, musGain = null, sfxGain = null, bus = null;   // bus: where the next sound goes (music or effects)
   let def = null, t0 = 0, nextIdx = 0, rate = 1, basePos = 0, baseTime = 0, timer = null, running = false, rng = Math.random;
   let fallbackStart = 0, fallbackPausedAt = 0;
-  let volume = 1, offsetMs = 0;
+  let volume = 1, offsetMs = 0, musVol = .8, sfxVol = 1;
   // background music: 「국악 효과음 #572」 © 주식회사 아이티앤, CC BY (공유마당). Loaded once, looped with a crossfaded seam.
   const LOOP_A = 0.094, LOOP_B = 0.094 + 9 * 0.4288;
   let bgmBuf = null, bgmSrc = null, bgmGain = null, bgmLoading = false;
@@ -44,7 +44,7 @@ const Music = (() => {
   function playBgm() {
     if (useTag) { if (!tag) { tag = new Audio("assets/audio/bgm.mp3?v=572"); tag.loop = true; tag.addEventListener("timeupdate", () => { if (tag.currentTime > LOOP_B || tag.currentTime < LOOP_A) tag.currentTime = LOOP_A; }); tag.volume = .6 * volume; tag.preservesPitch = false; tag.webkitPreservesPitch = false; } tag.playbackRate = rate; tag.play().catch(() => {}); return; }
     if (!ac || !bgmBuf || bgmSrc) return;
-    bgmGain = ac.createGain(); bgmGain.gain.value = .6; bgmGain.connect(master);
+    bgmGain = ac.createGain(); bgmGain.gain.value = .6; bgmGain.connect(musGain);
     bgmSrc = ac.createBufferSource(); bgmSrc.buffer = bgmBuf; bgmSrc.loop = true; bgmSrc.playbackRate.value = rate;
     bgmSrc.connect(bgmGain); bgmSrc.start(ac.currentTime + .05);
   }
@@ -58,6 +58,7 @@ const Music = (() => {
         filt = ac.createBiquadFilter(); filt.type = "lowpass"; filt.frequency.value = 18000; filt.Q.value = 0.4;
         master = ac.createGain(); master.gain.value = 0.9;
         master.connect(filt).connect(out).connect(ac.destination);
+        musGain = ac.createGain(); musGain.gain.value = musVol; musGain.connect(master); sfxGain = ac.createGain(); sfxGain.gain.value = sfxVol; sfxGain.connect(master); bus = musGain;
         noiseBuf = ac.createBuffer(1, ac.sampleRate, ac.sampleRate);
         const d = noiseBuf.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
       }
@@ -73,12 +74,12 @@ const Music = (() => {
   function noise(t, dur, freq, type, peak, q) {
     const s = ac.createBufferSource(), f = ac.createBiquadFilter(), g = ac.createGain();
     s.buffer = noiseBuf; f.type = type; f.frequency.value = freq; f.Q.value = q || 0.7;
-    env(g, t, 0.002, peak, dur); s.connect(f).connect(g).connect(master); s.start(t, Math.random() * 0.5); s.stop(t + dur + 0.05);
+    env(g, t, 0.002, peak, dur); s.connect(f).connect(g).connect(bus); s.start(t, Math.random() * 0.5); s.stop(t + dur + 0.05);
   }
   function osc(t, type, f0, f1, dur, peak, dest) {
     const o = ac.createOscillator(), g = ac.createGain();
     o.type = type; o.frequency.setValueAtTime(f0, t); o.frequency.exponentialRampToValueAtTime(f1, t + dur);
-    env(g, t, 0.003, peak, dur); o.connect(g).connect(dest || master); o.start(t); o.stop(t + dur + 0.05);
+    env(g, t, 0.003, peak, dur); o.connect(g).connect(dest || bus); o.start(t); o.stop(t + dur + 0.05);
   }
   const kung = (t, v) => { osc(t, "sine", 96, 58, 0.5, 0.6 * v); osc(t, "sine", 190, 120, 0.12, 0.12 * v); noise(t, 0.05, 240, "lowpass", 0.22 * v); };   // 북편: leather, palm
   const deok = (t, v) => { osc(t, "triangle", 430, 300, 0.09, 0.2 * v); osc(t, "sine", 860, 640, 0.05, 0.06 * v); noise(t, 0.025, 1800, "bandpass", 0.25 * v, 1.4); };   // 채편: bamboo stick on tight skin
@@ -93,31 +94,31 @@ const Music = (() => {
     const o = ac.createOscillator(), g = ac.createGain(), f = ac.createBiquadFilter();
     o.type = "sawtooth"; o.frequency.value = freq / 2; f.type = "lowpass"; f.frequency.value = 340; // 아쟁-like low bow
     g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.03, t + 0.5); g.gain.setValueAtTime(0.03, t + dur - 0.3); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-    o.connect(f).connect(g).connect(master); o.start(t); o.stop(t + dur + 0.05);
+    o.connect(f).connect(g).connect(bus); o.start(t); o.stop(t + dur + 0.05);
   }
   function jing(t) { // 징: a few inharmonic partials with a slow swell
     if (!ac) return;
     for (const [m, a] of [[1, 0.18], [1.48, 0.06], [2.03, 0.05], [2.74, 0.03]]) {
       const o = ac.createOscillator(), g = ac.createGain(); o.type = "sine"; o.frequency.setValueAtTime(196 * m, t); o.frequency.linearRampToValueAtTime(190 * m, t + 3);
       g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(a, t + 0.08); g.gain.exponentialRampToValueAtTime(0.0001, t + 3.2);
-      o.connect(g).connect(master); o.start(t); o.stop(t + 3.3);
+      o.connect(g).connect(bus); o.start(t); o.stop(t + 3.3);
     }
   }
   function gayageum(t, f, dur, vol) { // plucked silk string: bright attack, quick dark decay, a little 농현 bend
     const o = ac.createOscillator(), lp = ac.createBiquadFilter(), g = ac.createGain();
     o.type = "sawtooth"; o.frequency.setValueAtTime(f * 1.01, t); o.frequency.exponentialRampToValueAtTime(f, t + .04); o.frequency.setValueAtTime(f, t + dur * .5); o.frequency.linearRampToValueAtTime(f * .97, t + dur);
     lp.type = "lowpass"; lp.frequency.setValueAtTime(f * 8, t); lp.frequency.exponentialRampToValueAtTime(f * 1.5, t + dur * .6);
-    env(g, t, .002, vol, dur); o.connect(lp).connect(g).connect(master); o.start(t); o.stop(t + dur + .05);
+    env(g, t, .002, vol, dur); o.connect(lp).connect(g).connect(bus); o.start(t); o.stop(t + dur + .05);
   }
   function kkwaeng(t, v, muted) { // 꽹과리: clustered metallic partials
     const d = muted ? .06 : .35;
-    for (const [m, a] of [[1, .05], [1.47, .035], [2.09, .03], [2.76, .02]]) { const o = ac.createOscillator(), g = ac.createGain(); o.type = "square"; o.frequency.value = 1180 * m; env(g, t, .001, a * v, d); o.connect(g).connect(master); o.start(t); o.stop(t + d + .05); }
+    for (const [m, a] of [[1, .05], [1.47, .035], [2.09, .03], [2.76, .02]]) { const o = ac.createOscillator(), g = ac.createGain(); o.type = "square"; o.frequency.value = 1180 * m; env(g, t, .001, a * v, d); o.connect(g).connect(bus); o.start(t); o.stop(t + d + .05); }
     noise(t, d * .6, 6000, "bandpass", .12 * v, 1.5);
   }
   function daegeum(t, f0, f1, dur) { // 대금 swoop
     const o = ac.createOscillator(), g = ac.createGain(), lp = ac.createBiquadFilter(); o.type = "triangle";
     o.frequency.setValueAtTime(f0, t); o.frequency.exponentialRampToValueAtTime(f1, t + dur); lp.type = "lowpass"; lp.frequency.value = 2000;
-    env(g, t, .03, .08, dur); o.connect(lp).connect(g).connect(master); o.start(t); o.stop(t + dur + .05);
+    env(g, t, .03, .08, dur); o.connect(lp).connect(g).connect(bus); o.start(t); o.stop(t + dur + .05);
   }
   function bak(t) { noise(t, 0.04, 3400, "bandpass", 0.6, 2); noise(t + 0.012, 0.05, 1900, "bandpass", 0.4, 2); } // 박: wooden clapper
 
@@ -126,25 +127,49 @@ const Music = (() => {
   // song position (s) <-> audio clock; rate < 1 slows the whole 장단 during slow-mo aim
   const audioAt = sp => baseTime + (sp - basePos) / rate;
   const songAt = at => basePos + (at - baseTime) * rate;
+  // 가야금 산조 선율: made up as it goes, in 계면조, one phrase per eight beats — walking by steps, resting now and then,
+  // landing on 라 at the end of a phrase; the 아쟁 holds the low 라 under each 장단 cycle. No two gates sound alike.
+  let mel = { deg: 0, beat: 0 };
+  function melodyBeat(t, beatLen, beatIdx) {
+    const ph = beatIdx % 8, last = ph === 7, v = .055;
+    if (beatIdx % Math.max(4, def.beats) === 0) drone(t, 220, beatLen * Math.max(4, def.beats) * .98 / rate);
+    if (ph === 0 && rng() < .35) daegeum(t, GYE[4 + ((rng() * 3) | 0)] , GYE[3 + ((rng() * 3) | 0)], beatLen * 2 / rate);
+    if (last) { mel.deg = rng() < .6 ? 0 : 5; gayageum(t, GYE[mel.deg], beatLen * 1.8 / rate, v * 1.2); return; }   // 퇴성: the phrase settles on 라
+    if (rng() < .28) return;   // breath between notes
+    const step = [-2, -1, -1, 1, 1, 2][(rng() * 6) | 0]; mel.deg = Math.max(0, Math.min(GYE.length - 1, mel.deg + step));
+    gayageum(t, GYE[mel.deg], beatLen * .9 / rate, v);
+    if (def.bpm >= 96 && rng() < .35) { const d2 = Math.max(0, Math.min(GYE.length - 1, mel.deg + (rng() < .5 ? -1 : 1))); gayageum(t + beatLen / 2 / rate, GYE[d2], beatLen * .45 / rate, v * .8); mel.deg = d2; }   // faster 장단: the hand doubles up
+  }
   function tick() {
     if (!running || !ac) return;
     const horizon = ac.currentTime + 0.12, sl = subLen(), len = def.pat.length;
+    bus = musGain;
     while (audioAt(nextIdx * sl) < horizon) {
       const t = audioAt(nextIdx * sl), i = nextIdx % len, ch = def.pat[i];
-      if (ch !== "0") stroke(ch, t, i === 0, .7);   // 장구 keeps the beat the game is judged on; the recording carries the music
+      if (ch !== "0") stroke(ch, t, i === 0, .7);   // 장구 keeps the beat the game is judged on
+      if (nextIdx % def.sub === 0) melodyBeat(t, 60 / def.bpm, nextIdx / def.sub);
       nextIdx++;
     }
+  }
+  // 거점: no 장단, only a slow 가야금 wandering over the low string
+  let ambTimer = null, ambNext = 0;
+  function ambient() {
+    if (!ac || !wantBgm || running) return; bus = musGain;
+    const beat = .95; if (ambNext < ac.currentTime) ambNext = ac.currentTime + .1;
+    while (ambNext < ac.currentTime + .3) { const bi = Math.round(ambNext / beat); if (bi % 8 === 0) drone(ambNext, 220, beat * 8);
+      if (Math.random() > .45) { const step = [-1, -1, 1, 1, 2, -2][(Math.random() * 6) | 0]; mel.deg = Math.max(0, Math.min(5, mel.deg + step)); gayageum(ambNext, GYE[bi % 8 === 7 ? 0 : mel.deg], beat * 1.4, .045); }
+      ambNext += beat * (Math.random() < .25 ? 2 : 1); }
   }
 
   return {
     JANGDAN,
-    unlock() { const a = ensure(); loadBgm(); return a; },
-    menuBgm(on) { wantBgm = on; if (on) { ensure(); loadBgm(); playBgm(); } else if (!running) stopBgm(); },
+    unlock() { const a = ensure(); if (wantBgm && !ambTimer) ambTimer = setInterval(ambient, 100); return a; },
+    menuBgm(on) { wantBgm = on; if (on) { ensure(); if (!ambTimer) ambTimer = setInterval(ambient, 100); } else { clearInterval(ambTimer); ambTimer = null; } stopBgm(); },
     start(key, seed, speed = 1) {
       ensure(); this.stop();
       const base = JANGDAN[key] || JANGDAN.jungmori; def = Object.assign({}, base, { bpm: Math.round(base.bpm * speed) });
       let s = (seed >>> 0) || 1; rng = () => ((s = (s * 1664525 + 1013904223) >>> 0) / 4294967296);
-      nextIdx = 0; running = true; rate = 1; loadBgm(); playBgm();
+      nextIdx = 0; running = true; rate = 1; mel = { deg: 0 }; wantBgm = false; clearInterval(ambTimer); ambTimer = null; stopBgm();
       if (bgmSrc) bgmSrc.playbackRate.value = 1; if (tag) tag.playbackRate = 1;
       if (ac) { t0 = ac.currentTime + 0.25; baseTime = t0; basePos = 0; timer = setInterval(tick, 25); tick(); }
       else { fallbackStart = performance.now() / 1000 + 0.25; }
@@ -175,18 +200,19 @@ const Music = (() => {
     muffle(on) { if (filt) filt.frequency.setTargetAtTime(on ? 700 : 18000, ac.currentTime, 0.05); },
     setVolume(v) { volume = v; if (tag) tag.volume = .6 * v; if (out) out.gain.setTargetAtTime(v, ac.currentTime, 0.02); },
     setOffset(ms) { offsetMs = ms; },
-    jing() { if (ensure()) jing(ac.currentTime + 0.02); },
-    bak() { if (ensure()) bak(ac.currentTime + 0.01); },
+    jing() { if (ensure()) { bus = sfxGain; jing(ac.currentTime + 0.02); bus = musGain; } },
+    bak() { if (ensure()) { bus = sfxGain; bak(ac.currentTime + 0.01); bus = musGain; } },
+    setMix(m, f) { musVol = m; sfxVol = f; if (musGain) musGain.gain.setTargetAtTime(m, ac.currentTime, .03); if (sfxGain) sfxGain.gain.setTargetAtTime(f, ac.currentTime, .03); },
     sfx(kind, lv = 0) {
       if (!ac || !volume) return;
-      const t = ac.currentTime + 0.005;
-      switch (kind) {
+      const t = ac.currentTime + 0.005; bus = sfxGain;
+      try { switch (kind) {
         case "slash": noise(t, 0.07, 5200, "highpass", 0.2); kkwaeng(t, .25, 1); break;              // swish + muted 꽹과리 tick
         case "strike": kkwaeng(t, .9, 0); deok(t, 1.2); break;                                       // open 꽹과리 + 채편: 일격
         case "kill": kung(t, 1.1); gayageum(t + .02, 98 * [1, 1.125, 1.25, 1.5, 1.68, 2][lv | 0], .5, .14); if (lv >= 3) gayageum(t + .09, 196 * [1, 1, 1, 1.5, 1.68, 2][lv | 0], .35, .1); break;   // the string climbs with 기세                           // 북 + low 가야금 string
         case "clang": kkwaeng(t, .6, 1); kkwaeng(t + .04, .35, 1); break;
         case "dash": daegeum(t, 520, 300, .22); noise(t, 0.14, 2600, "bandpass", 0.12, 0.6); break;  // breathy 대금 swoop
-        case "jump": { const s2 = ac.createBufferSource(), f = ac.createBiquadFilter(), g = ac.createGain(); s2.buffer = noiseBuf; f.type = "bandpass"; f.Q.value = 1.2; f.frequency.setValueAtTime(700, t); f.frequency.exponentialRampToValueAtTime(2600, t + .14); env(g, t, .02, .16, .14); s2.connect(f).connect(g).connect(master); s2.start(t, Math.random() * .5); s2.stop(t + .2); break; }   // coat swish, nothing drum-like
+        case "jump": { const s2 = ac.createBufferSource(), f = ac.createBiquadFilter(), g = ac.createGain(); s2.buffer = noiseBuf; f.type = "bandpass"; f.Q.value = 1.2; f.frequency.setValueAtTime(700, t); f.frequency.exponentialRampToValueAtTime(2600, t + .14); env(g, t, .02, .16, .14); s2.connect(f).connect(g).connect(bus); s2.start(t, Math.random() * .5); s2.stop(t + .2); break; }   // coat swish, nothing drum-like
         case "hook": gayageum(t, 440, .35, .08); gayageum(t + .07, 659, .35, .07); break;
         case "shoot": noise(t, 0.12, 900, "lowpass", 0.35); noise(t, 0.05, 3000, "bandpass", 0.2); break;   // 화승총 crack
         case "snipe": noise(t, 0.2, 700, "lowpass", 0.45); noise(t, 0.06, 4000, "bandpass", 0.25); break;
@@ -201,9 +227,9 @@ const Music = (() => {
           lf.type = "square"; lf.frequency.setValueAtTime(26, t); lf.frequency.linearRampToValueAtTime(18, t + 1.3); lg.gain.value = .45; am.gain.value = .55; lf.connect(lg).connect(am.gain);
           f.type = "lowpass"; f.Q.value = 4; f.frequency.setValueAtTime(260, t); f.frequency.exponentialRampToValueAtTime(1400, t + .3); f.frequency.exponentialRampToValueAtTime(320, t + 1.3);
           g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(.55, t + .08); g.gain.setValueAtTime(.55, t + .7); g.gain.exponentialRampToValueAtTime(0.0001, t + 1.35);
-          o.connect(am); o2.connect(am); am.connect(f).connect(g).connect(master); for (const x of [o, o2, lf]) { x.start(t); x.stop(t + 1.4); }
+          o.connect(am); o2.connect(am); am.connect(f).connect(g).connect(bus); for (const x of [o, o2, lf]) { x.start(t); x.stop(t + 1.4); }
           noise(t + .02, 1.1, 520, "bandpass", .32, 1.4); break; }
-      }
+      } } finally { bus = musGain; }
     }
   };
 })();
