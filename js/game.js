@@ -2,6 +2,7 @@
 (() => {
 "use strict";
 const T = 32;
+const ASSET_V = "126";   // bump when any picture changes: the service worker then fetches the new json and webp together
 const $ = id => document.getElementById(id);
 const cv = $("cv"); let ctx = cv.getContext("2d", { alpha: false });   // let: the ground is baked by pointing ctx at an offscreen canvas for a moment   // opaque canvas: cheaper to composite on phones
 let W = 0, H = 0, DPR = 1, SCALE = 1;
@@ -10,12 +11,15 @@ let autoLite = false;   // set for this session when frames stay slow even at 1x
 let liteSaved = (() => { try { return localStorage.getItem("chungo.lite") === "1"; } catch (e) { return false; } })();   // read once: storage can be blocked, and this is asked every frame
 const LITE = () => autoLite || liteSaved;
 let dprCap = LITE() ? 1 : MOBILE ? 1.25 : 2;   // phones: 1.5x is sharp enough and much lighter on the GPU; lowered further if frames run long
+const PORTRAIT = () => H > W * 1.05;
+const padH = () => PORTRAIT() ? Math.round(H * .3) : 0;   // 세로: the lowest part of the screen is for the thumbs, the stage sits above it
 function resize() {
   DPR = Math.min(dprCap, window.devicePixelRatio || 1);
   for (const k in PAT) delete PAT[k];   // patterns carry the old pixel scale
   const r = cv.getBoundingClientRect(); W = Math.round(r.width) || window.innerWidth; H = Math.round(r.height) || window.innerHeight;   // the canvas's real laid-out box, not the (often stale) window size
   cv.width = Math.round(W * DPR); cv.height = Math.round(H * DPR);
-  SCALE = Math.max(0.5, Math.min(W / (T * 13), H / (T * 11)));
+  SCALE = PORTRAIT() ? Math.max(0.5, W / (T * 11)) : Math.max(0.5, Math.min(W / (T * 13), H / (T * 11)));   // upright phone: eleven tiles across, the controls get the bottom of the screen
+  document.body.classList.toggle("portrait", PORTRAIT());
   vignette = null;
 }
 window.addEventListener("resize", resize);
@@ -91,6 +95,21 @@ function tintedPaper(ssn) { // paper texture with the season's colour multiplied
   const key = "tex-paper-" + ssn; if (PAT[key]) return PAT[key]; const im = IMG["tex-paper"]; if (!im) return null;
   if (!IMG[key]) { const c = document.createElement("canvas"); c.width = im.width; c.height = im.height; const g = c.getContext("2d"); g.drawImage(im, 0, 0); g.globalCompositeOperation = "multiply"; g.fillStyle = SEASON_TINT[ssn]; g.fillRect(0, 0, c.width, c.height); IMG[key] = c; }
   return pattern(key, DPR * 0.9);
+}
+// one full-screen pass fewer per frame: the paper grain is laid into the background colour and into the far/mid paintings
+// once, instead of multiplying the whole screen by the paper every frame
+function bgPaper(col, alpha, ssn) {
+  const key = `bgp-${col}-${alpha}-${ssn}`; if (PAT[key]) return PAT[key]; const src = ssn ? (tintedPaper(ssn), IMG["tex-paper-" + ssn]) : IMG["tex-paper"]; if (!src) return null;
+  if (!IMG[key]) { const c = document.createElement("canvas"); c.width = src.width; c.height = src.height; const g = c.getContext("2d"); g.fillStyle = col; g.fillRect(0, 0, c.width, c.height); g.globalAlpha = alpha; g.globalCompositeOperation = "multiply"; g.drawImage(src, 0, 0); IMG[key] = c; }
+  return pattern(key, DPR * 0.9);
+}
+const paperBaked = new WeakMap();
+function bakePaper(img) { // a backdrop painting with the paper grain multiplied in, its own transparency kept
+  if (paperBaked.has(img)) return paperBaked.get(img); const pp = IMG["tex-paper"]; if (!pp) return img;
+  const c = document.createElement("canvas"); c.width = img.width; c.height = img.height; const g = c.getContext("2d"); g.drawImage(img, 0, 0);
+  g.globalCompositeOperation = "multiply"; g.globalAlpha = .9; const pt = g.createPattern(pp, "repeat"); pt.setTransform(new DOMMatrix().scale(img.height / 600)); g.fillStyle = pt; g.fillRect(0, 0, c.width, c.height);
+  g.globalAlpha = 1; g.globalCompositeOperation = "destination-in"; g.drawImage(img, 0, 0);
+  paperBaked.set(img, c); gpuize(c, bm => paperBaked.set(img, bm)); return c;
 }
 function pattern(key, scale) { // world- or screen-anchored repeating pattern, built once per image
   if (!IMG[key]) return null;
@@ -627,8 +646,8 @@ const sheetLoading = new Set();
 function loadSheet(n) { // one atlas: frames JSON + image (ink-inverted copy for the night palette where needed)
   if (SPR[n] || sheetLoading.has(n)) return; sheetLoading.add(n);
   Promise.all([
-    fetch(`assets/sprites/${n}.json`).then(r => r.json()),
-    new Promise((res, rej) => { const im = new Image(); im.onload = () => res(im); im.onerror = rej; im.src = `assets/sprites/${n}.webp`; })
+    fetch(`assets/sprites/${n}.json?v=${ASSET_V}`).then(r => r.json()),
+    new Promise((res, rej) => { const im = new Image(); im.onload = () => res(im); im.onerror = rej; im.src = `assets/sprites/${n}.webp?v=${ASSET_V}`; })
   ]).then(([f, img]) => { let inv = null; if (["hero", "hero2", "foes", "objects", "fx", "props", "props2", "rocks", "pines", "slabs", "pillars", "guide", "bname", "foes3"].includes(n)) try { inv = inkInverted(img); } catch (e) { inv = null; }   // short of canvas memory: keep the sheet, lose only its night copy
     SPR[n] = { f, img, inv };
     if (SPR[n].inv) gpuize(SPR[n].inv, bm => { SPR[n].inv = bm; }); applyUiSprites(); }).catch(() => { sheetLoading.delete(n); const a = (sheetTry[n] = (sheetTry[n] || 0) + 1); setTimeout(() => loadSheet(n), Math.min(5000, 1200 * a)); });   // a failed load (offline blip, a deploy in progress) is tried again
@@ -654,7 +673,7 @@ const BASE_IMGS = ["far", "mid", "tex-paper", "tex-stone", "tex-giwa"];
 // Sheets held in memory stay as before (the lazy ones are only fetched into the cache here, not decoded).
 function bootLoad() {
   const el = $("loading"), bar = $("ldBar"), txt = $("ldTxt"), t0 = performance.now();
-  const urls = []; for (const n of LAZY_SHEETS) urls.push(`assets/sprites/${n}.json`, `assets/sprites/${n}.webp`);   // the core sheets and textures are already on their way through their own loaders — fetching them twice would only double the download
+  const urls = []; for (const n of LAZY_SHEETS) urls.push(`assets/sprites/${n}.json?v=${ASSET_V}`, `assets/sprites/${n}.webp?v=${ASSET_V}`);   // the core sheets and textures are already on their way through their own loaders — fetching them twice would only double the download
   urls.push("assets/lore.webp", "assets/tex-granite.webp");
   const core = ALL_SHEETS.filter(n => !LAZY_SHEETS.has(n));
   let got = 0, q = urls.slice();
@@ -861,7 +880,7 @@ window.addEventListener("keyup", e => {
   const a = keyAct(e.code); if (a) held[a] = 0; });
 let iaiFrom = null;
 const IAI_FULL = .32, IAI_MASTER = .75, iaiF = () => IAI_FULL * (has("bd_c1") ? .7 : 1), iaiM = () => IAI_MASTER * (has("bd_c1") ? .7 : 1);   // seconds of holding before the 발도 / 각궁 draw is full   // 발도: when the hand went to the hilt
-window.addEventListener("blur", () => { for (const k in held) held[k] = 0; });
+window.addEventListener("blur", () => { for (const k in held) held[k] = 0; if (!hubOn && state === "play") pauseGame(); });   // another window took the focus: stop, as a hidden tab does
 function markTouch() { document.body.classList.add("touch"); }
 if (matchMedia("(pointer:coarse)").matches || "ontouchstart" in window) markTouch();
 window.addEventListener("touchstart", markTouch, { passive: true });
@@ -3440,7 +3459,9 @@ function render(rdt) {
     const lw = LV.w * T, lh = LV.h * T;
     cam.x = lw <= vw ? lw / 2 : Math.max(vw / 2, Math.min(lw - vw / 2, cam.x));
     const maxY = lh - vh / 2 + 8; cam.y = Math.min(maxY, Math.max(Math.min(maxY, vh / 2 - 96), cam.y));
-    if (LV.hub) { const r = hubRect(); cam.x = r.w <= vw ? r.x + r.w / 2 : Math.max(r.x + vw / 2, Math.min(r.x + r.w - vw / 2, cam.x)); cam.y = r.h <= vh ? r.y + r.h / 2 : Math.max(r.y + vh / 2, Math.min(r.y + r.h - vh / 2, cam.y)); }   // the 거점: the screen never leaves the painting
+    if (PORTRAIT()) { const bottom = LV.hub ? hubRect().y + hubRect().h : lh; cam.y = bottom - (H / 2 - padH()) / (SCALE * zoom); }   // the ground line sits just above the thumbs
+    if (LV.hub && PORTRAIT()) { const r = hubRect(); cam.x = Math.max(r.x + vw / 2, Math.min(r.x + r.w - vw / 2, cam.x)); }
+    if (LV.hub && !PORTRAIT()) { const r = hubRect(); cam.x = r.w <= vw ? r.x + r.w / 2 : Math.max(r.x + vw / 2, Math.min(r.x + r.w - vw / 2, cam.x)); cam.y = r.h <= vh ? r.y + r.h / 2 : Math.max(r.y + vh / 2, Math.min(r.y + r.h - vh / 2, cam.y)); }   // the 거점: the screen never leaves the painting
   }
   if (P && state === "play" && (padFadeT = (padFadeT || 0) - rdt) <= 0) { padFadeT = .2; const px = (P.x + P.w / 2 - cam.x) * SCALE * zoom + W / 2, py = (P.y + P.h / 2 - cam.y) * SCALE * zoom + H / 2;   // a button over the swordsman goes see-through
     for (const el of document.querySelectorAll("#pad .tb")) { const r = el.getBoundingClientRect(); el.classList.toggle("over", px > r.left - 30 && px < r.right + 30 && py > r.top - 40 && py < r.bottom + 30); } }
@@ -3449,13 +3470,12 @@ function render(rdt) {
 
   ctx.setTransform(1, 0, 0, 1, 0, 0);
   const hubPainted = LV && LV.hub && state !== "menu" && HUBIMG.complete && HUBIMG.naturalWidth;   // the 거점 painting covers the whole screen: no paper, sky or weather under it
-  if (!hubPainted) { ctx.fillStyle = pal.bg; ctx.fillRect(0, 0, cv.width, cv.height); }
+  const ssn0 = LV && state !== "menu" && !pal.night ? season() : 0;   // the season's tint is baked into the paper, so the screen is washed once, not twice
+  if (!hubPainted) { ctx.fillStyle = (!LITE() && bgPaper(pal.bg, pal.rim ? .35 : .9, ssn0)) || pal.bg; ctx.fillRect(0, 0, cv.width, cv.height); }
   if (!(LV && LV.hub)) drawBackdrop(pal);
   ctx.setTransform(1, 0, 0, 1, 0, 0);
-  const ssn0 = LV && state !== "menu" && !pal.night ? season() : 0;   // the season's tint is baked into the paper, so the screen is washed once, not twice
   const paperTex = ssn0 ? tintedPaper(ssn0) : pattern("tex-paper", DPR * 0.9);
-  if (hubPainted) {}
-  else if (paperTex && !LITE()) { ctx.globalCompositeOperation = "multiply"; ctx.globalAlpha = pal.rim ? .35 : .9; ctx.fillStyle = paperTex; ctx.fillRect(0, 0, cv.width, cv.height); ctx.globalCompositeOperation = "source-over"; ctx.globalAlpha = 1; }
+  if (hubPainted || (paperTex && !LITE())) {}   // the grain is already in the background and the paintings (bgPaper, bakePaper)
   else { ctx.fillStyle = paperPat; ctx.fillRect(0, 0, cv.width, cv.height); }
   if (!LV || state === "menu") return;
   const ssn = season(), tt = performance.now() / 1000;
@@ -3730,6 +3750,7 @@ function render(rdt) {
     { const rx = cx + d.x * 152, ry = cy + d.y * 152; ctx.globalAlpha = .8; brushRing(rx, ry, 9 * rs, ac, 1.6, 5); if (!SPR.guide) for (let q = 0; q < 4; q++) { const qa = q * Math.PI / 2 + .3; inkDab(rx + Math.cos(qa) * 14 * rs, ry + Math.sin(qa) * 14 * rs, qa, 6, 1.6, ac); } ctx.globalAlpha = 1; }   // where the dash will land, a small brushed ring
   }
 
+  if (PORTRAIT() && LV && !LV.hub) { const g = ctx.createLinearGradient(0, LV.h * T - 8, 0, LV.h * T + 120); g.addColorStop(0, pal.night ? "rgba(10,10,14,.0)" : "rgba(23,22,26,0)"); g.addColorStop(.15, pal.night ? "#0c0b10" : "#2a2729"); g.addColorStop(1, pal.night ? "#0c0b10" : "#1d1b1e"); ctx.fillStyle = g; ctx.fillRect(cam.x - vw, LV.h * T - 8, vw * 2, vh + 16); }   // 세로: under the stage, the earth where the thumbs rest
   // screen space overlays
   ctx.setTransform(1, 0, 0, 1, 0, 0);
   if (!vignette) { vignette = ctx.createRadialGradient(cv.width / 2, cv.height / 2, Math.min(cv.width, cv.height) * .35, cv.width / 2, cv.height / 2, Math.max(cv.width, cv.height) * .75); vignette.addColorStop(0, "rgba(20,18,16,0)"); vignette.addColorStop(1, "rgba(20,18,16,.32)"); }
@@ -3811,7 +3832,7 @@ function drawBackdrop(pal) {
   layers.forEach(([key, f, alpha, bottom, hFrac], li) => {
     const yoff = (lh - camY) * f * .5 * SCALE;
     const by = H * bottom + yoff;
-    const img = IMG[key];
+    const img = IMG[key] && !LITE() ? bakePaper(IMG[key]) : IMG[key];
     ctx.globalAlpha = alpha;
     if (img) {
       const h = H * hFrac, w = h * img.width / img.height, off = ((camX * f * SCALE) % w + w) % w;
@@ -4779,7 +4800,7 @@ function petScreen() { // 둥지: choose an egg, feed it 숨
 let hubOn = false, hubNear = null;
 // the 거점 is one painted courtyard: a yard, a stone terrace (축대) with the main hall on it, and five places to go
 const HUB_W = 40, HUB_UP = 10, HUB_K = 40 * 32 / 1344, HUB_Y = 12 * 32 - 490 * (40 * 32 / 1344);   // the painting spans the map exactly   // the painting's ground line (y 490) sits on row 12; its terrace top lands on row 10
-const HUBIMG = new Image(); HUBIMG.src = "assets/hubscene.webp?v=10029700";
+const HUBIMG = new Image(); HUBIMG.src = `assets/hubscene.webp?v=${ASSET_V}`;
 const HUB_ST = [
   { id: "gate", tx: 4, ty: 12, h: 150, name: "산문", han: "山門", act: "길 떠나기 · 천고탑 · 수련터" },
   { id: "well", tx: 9, ty: 12, h: 80, name: "약수터", han: "藥水", act: "숨 다스리기 · 영물" },
@@ -4810,7 +4831,7 @@ function buildHubMap() {
   rows[11][6] = "P"; return rows.map(r => r.join(""));
 }
 const hubRect = () => { const w = 1344 * HUB_K, h = 576 * HUB_K; return { x: (LV.w * T - w) / 2, y: HUB_Y, w, h }; };
-function hubZoom() { const r = hubRect(), vw0 = W / SCALE, vh0 = H / SCALE; return Math.max(1, vw0 / r.w, vh0 / r.h); }   // any screen: zoom in until the painting covers it
+function hubZoom() { const r = hubRect(), vw0 = W / SCALE, vh0 = H / SCALE; return PORTRAIT() ? Math.max(1, vw0 / r.w) : Math.max(1, vw0 / r.w, vh0 / r.h); }   // any screen: zoom in until the painting covers it
 function drawHubScene(pal) { // the painting itself is the place; the yard below its ground line is plain earth
   const top = HUB_Y, w = 1344 * HUB_K, h = 576 * HUB_K, x = (LV.w * T - w) / 2, I = HUBIMG;
   if (!(I.complete && I.naturalWidth)) { ctx.fillStyle = "#d9d3c4"; ctx.fillRect(-400, top + h - 2, LV.w * T + 800, 1200); return; }
@@ -5057,7 +5078,7 @@ $("bInstall").addEventListener("click", async () => { if (!installEvt) return; i
 const standalone = matchMedia("(display-mode: standalone)").matches || matchMedia("(display-mode: fullscreen)").matches || navigator.standalone;
 
 
-if (location.hash === "#debug") window.__dbg = { get missing() { return ALL_SHEETS.filter(n => !LAZY_SHEETS.has(n) && !SPR[n]).concat(BASE_IMGS.filter(k => !IMG[k])); }, tp(tx, ty) { P.x = tx * T + 7; P.y = (ty + 1) * T - 30; P.vx = P.vy = 0; }, get state() { return state; }, get P() { return P; }, get LV() { return LV; }, get state2() { return state; }, get SC() { return LV.scenery; }, get E() { return enemies; }, get run() { return run; }, set hs(v) { hitstop = v; }, kill(e) { killEnemy(e); }, hurt(e, s, k) { hurtEnemy(e, s, k); }, die(k, d) { die(k, d); }, banner(a, b, c) { banner(a, b === "red" ? SEAL : JJOK, c); }, chungo() { chungo(); }, clear() { madangClear(); }, hubAct() { hubAct(); }, get hub() { return { hubOn, hubNear }; }, get songPos() { return songPos; }, get FLASH() { return FLASH; }, get hold() { return bulletHold; }, get bolts() { return bolts; }, get rings() { return rings; }, get B() { return bullets; }, get beams() { return beams; }, flashing: e => isFlashing(e), enlighten: f => enlighten(f), syncCombos: () => syncCombos(), has: id => has(id), get FL() { flashSync(); return FLASH; } };
+if (location.hash === "#debug" && /^(localhost|127\.0\.0\.1)$/.test(location.hostname)) window.__dbg = { get missing() { return ALL_SHEETS.filter(n => !LAZY_SHEETS.has(n) && !SPR[n]).concat(BASE_IMGS.filter(k => !IMG[k])); }, tp(tx, ty) { P.x = tx * T + 7; P.y = (ty + 1) * T - 30; P.vx = P.vy = 0; }, get state() { return state; }, get P() { return P; }, get LV() { return LV; }, get state2() { return state; }, get SC() { return LV.scenery; }, get E() { return enemies; }, get run() { return run; }, set hs(v) { hitstop = v; }, kill(e) { killEnemy(e); }, hurt(e, s, k) { hurtEnemy(e, s, k); }, die(k, d) { die(k, d); }, banner(a, b, c) { banner(a, b === "red" ? SEAL : JJOK, c); }, chungo() { chungo(); }, clear() { madangClear(); }, hubAct() { hubAct(); }, get hub() { return { hubOn, hubNear }; }, get songPos() { return songPos; }, get FLASH() { return FLASH; }, get hold() { return bulletHold; }, get bolts() { return bolts; }, get rings() { return rings; }, get B() { return bullets; }, get beams() { return beams; }, flashing: e => isFlashing(e), enlighten: f => enlighten(f), syncCombos: () => syncCombos(), has: id => has(id), get FL() { flashSync(); return FLASH; } };
 window.addEventListener("pointerdown", () => Music.unlock(), { once: true, capture: true });   // first tap anywhere starts the sound
 resize();
 toMenu();
