@@ -6,8 +6,9 @@ const $ = id => document.getElementById(id);
 const cv = $("cv"); let ctx = cv.getContext("2d", { alpha: false });   // let: the ground is baked by pointing ctx at an offscreen canvas for a moment   // opaque canvas: cheaper to composite on phones
 let W = 0, H = 0, DPR = 1, SCALE = 1;
 const MOBILE = matchMedia("(pointer:coarse)").matches || /Android|iPhone|iPad/i.test(navigator.userAgent);
-const LITE = () => localStorage.getItem("chungo.lite") === "1";
-let dprCap = LITE() ? 1 : MOBILE ? 1.5 : 2;   // phones: 1.5x is sharp enough and much lighter on the GPU; lowered further if frames run long
+let autoLite = false;   // set for this session when frames stay slow even at 1x
+const LITE = () => autoLite || localStorage.getItem("chungo.lite") === "1";
+let dprCap = LITE() ? 1 : MOBILE ? 1.25 : 2;   // phones: 1.5x is sharp enough and much lighter on the GPU; lowered further if frames run long
 function resize() {
   DPR = Math.min(dprCap, window.devicePixelRatio || 1);
   for (const k in PAT) delete PAT[k];   // patterns carry the old pixel scale
@@ -201,7 +202,10 @@ const SLOT = { 방어: 1, 간파: 1, 이동: 2 }, SLOT_ORDER = ["방어", "간�
 // 무기 수련 트리: each weapon is a build. Three branches, three steps each; the third step of a branch is its 오의.
 // Clearing a 관문 offers nodes you can take now (a branch's next step), so each run grows in its own direction.
 // numeric gifts of the held tree nodes, summed: { gise: .2, edge: 1, ... }
-function treeStat(k) { if (!run || !run.perks) return 0; let v = 0; for (const id of run.perks) { const c = CHOSIK_BY && CHOSIK_BY[id]; if (c && c.stat && c.stat[k]) v += c.stat[k]; } return v; }
+let _tsRun = null, _tsKey = "", _tsSum = {};   // summed tree stats, rebuilt only when the held list changes (asked every frame)
+function treeStat(k) { if (!run || !run.perks) return 0; const key = run.perks.length + ":" + run.perks[run.perks.length - 1];
+  if (_tsRun !== run || _tsKey !== key) { _tsRun = run; _tsKey = key; _tsSum = {}; for (const id of run.perks) { const c = CHOSIK_BY && CHOSIK_BY[id]; if (c && c.stat) for (const s in c.stat) _tsSum[s] = (_tsSum[s] || 0) + c.stat[s]; } }
+  return _tsSum[k] || 0; }
 let CHOSIK_BY = null;
 const TREES = {
   hwando: { name: "환도", br: [
@@ -1941,7 +1945,7 @@ function shot(d, arrow) {
   if (req.dash) { P.tapDash = true; startDash(d); }
   Music.sfx(strike ? "strike" : "slash");
   if (strike) { flash = 0.06; if (onBeat) beatHitAt = performance.now(); }
-  { const tx = P.x + P.w / 2 + d.x * 40, ty = P.y + P.h / 2 + d.y * 34, n = strike ? 12 : 8, gild = masteryLv(wpn()) >= 5;   // ink (and gold for 일격) thrown off the blade's path
+  if (!isGun()) { const tx = P.x + P.w / 2 + d.x * 40, ty = P.y + P.h / 2 + d.y * 34, n = strike ? 12 : 8, gild = masteryLv(wpn()) >= 5;   // ink (and gold for 일격) thrown off the blade's path
     for (let i = 0; i < n; i++) { const a = Math.atan2(d.y, d.x) + (Math.random() - .5) * 1.6, v = 120 + Math.random() * 260; parts.push({ x: tx, y: ty, vx: Math.cos(a) * v, vy: Math.sin(a) * v - 40, life: .35, max: .35, c: strike ? (i % 3 ? SEAL : "#e8b84a") : gild && i % 3 === 0 ? "#e8b84a" : (i % 4 ? LV.pal.fig : "#6b6670"), s: 1.5 + Math.random() * 2.5 }); }
     if (strike) addFx("perkfx", PF.spark, tx, ty, 40, { life: .2, rot: Math.random() * 6.28, grow: .6 }); }
 }
@@ -3201,8 +3205,9 @@ function frameBody(now) {
   const t0 = performance.now();
   const raw = (now - last) / 1000, rdt = Math.min(0.05, raw); last = now;
   fpsAcc += raw; fpsCnt++; if (fpsAcc >= 1) { fpsNow = Math.round(fpsCnt / fpsAcc); fpsAcc = fpsCnt = 0; hudCache = ""; }
-  if (state === "play" && raw < .5) { perfT += raw; perfN++; if (perfN >= 90) { const avg = perfT / perfN; perfT = perfN = 0;   // three seconds of slow frames: draw at a lower resolution
-    if (avg > 1 / 45 && dprCap > 1) { dprCap = Math.max(1, +(dprCap - .25).toFixed(2)); resize(); } } }
+  if (state === "play" && raw < .5) { perfT += raw; perfN++; if (perfN >= 60) { const avg = perfT / perfN; perfT = perfN = 0;   // three seconds of slow frames: draw at a lower resolution
+    if (avg > 1 / 45 && dprCap > 1) { dprCap = Math.max(1, +(dprCap - .25).toFixed(2)); resize(); }
+    else if (avg > 1 / 40 && !autoLite) autoLite = true; } }   // still slow at 1x: drop the full-screen paper wash, weather and vignette
   if (state === "play" || state === "dead") {
     songPos = Music.pos();
     if (state === "play") frameInput(rdt);
@@ -3380,9 +3385,10 @@ function bakeGround(gc, key, c, CW, top, hh, k, pal, ssn) { // paint one chunk o
   gc.set(key + "#" + c, { cv: cvs, used: performance.now() });
   while (gc.size > (MOBILE ? 4 : 10)) { let old = null; for (const [kk, v] of gc) if (!old || v.used < old[1].used) old = [kk, v]; old[1].cv.width = old[1].cv.height = 0; gc.delete(old[0]); }   // iOS frees canvas memory only when the canvas is emptied   // keep memory small: drop the stalest
 }
+const camView = { x0: 0, y0: 0, x1: 0, y1: 0 };
 function render(rdt) {
   if (!paperPat) makePaper();
-  const rz = roar ? Math.min(1, roar.t / .25) * Math.min(1, (1.4 - roar.t) / .4) : 0, zoom = 1 + .22 * rz * (2 - rz) / 1;   // the roar leans the camera in, then lets go
+  const rz = roar ? Math.min(1, roar.t / .25) * Math.min(1, (1.4 - roar.t) / .4) : 0, zoom = LV && LV.hub ? hubZoom() : 1 + .22 * rz * (2 - rz) / 1;   // the roar leans the camera in, then lets go; the 거점 is framed by its painting
   const pal = !LV ? PAL[0] : (P && (P.focus || killCam > 0) && state === "play") ? NIGHT : LV.pal, k = SCALE * DPR * zoom, vw = W / SCALE / zoom, vh = H / SCALE / zoom;
   if (P && LV) {
     let tx = P.x + P.w / 2 + Math.max(-110, Math.min(110, P.vx * 0.22)) + P.face * 24, ty = P.y + P.h / 2 - 24; const f = Math.min(1, rdt * (bossIntro || roar ? 5 : 7));
@@ -3392,22 +3398,25 @@ function render(rdt) {
     const lw = LV.w * T, lh = LV.h * T;
     cam.x = lw <= vw ? lw / 2 : Math.max(vw / 2, Math.min(lw - vw / 2, cam.x));
     const maxY = lh - vh / 2 + 8; cam.y = Math.min(maxY, Math.max(Math.min(maxY, vh / 2 - 96), cam.y));
-    if (LV.hub) cam.y = Math.min(cam.y, 12 * T - vh * .22);   // the 거점: the yard's ground line sits low on the screen, the painting fills the rest
+    if (LV.hub) { const r = hubRect(); cam.x = r.w <= vw ? r.x + r.w / 2 : Math.max(r.x + vw / 2, Math.min(r.x + r.w - vw / 2, cam.x)); cam.y = r.h <= vh ? r.y + r.h / 2 : Math.max(r.y + vh / 2, Math.min(r.y + r.h - vh / 2, cam.y)); }   // the 거점: the screen never leaves the painting
   }
+  camView.x0 = cam.x - vw / 2; camView.y0 = cam.y - vh / 2; camView.x1 = cam.x + vw / 2; camView.y1 = cam.y + vh / 2;
   const sx = (Math.random() - .5) * shake, sy = (Math.random() - .5) * shake;
 
   ctx.setTransform(1, 0, 0, 1, 0, 0);
-  ctx.fillStyle = pal.bg; ctx.fillRect(0, 0, cv.width, cv.height);
+  const hubPainted = LV && LV.hub && state !== "menu" && HUBIMG.complete && HUBIMG.naturalWidth;   // the 거점 painting covers the whole screen: no paper, sky or weather under it
+  if (!hubPainted) { ctx.fillStyle = pal.bg; ctx.fillRect(0, 0, cv.width, cv.height); }
   if (!(LV && LV.hub)) drawBackdrop(pal);
   ctx.setTransform(1, 0, 0, 1, 0, 0);
   const ssn0 = LV && state !== "menu" && !pal.night ? season() : 0;   // the season's tint is baked into the paper, so the screen is washed once, not twice
   const paperTex = ssn0 ? tintedPaper(ssn0) : pattern("tex-paper", DPR * 0.9);
-  if (paperTex && !LITE()) { ctx.globalCompositeOperation = "multiply"; ctx.globalAlpha = pal.rim ? .35 : .9; ctx.fillStyle = paperTex; ctx.fillRect(0, 0, cv.width, cv.height); ctx.globalCompositeOperation = "source-over"; ctx.globalAlpha = 1; }
+  if (hubPainted) {}
+  else if (paperTex && !LITE()) { ctx.globalCompositeOperation = "multiply"; ctx.globalAlpha = pal.rim ? .35 : .9; ctx.fillStyle = paperTex; ctx.fillRect(0, 0, cv.width, cv.height); ctx.globalCompositeOperation = "source-over"; ctx.globalAlpha = 1; }
   else { ctx.fillStyle = paperPat; ctx.fillRect(0, 0, cv.width, cv.height); }
   if (!LV || state === "menu") return;
   const ssn = season(), tt = performance.now() / 1000;
   if (ssn && !pal.night && !IMG["tex-paper"]) { ctx.globalCompositeOperation = "multiply"; ctx.fillStyle = SEASON_TINT[ssn]; ctx.fillRect(0, 0, cv.width, cv.height); ctx.globalCompositeOperation = "source-over"; }
-  if (!LITE()) drawWeather(ssn, tt, pal);
+  if (!LITE() && !hubPainted) drawWeather(ssn, tt, pal);
 
   ctx.setTransform(k, 0, 0, k, Math.round((W / 2 + sx) * DPR - cam.x * k), Math.round((H / 2 + sy) * DPR - cam.y * k));
   const x0 = Math.max(0, Math.floor((cam.x - vw / 2) / T) - 1), x1 = Math.min(LV.w - 1, Math.ceil((cam.x + vw / 2) / T) + 1);
@@ -3976,10 +3985,6 @@ function drawPlayer(pal) {
   if (edgeOn() && state !== "dead" && P.edge != null && P.edge < edgeMax()) { const m = edgeMax(), y = P.y - 12;   // 날: short strokes, dark while sharp
     for (let i = 0; i < m; i++) { ctx.fillStyle = i < P.edge ? "#17161a" : "rgba(23,22,26,.2)"; ctx.save(); ctx.translate(cx - (m - 1) * 4 + i * 8, y); ctx.rotate(-.5); ctx.fillRect(-1.2, -4, 2.4, 8); ctx.restore(); }
     if (P.edge < 1) { ctx.fillStyle = SEAL; ctx.font = `400 10px "Song Myung", serif`; ctx.textAlign = "center"; ctx.fillText("무딤", cx, y - 8); } }
-  if (isGun() && state !== "dead") { const G = WEAPONS[wpn()], y = P.y - 12;   // 총: rounds over the head (or the heat of the rocket box)
-    if (G.heat) { const h = Math.min(1, (P.heat || 0) / 100), w = 26; ctx.fillStyle = "rgba(23,22,26,.25)"; ctx.fillRect(cx - w / 2, y, w, 3); ctx.fillStyle = P.overheat > 0 ? (Math.floor(performance.now() / 90) % 2 ? SEAL : "#17161a") : h > .7 ? SEAL : "#17161a"; ctx.fillRect(cx - w / 2, y, w * h, 3); }
-    else { const m = gunMag(), a = P.ammo ?? m; for (let i = 0; i < m; i++) { ctx.fillStyle = i < a ? "#17161a" : "rgba(23,22,26,.22)"; ctx.beginPath(); ctx.ellipse(cx - (m - 1) * 4 + i * 8, y, 2.4, 3.4, 0, 0, 7); ctx.fill(); }
-      if (a < m) { const q = (P.slowRe || 0) / 2.4; ctx.strokeStyle = SEAL; ctx.lineWidth = 1.4; ctx.beginPath(); ctx.arc(cx - (m - 1) * 4 + a * 8, y, 4.6, -Math.PI / 2, -Math.PI / 2 + q * 6.283); ctx.stroke(); } } }
   const muaDraw = P.focus && !P.focusTap && wk() === "baldo" && !WEAPONS[wpn()].bow && P.focusT > TAP_T;
   if ((P.iaiHold || muaDraw) && wk() === "baldo" && state !== "dead") { const held = P.iaiHold ? (performance.now() - (P.iaiAt || 0)) / 1000 : P.focusT, fy = P.y + P.h + 2;   // 납도: ink leaps up from the feet, black at first, reddening as the draw fills
     const st = held >= iaiM() ? 2 : held >= iaiF() ? 1 : 0, q = Math.min(1, held / iaiM());
@@ -4008,7 +4013,8 @@ function drawPlayer(pal) {
   if (P.ward && chr("posu") && SPR.pfx && state !== "dead") { ctx.globalAlpha = .7 + .15 * Math.sin(performance.now() / 160); drawSprite("pfx", 8, cx + P.face * 14, P.y + P.h / 2, 46 / SPR.pfx.f[8].h, P.face < 0, .5, false, .5); ctx.globalAlpha = 1; }
   else if (P.ward && SPR.slashfx && state !== "dead") { ctx.globalAlpha = .55 + .15 * Math.sin(performance.now() / 160); drawSprite("slashfx", SF.guard, cx, P.y + P.h / 2, 64 / SPR.slashfx.f[SF.guard].h, false, .5, false, .5); ctx.globalAlpha = 1; }
   const wfx = WEAPONS[wpn()].fx;
-  if (P.slashT > 0 && state !== "dead" && wfx && wfx !== "streamer") drawWeaponFx(wfx, cx, P.y + P.h / 2, pal);
+  if (isGun()) {}   // a gun's bayonet thrust is the pose alone: no ink wedge, no speed lines, no crescent
+  else if (P.slashT > 0 && state !== "dead" && wfx && wfx !== "streamer") drawWeaponFx(wfx, cx, P.y + P.h / 2, pal);
   else if (P.slashT > 0 && state !== "dead" && SPR.slashfx) { // one clean crescent: black ink, or a thin vermilion line for 일격
     const d = P.slashDir, dur = P.slashDur || .14, prog = 1 - Math.min(1, P.slashT / dur), i = P.strike ? SF.arcRed : SF.arc, f = SPR.slashfx.f[i];
     const left = d.x < -.2, ang = Math.atan2(d.y, Math.abs(d.x) < .2 ? .001 : Math.abs(d.x)), hh = (P.strike ? 78 : 68) * (.9 + prog * .15) * ({ woldo: 1.45, ssang: .82, baldo: 1 }[wpn()] || 1);
@@ -4694,9 +4700,10 @@ function petAttack(t, D, st) {
 function drawAmmo() { // the rounds left, as little painted balls over the head
   if (!P || !isGun() || state !== "play" || hubOn || !SPR.muz) return; const G = WEAPONS[wpn()], f = SPR.muz.f[MUZ.bullet]; if (!f) return;
   const max = G.heat ? 3 : gunMag(), n = G.heat ? ((P.overheat || 0) > 0 ? 0 : Math.max(0, Math.min(3, Math.ceil((100 - (P.heat || 0)) / 38)))) : Math.max(0, P.ammo ?? max);
-  const sw = f.w * .3, h = 7, w = sw * h / (f.h * .5), gap = w + 3, x0 = P.x + P.w / 2 - (max * gap - 3) / 2, y = P.y + P.h - HERO_H - 9;
+  const sw = f.w * .3, h = 7, w = sw * h / (f.h * .5), gap = w + 3, x0 = P.x + P.w / 2 - (max * gap - 3) / 2, y = P.y + P.h - HERO_H - 1;
   for (let i = 0; i < max; i++) { ctx.globalAlpha = i < n ? .95 : .22; ctx.drawImage(SPR.muz.img, f.x + f.w - sw, f.y + f.h * .25, sw, f.h * .5, x0 + i * gap, y, w, h); }
   if (G.heat && (P.overheat || 0) > 0) { ctx.globalAlpha = .8; ctx.fillStyle = SEAL; ctx.fillRect(x0, y + h + 2, (max * gap - 2) * Math.min(1, P.overheat / 1.6), 2); }
+  else if (!G.heat && n < max) { ctx.globalAlpha = .7; ctx.fillStyle = SEAL; ctx.fillRect(x0, y + h + 2, (max * gap - 3) * Math.min(1, (P.slowRe || 0) * (1 + treeStat("reload")) / 2.4), 1.5); }   // the slow match: the next round coming
   ctx.globalAlpha = 1;
 }
 function drawPet(pal) {
@@ -4759,6 +4766,8 @@ function buildHubMap() {
   rows[11][13] = "#"; for (let x = 14; x <= 24; x++) rows[10][x] = rows[11][x] = "#";   // the painted steps and the terrace they climb to
   rows[11][6] = "P"; return rows.map(r => r.join(""));
 }
+const hubRect = () => { const w = 1344 * HUB_K, h = 576 * HUB_K; return { x: (LV.w * T - w) / 2, y: HUB_Y, w, h }; };
+function hubZoom() { const r = hubRect(), vw0 = W / SCALE, vh0 = H / SCALE; return Math.max(1, vw0 / r.w, vh0 / r.h); }   // any screen: zoom in until the painting covers it
 function drawHubScene(pal) { // the painting itself is the place; the yard below its ground line is plain earth
   const top = HUB_Y, w = 1344 * HUB_K, h = 576 * HUB_K, x = (LV.w * T - w) / 2, I = HUBIMG;
   if (!(I.complete && I.naturalWidth)) { ctx.fillStyle = "#d9d3c4"; ctx.fillRect(-400, top + h - 2, LV.w * T + 800, 1200); return; }
@@ -4864,7 +4873,17 @@ function sealShelf() { // 비급각: the sealed books and the shelf that holds t
 }
 function drawHubLabels(pal) { // the names of the stations, painted on small boards above them
   if (!LV || !LV.stations) return; ctx.textAlign = "center"; ctx.textBaseline = "middle";
-  for (const st of LV.stations || []) { const x = st.tx * T + 16, y = (st.ty || 12) * T - Math.max(st.h, 44) - 10, near = hubNear && hubNear.st === st; if (LV.hub) continue;   // in the 거점 the name is written in the prompt at the top, not over the painting
+  if (LV.hub) { // 거점: a hanging name board (현판) over every place you can use, and a stone mark on the ground where you stand to use it
+    const t = performance.now() / 1000;
+    for (const st of LV.stations) { const x = st.tx * T + 16, g = (st.ty || 12) * T, near = hubNear && hubNear.st === st, y = Math.max(camView.y0 + 22, g - st.h * .8 - 18);
+      ctx.globalAlpha = near ? .9 : .55; ctx.fillStyle = near ? "rgba(195,22,28,.35)" : "rgba(23,22,26,.22)"; ctx.beginPath(); ctx.ellipse(x, g + 1, near ? 26 : 20, near ? 7 : 5, 0, 0, 7); ctx.fill(); ctx.globalAlpha = 1;
+      ctx.font = `400 ${near ? 16 : 13}px "Song Myung", serif`; const tw = ctx.measureText(st.name).width, w = tw + 22, h = near ? 26 : 22, by = y + (near ? Math.sin(t * 4) * 2 : 0);
+      ctx.strokeStyle = "rgba(23,22,26,.6)"; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(x - w / 2 + 6, by - h / 2); ctx.lineTo(x - 6, by - h / 2 - 8); ctx.lineTo(x + w / 2 - 6, by - h / 2); ctx.stroke();   // the cord it hangs from
+      ctx.fillStyle = near ? "#9a1424" : "rgba(28,24,26,.88)"; ctx.fillRect(x - w / 2, by - h / 2, w, h);
+      ctx.strokeStyle = near ? "#e8c27a" : "rgba(232,194,122,.55)"; ctx.lineWidth = 1.5; ctx.strokeRect(x - w / 2 + 2.5, by - h / 2 + 2.5, w - 5, h - 5);
+      ctx.fillStyle = "#f3ede0"; ctx.fillText(st.name, x, by + 1);
+      if (near) { ctx.fillStyle = "#9a1424"; ctx.beginPath(); ctx.moveTo(x - 6, by + h / 2 + 4); ctx.lineTo(x + 6, by + h / 2 + 4); ctx.lineTo(x, by + h / 2 + 11); ctx.fill(); } } }
+  for (const st of LV.stations || []) { const x = st.tx * T + 16, y = (st.ty || 12) * T - Math.max(st.h, 44) - 10, near = hubNear && hubNear.st === st; if (LV.hub) continue;
     ctx.font = `400 ${near ? 15 : 12}px "Song Myung", serif`; const w = ctx.measureText(st.name).width + 14;
     ctx.fillStyle = near ? "rgba(195,22,28,.92)" : "rgba(23,22,26,.72)"; ctx.fillRect(x - w / 2, y - 10, w, 20); ctx.fillStyle = "#f3ede0"; ctx.fillText(st.name, x, y + 1); }
   const dk = hubDeco(); if (LV.hub) for (let k = 0; k < HUB_SLOTS.length; k++) if (!dk.slots[k]) { const x = HUB_SLOTS[k].tx * T + 16, y = HUB_SLOTS[k].ty * T - 4, near = hubNear && hubNear.slot === k;
@@ -4943,7 +4962,7 @@ $("bPauseSet").addEventListener("click", () => openSettings("pause"));
 $("bSettings").addEventListener("click", () => openSettings("menu"));
 const liteLabel = () => { $("bLite").textContent = LITE() ? "켜짐" : "꺼짐"; $("bFps").textContent = showFps ? "켜짐" : "꺼짐"; };
 liteLabel();
-$("bLite").addEventListener("click", () => { localStorage.setItem("chungo.lite", LITE() ? "0" : "1"); dprCap = LITE() ? 1 : MOBILE ? 1.5 : 2; resize(); liteLabel(); });
+$("bLite").addEventListener("click", () => { localStorage.setItem("chungo.lite", LITE() ? "0" : "1"); dprCap = LITE() ? 1 : MOBILE ? 1.25 : 2; resize(); liteLabel(); });
 $("bFps").addEventListener("click", () => { showFps = !showFps; localStorage.setItem("chungo.fps", showFps ? "1" : "0"); liteLabel(); });
 // touch buttons: a size for all of them and a place for each, kept on this device
 const padCfg = Object.assign({ s: 1.2, pos: {} }, store.get("pad3", {}));   // "pad2": the new default layout replaces any older arrangement
