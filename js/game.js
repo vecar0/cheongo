@@ -381,13 +381,13 @@ CHOSIK_BY = Object.fromEntries(CHOSIK.map(c => [c.id, c]));
 const nodeOf = id => CHOSIK.find(c => c.id === id && c.tree);
 const treeNodesHeld = () => (run.perks || []).filter(id => nodeOf(id));
 // 서고 수련: 0 → 3단까지, 1 → 4단까지, 2 → 합류까지 (META.treeOpen[weapon] counts what has been learned)
-const TREE_OPEN = [{ hon: 40, ms: 0, name: "3단 깨치기", desc: "갈래마다 둘 중 하나를 고르는 3단이 열린다" }, { hon: 70, ms: 1, name: "4단 깨치기", desc: "3단 뒤의 4단이 열린다 (무기 숙련 1)" }, { hon: 90, ms: 2, name: "합류 깨치기", desc: "이웃한 두 갈래를 잇는 합류가 열린다 (무기 숙련 2)" }];
-const treeOpen = tk => ((META.treeOpen || {})[tk] || 0);
+const TREE_OPEN = [{ hon: 60, ms: 0, name: "3단 깨치기", desc: "모든 무기의 갈래마다 둘 중 하나를 고르는 3단이 열린다" }, { hon: 100, ms: 1, name: "4단 깨치기", desc: "모든 무기의 3단 뒤 4단이 열린다 (어느 무기든 숙련 1)" }, { hon: 140, ms: 2, name: "합류 깨치기", desc: "모든 무기에서 이웃한 두 갈래를 잇는 합류가 열린다 (어느 무기든 숙련 2)" }];
+const treeOpen = () => { const o = META.treeOpen || {}; return Math.max(o.all || 0, ...Object.values(o).filter(Number.isFinite)); };   // learned once for every weapon (older saves: the furthest any weapon got)
 const lockLv = c => c.merge ? 3 : c.lock || 0;
 function treeOffer() { // the nodes you could take now: the root, then step by step along a branch; 오의 never (깨달음 gives it)
   const T = treeKey(), held = new Set(run.perks || []), out = [], hasRoot = CHOSIK.some(o => o.tree === T && o.tier === 0);
   const got = (br, tier) => CHOSIK.some(o => o.tree === T && o.br === br && o.tier === tier && held.has(o.id));
-  for (const c of CHOSIK) { if (c.tree !== T || held.has(c.id) || c.ougi || lockLv(c) > treeOpen(T)) continue;
+  for (const c of CHOSIK) { if (c.tree !== T || held.has(c.id) || c.ougi || lockLv(c) > treeOpen()) continue;
     const ok = c.tier === 0 ? true : c.tier === 1 ? (!hasRoot || got(-1, 0)) : c.tier === 3 ? got(c.br, 2) && !got(c.br, 3) : c.merge ? c.merge.every(b => got(b, 2)) : got(c.br, c.tier - 1);
     if (ok) out.push(c); }
   return out;
@@ -515,7 +515,7 @@ const simb = k => !!(run && run.simbeop === k);
 // 무기: chosen when a run starts; each changes how the basic cut works
 const WEAPONS = {
   hwando: { name: "환도", han: "環刀", desc: "받아치기 — 보통 베기로 간파하면 적의 등 뒤로 넘어가며 벤다. 탄 튕기기가 쉽다", R: 1, reach: 0, cd: .2, dur: .14 },
-  ssang: { name: "쌍검", han: "雙劍", desc: "몰아치기 — 이어 벨수록 기세가 쌓이고, 다섯 번째 베기는 X자 일격. 연속 처치가 오래 간다", R: .82, reach: -2, cd: .09, dur: .1 },
+  ssang: { name: "쌍검", han: "雙劍", desc: "몰아치기 — 이어 벨수록 기세가 쌓이고, 다섯 번째 베기는 X자 일격. 연속 처치가 오래 간다", R: .82, reach: -2, cd: .11, dur: .1 },
   woldo: { name: "월도", han: "月刀", desc: "낙월 — 공중에서 아래로 베면 내리꽂힌다. 치면 튕겨 오르고, 땅에 꽂히면 충격파", R: 1.55, reach: 16, cd: .4, dur: .22 },
   baldo: { name: "발도", han: "拔刀", desc: "일도 — 베기를 누르고 있거나 무아경을 오래 유지하면 모인다. 꽉 모아 놓으면 붉은 일격 돌진", R: .72, reach: 0, cd: .25, dur: .14 },
   // 총 — 무명의 화기: the aimed release fires, the recoil carries you; bayonet cuts (and reads) reload
@@ -591,8 +591,9 @@ const META = Object.assign(META_DEF(), (() => { const m = store.get("meta", {});
   for (const k of ["treeOpen", "deck"]) if (META[k] != null && (typeof META[k] !== "object" || Array.isArray(META[k]))) delete META[k];
   if (!Number.isFinite(META.sum) || META.sum < 0) META.sum = 0;
   if (META.pet != null && (typeof META.pet !== "object" || typeof META.pet.kind !== "string")) META.pet = null;
-  if (META.pet) for (const k of ["fed", "jeong"]) if (!Number.isFinite(META.pet[k]) || META.pet[k] < 0) META.pet[k] = 0;
+  if (META.pet) { if (!Number.isFinite(META.pet.fed) || META.pet.fed < 0) META.pet.fed = 0; if (META.pet.jeong != null && (!Number.isFinite(META.pet.jeong) || META.pet.jeong < 0)) META.pet.jeong = 0; }   // jeong left unset: petMeta carries an older nest forward
   META.hon = Math.max(0, META.hon); META.shard = Math.max(0, META.shard);
+  if (!Number.isFinite(META.runN)) META.runN = Object.keys(META.mastery).length || META.hon > 0 || META.books.length ? 4 : 0;   // players from before: everything already open
   META.books = META.books.filter(bk => bk && typeof bk === "object" && Array.isArray(bk.perks)); }
 for (const o of ["jilpung2", "geommu"]) if (!META.oaths.includes(o)) META.oaths.push(o);   // oaths added after a save was made
 if (META.bld.seogo >= 1 && !META.oaths.includes("godok")) META.oaths.push("godok");
@@ -1177,13 +1178,14 @@ function spawnEnemies() {
     if (d.type === "a") return { hp, maxHp: hp, id: d.id, type: "a", x: d.tx * T + 5, y: (d.ty + 1) * T - 40, w: 22, h: 40, face: -1, vx: 0, dashAt: null, lungeT: 0, nextLunge: 1, counter: false, alive: true };   // 자객: reads your 무아경
     if (d.type === "k") return { hp, maxHp: hp, id: d.id, type: "k", x: d.tx * T + 1, y: (d.ty + 1) * T - 46, w: 30, h: 46, face: -1, drumAt: null, nextDrum: songPos + 2 + Math.random(), beatT: 0, alive: true };   // 북잡이: his drum sets the others striking together
     if (d.type === "b") {
-      const kind = window.__forceBoss || (run && mode !== "tutorial" ? bossKindOf(run) : "sumun"), B = BOSSES[kind]; needSheets(bossSheets(kind)); const bh = Math.round((Math.round(B.hp * 2.6) + 4 * cyc()) * (upOn("bosshp") ? 1.5 : 1)), floor = (d.ty + 1) * T;
+      const kind = window.__forceBoss || (run && mode !== "tutorial" ? bossKindOf(run) : "sumun"), B = BOSSES[kind]; needSheets(bossSheets(kind)); const bh = Math.round((Math.round(B.hp * 2.2) + 3 * cyc()) * (upOn("bosshp") ? 1.5 : 1)), floor = (d.ty + 1) * T;
       return { hp: bh, maxHp: bh, id: d.id, type: "b", kind, x: d.tx * T + 16 - B.w / 2, y: (B.fly ? floor - 95 - B.h / 2 : floor - B.h), w: B.w, h: B.h, floor, face: -1, vx: 0, vy: 0, act: null, nextAt: 0, n: (run && run.seed || 0) % 4, mask: 0, raged: upOn("rage"), alive: true, book: kind === "shadow" ? shadowBook() : null };
     }
-    return { hp, maxHp: hp, id: d.id, type: d.type, x: d.tx * T + 5, y: (d.ty + 1) * T - 42, w: 22, h: 42, face: -1, fireAt: null, aimFrom: 0, readyAt: songPos + 0.6 + Math.random() * 0.8, tx: 0, ty: 0, alive: true };
+    return { hp, maxHp: hp, id: d.id, type: d.type, x: d.tx * T + 5, y: (d.ty + 1) * T - 42, w: 22, h: 42, face: -1, fireAt: null, aimFrom: 0, readyAt: songPos + (run && mode !== "tutorial" && !run.tower && run.node !== "elite" ? 3 : 0.6) + Math.random() * 0.8, tx: 0, ty: 0, alive: true };
   });
   for (const e of list) if (e.type !== "b" && hrnd(e.id * 13 + cyc(), es) < eliteP) { e.elite = true; e.hp++; e.maxHp++; }   // 정예: from the second turn some foes come marked — tougher, red-shot, worth more
   enemies = list;
+  if (run && mode !== "tutorial" && !run.tower && LV.start) for (const e of enemies) if ((e.type === "g" || e.type === "s") && Math.hypot(e.x - LV.start.x, e.y - LV.start.y) < 520) e.sleepy = true;   // shooters near where you walk in hold fire until you make the first move
 }
 
 // ---------- run flow ----------
@@ -1218,12 +1220,13 @@ function startPicks(step = 0) {
     const ws = Object.entries(WEAPONS).filter(([id, w]) => w.ch === own && (META.weapons.includes(id) || id === BASE_W[run.char])).map(([id, w]) => ({ id, ...w }));
     run.weapon = BASE_W[run.char] || "hwando"; if (ws.length < 2) return next();
     return weaponPick(ws, w => { run.weapon = w.id; saveRun(); next(); }); }
-  if (step === 2 && !run.simbeop) { const pool = SIMBEOP.filter(m => META.simbeop.includes(m.id)), rs = mulberry(run.seed ^ 0x51B), drawn = [];
+  if (step === 2 && !run.simbeop && (META.runN || 0) >= 2) {   // 심법 opens after two runs, 서약 after four: the first run is the weapon alone
+ const pool = SIMBEOP.filter(m => META.simbeop.includes(m.id)), rs = mulberry(run.seed ^ 0x51B), drawn = [];
     while (drawn.length < 3 && pool.length) drawn.push(pool.splice((rs() * pool.length) | 0, 1)[0]);   // three at random, like the oaths
     const ms = drawn.map(m => ({ ...m, desc: `${m.desc} · 시작 비급 ${CHOSIK.find(c => c.id === startOf(m, run.char)).name}` }));
     return pickScreen("심법을 골라라", "어느 계열로 오를 것인가", ms, m => { run.simbeop = m.id; if (!run.perks.includes(startOf(m, run.char))) run.perks.push(startOf(m, run.char)); saveRun(); startPicks(2.5); }); }
   if (step === 2.5) step = 2;
-  if (step === 2) { const rnd = mulberry(run.seed ^ 0x0A7), pool = OATHS.filter(o => META.oaths.includes(o.id)), picks = [];
+  if (step === 2 && (META.runN || 0) >= 4) { const rnd = mulberry(run.seed ^ 0x0A7), pool = OATHS.filter(o => META.oaths.includes(o.id)), picks = [];
     while (picks.length < 3 && pool.length) picks.push(pool.splice((rnd() * pool.length) | 0, 1)[0]);
     picks.push({ id: null, name: "서약 없음", han: "無", desc: "아무것도 걸지 않는다", calm: true });
     return pickScreen("서약을 하라", "무엇을 걸고 오를 것인가", picks, o => { run.oath = o.id; if (o.id === "pi") run.breath = Math.min(run.breath, 2); saveRun(); next(); }); }
@@ -1259,7 +1262,7 @@ function showInterlude() {
     loadMap(buildMadangMap(run.seed + run.floor * 7919, tier, run.cycle || 0, run.omens, true, Math.min(2, run.floor >> 3), Math.min(5, 1 + (run.floor >> 2)), 3), PAL[tier]); LV.ledgeStone = tier >= 3;   // higher floors: harder ground
   } else
   if (!run.tower && (run.node === "rest" || run.node === "event")) { loadMap(buildRoadMap(), PAL[MD(run.m)]); setupRoad(); }
-  else loadMap(buildMadangMap(run.seed + run.m * 131, MD(run.m), run.cycle || 0, run.omen, run.m === LAST_M, run.node === "elite" ? 2 : 1, 0, run.m === LAST_M ? 2 : run.node === "elite" ? 3 : 4), PAL[MD(run.m)]); LV.ledgeStone = MD(run.m) >= 3;
+  else loadMap(buildMadangMap(run.seed + run.m * 131, MD(run.m), run.cycle || 0, run.omen, run.m === LAST_M, run.node === "elite" ? 2 : 1, 0, run.m === LAST_M ? 2 : run.node === "elite" ? 4 : 5), PAL[MD(run.m)]); LV.ledgeStone = MD(run.m) >= 3;
   if (isFinal() && LV.exit) { // the last 마당 ends at 천고 itself instead of a seal
     LV.drums = [{ id: 0, big: true, x: LV.exit.x + LV.exit.w / 2, y: LV.exit.y + LV.exit.h, w: 60, h: 80 }]; LV.exit = null; LV.gate = null;
   }
@@ -1326,7 +1329,7 @@ function die(kind, dmg = 1) {
   if (kind !== "fall") { const loss = dmg + (oath("gonggung") && P.onGround ? 1 : 0);
     if (has("d_janmyeong") && mode !== "tutorial" && run.breath - loss <= 0 && !run.janUsed) { run.janUsed = true; run.breath = loss + 1; toast("잔명 · 끊길 숨을 붙들었다"); }   // 잔명
     if (mode === "tutorial" || run.breath - loss > 0) { if (mode !== "tutorial") { run.breath -= loss; saveRun(); setHud(); }
-      const d = lastHitDir || { x: -P.face, y: -.3 }; lastHitDir = null; P.invT = .8; P.vx = (Math.sign(d.x) || -P.face) * 340; P.vy = -300; P.onGround = false; P.dashT = 0; P.hook = null;
+      const d = lastHitDir || { x: -P.face, y: -.3 }; lastHitDir = null; P.invT = 1.2; P.vx = (Math.sign(d.x) || -P.face) * 340; P.vy = -300; P.onGround = false; P.dashT = 0; P.hook = null;
       P.focus = false; Music.muffle(false); P.chain = 0; bleed(P.x + P.w / 2, P.y + P.h / 2, d, false);
       if (has("d_ganggi") && mode !== "tutorial") { P.wardT = 1.5; for (const b of bullets) if (!b.friendly && Math.hypot(b.x - P.x, b.y - P.y) < 340) b.life = 0; ringFx(P.x + P.w / 2, P.y + P.h / 2, 150, "rgba(23,22,26,.7)", .4); }  /* 호신강기 */ shake = 9; flash = .3; hitstop = Math.max(hitstop, .08); Music.sfx("die"); buzz(40); return; } }
   state = "dead"; deathT = 0; run.deaths++;
@@ -1374,7 +1377,7 @@ function stepMom(dt) {
 const GOALS = [
   { id: "kan", text: "간파 세 번", prog: g => `${Math.min(3, (run.gKan || 0) - g.kan0)}/3`, ok: g => (run.gKan || 0) - g.kan0 >= 3 },
   { id: "nohit", text: "숨을 잃지 않기", prog: g => (run.gHits || 0) - g.hit0 ? "실패" : "", ok: g => (run.gHits || 0) === g.hit0 },
-  { id: "time", text: "50초 안에 넘기", prog: g => `${Math.max(0, Math.ceil(50 - (run.time - g.t0)))}초`, ok: g => run.time - g.t0 <= 50 },
+  { id: "time", text: "60초 안에 넘기", prog: g => `${Math.max(0, Math.ceil(60 - (run.time - g.t0)))}초`, ok: g => run.time - g.t0 <= 60 },
   { id: "tier", text: "기세 三에 이르기", prog: g => (run.gMaxTier || 0) >= 3 ? "이룸" : "", ok: g => (run.gMaxTier || 0) >= 3 },
   { id: "perfect", text: "완벽 간파 한 번", prog: g => (run.perfectN || 0) > g.pf0 ? "이룸" : "", ok: g => (run.perfectN || 0) > g.pf0 }];
 const gateGoalOn = () => !!(run && run.gate && mode !== "tutorial" && !hubOn && !(run.node === "rest" || run.node === "event"));
@@ -1390,6 +1393,7 @@ function madangClear() {
   if (run.gate && !run.tower) { const gr = gateGrade(); run.lastGrade = gr.ch; run.grades = (run.grades || "") + gr.ch;
     seals.push({ x: P.x + P.w / 2, y: P.y - 10, t: 0, rot: -.12, ch: gr.ch, big: true }); toast(`관문 등급 ${gr.ch}${gr.goal ? " · 과제를 이뤘다" : ""}${gr.ch === "甲" ? " · 수련점 +1" : gr.ch === "乙" ? " · 혼 +10" : ""}`);
     if (gr.ch === "乙") run.honBonus = (run.honBonus || 0) + 10; if (gr.ch === "甲") petJeong(3); run.gate = null; }
+  if (!run.tower && !oath("godok") && !upOn("noheal") && run.breath < 3) { run.breath++; toast(`숨을 골랐다 · 숨 ${run.breath}`); }   // each gate passed lets you catch one breath back (up to three)
   run.cleared = run.node || "gate"; if (run.cleared === "elite") { run.honBonus = (run.honBonus || 0) + 20; addQi(40); }
   run.m++; run.node = null; run.nakN = 0; run.janUsed = false; run.senN = 0; run.fudoN = 0; run.cp = -1; run.dead = []; run.cutDrums = []; if (!upOn("noheal") && !oath("godok") && (has("saenggi") || has("josik"))) run.breath = Math.min(breathCap(), has("saenggi") ? breathCap() : run.breath + 1);   // breath no longer refills by itself: rest on the road, or before 천고대
   run.choosing = "madang"; saveRun();   // every cleared 마당 grants a 초식
@@ -1439,7 +1443,7 @@ function showChoice(kind) {   // kind: "madang" after a cleared gate, "cycle" af
     syncCombos(); Music.sfx("lantern"); saveRun(); showChoice(kind); };
   const detail = c => { sel = c; graph.querySelectorAll(".tr-n").forEach(n => n.classList.toggle("sel", n.dataset.id === c.id)); side.querySelectorAll(".tr-sh").forEach(n => n.classList.toggle("sel", n.dataset.id === c.id));
     const v = pv(c), mine = owned(c.id), can = c.tree ? canTake.has(c.id) : true, cost = c.tree ? spCost(c) : 1;
-    const lk = c.tree && lockLv(c) > treeOpen(tk), r = !c.tree && RARITY[c.id] || 1, otherFork = c.fork != null && CHOSIK.some(o => o.tree === tk && o.br === c.br && o.tier === 3 && o.id !== c.id && owned(o.id));
+    const lk = c.tree && lockLv(c) > treeOpen(), r = !c.tree && RARITY[c.id] || 1, otherFork = c.fork != null && CHOSIK.some(o => o.tree === tk && o.br === c.br && o.tier === 3 && o.id !== c.id && owned(o.id));
     const d = side.querySelector(".tr-det"); d.innerHTML = `<em class="tag kind${c.ougi ? " ougi" : ""}">${c.tree ? `${T.name} · ${c.brName} ${c.ougi ? "오의" : c.tier ? c.tier + "단" : ""}` : `${c.kind || "숨"}${c.kind ? " · " + RAR_NAME[r] : ""}`}</em><b>${v.name}</b><small>${v.han || ""}</small><p>${v.desc}</p>`;
     const b = document.createElement("button"); b.className = "btn pri"; b.textContent = mine ? "익혔다" : c.ougi ? "천고를 베면 깨닫는다" : lk ? "서고에서 먼저 깨쳐야 한다" : otherFork ? "다른 갈래를 골랐다" : !can ? "앞 단계를 먼저" : `익히기 · ${cost}점`; b.disabled = mine || !can || (run.sp || 0) < cost; b.addEventListener("click", () => learn(c)); d.appendChild(b); };
   if (T) { // the graph: root on the left, three branches → 1단 · 2단 · a fork of two · 4단 · 오의, two 합류 on the far right
@@ -1452,7 +1456,7 @@ function showChoice(kind) {   // kind: "madang" after a cleared gate, "cycle" af
     for (const m of nodes.filter(c => c.merge)) for (const bi of m.merge) { const t2 = nodes.find(c => c.br === bi && c.tier === 2); if (t2) svg += line(at(t2), at(m), on(m)).replace("<path", '<path stroke-dasharray="1 2.5"'); }
     graph.innerHTML = svg + `</svg>`;
     T.br.forEach((b, bi) => { const lab = document.createElement("span"); lab.className = "tr-bn"; lab.style.cssText = `left:${(X[1] + X[2]) / 2}%;top:${ys[bi]}%`; lab.textContent = b.name; graph.appendChild(lab); });
-    for (const c of nodes) { const [x, y] = at(c), n = document.createElement("button"), lk = lockLv(c) > treeOpen(tk) && !on(c);
+    for (const c of nodes) { const [x, y] = at(c), n = document.createElement("button"), lk = lockLv(c) > treeOpen() && !on(c);
       n.className = "tr-n" + (c.ougi ? " og" : "") + (c.tier === 0 ? " rt" : "") + (c.merge ? " mg" : "") + (c.fork != null ? " fk" : "") + (on(c) ? " on" : canTake.has(c.id) ? " can" : "") + (lk ? " lk" : "") + (c.ougi && run.ougiAwake && on(c) ? " aw" : "");
       n.dataset.id = c.id; n.style.cssText = `left:${x}%;top:${y}%;--ic:var(--chosik-${pv(c).icon})`;
       n.innerHTML = `<i></i><span>${c.tier === 0 ? T.name : pv(c).name}</span>`; n.addEventListener("click", () => { Music.sfx("hook"); detail(c); }); graph.appendChild(n); } }
@@ -1494,7 +1498,7 @@ function routeOptions() {
 }
 const FOE_NAME = { p: "순라", g: "포수", s: "저격수", h: "등패수", a: "자객", k: "북잡이", d: "매", m: "무당" };
 function foeComp(node) { // read the gate ahead from the same seed that will build it
-  try { const map = buildMadangMap(run.seed + run.m * 131, MD(run.m), run.cycle || 0, run.omen, false, node === "elite" ? 2 : 1, 0, node === "elite" ? 3 : 4), n = {};
+  try { const map = buildMadangMap(run.seed + run.m * 131, MD(run.m), run.cycle || 0, run.omen, false, node === "elite" ? 2 : 1, 0, node === "elite" ? 4 : 5), n = {};
     for (const row of map) for (const ch of row) if (FOE_NAME[ch]) n[ch] = (n[ch] || 0) + 1;
     return Object.entries(n).sort((a, b) => b[1] - a[1]).map(([k, v]) => `${FOE_NAME[k]} ${v}`).join(" · "); } catch (e) { return ""; }
 }
@@ -1617,6 +1621,7 @@ function showOmen() {   // the rule for the coming turn: two omens drawn at rand
 }
 function endRun(won) {
   state = "result"; Music.stop();
+  if (mode !== "tutorial") { META.runN = (Number.isFinite(META.runN) ? META.runN : 0) + 1; if (META.runN === 2) setTimeout(() => toast("산문에서 이제 심법을 고를 수 있다"), 1200); if (META.runN === 4) setTimeout(() => toast("산문에서 이제 서약을 걸 수 있다"), 1200); }
   store.del("run");
   const reached = run.tower ? run.floor - (won ? 0 : 1) : (run.cycle || 0) * (LAST_M + 1) + run.m + (won ? 1 : 0);
   const rate = run.slashes ? Math.round(run.strikes / run.slashes * 100) : 0;
@@ -1649,7 +1654,7 @@ let lastResult = null, sealable = null, retryGain = null;
 // 혼 for everything done, 천고 조각 for the rare things (cutting 천고, every tenth floor); 업 multiplies both
 function runRewards(reached) {
   const mult = 1 + .15 * (run.upPts || 0) + (run.honDouble || 0);
-  const hon = Math.round(((run.honBonus || 0) + (run.tower ? reached * 9 : reached * 3) + Math.floor(run.strikes / 4) + Math.floor(run.kills / 3) + (run.bossKills || 0) * 12) * mult);
+  const hon = Math.round(((run.honBonus || 0) + (run.tower ? reached * 9 : reached * 5) + Math.floor(run.strikes / 4) + Math.floor(run.kills / 3) + (run.bossKills || 0) * 12) * mult);
   const shard = (run.tower ? Math.floor(reached / 10) : (run.cycle || 0)) + (run.firstBoss || 0);
   META.hon += hon; META.shard += shard; saveMeta(); if (typeof questEvent === "function") questEvent("runEnd", { reached });
   return { hon, shard };
@@ -1668,7 +1673,7 @@ function aimDir() { const a = axis(), m = Math.hypot(a.x, a.y); let d = m < 0.35
     for (const e of enemies) { if (!e.alive || ghostly(e)) continue; const dx = e.x + e.w / 2 - cx, dy = e.y + e.h / 2 - cy, L = Math.hypot(dx, dy); if (L > 300 || L < 10) continue; const c = (dx * d.x + dy * d.y) / L; if (c < .8) continue; if (L < bs) { bs = L; best = { x: dx / L, y: dy / L }; } }
     if (best) d = best; }
   return d; }
-const TAP_T = .12;   // released sooner than this, the dash button is a tap
+const TAP_T = .15;   // released sooner than this, the dash button is a tap
 const focusLen = () => (upOn("narrow") ? .5 : 1) * (isGun() ? 1.6 : 1) * ((P && P.cloudT ? P.cloudT : 0) + 1.2 * (oath("gonggung") && !P.onGround ? 2 : 1) * (simb("hyeol") && run && run.breath <= 2 && mode !== "tutorial" ? 2 : 1) * (has("d_calm") && run && run.breath <= 1 && mode !== "tutorial" ? 2 : 1));
 function talismans(d) { // 부적 세 장: a fan of paper charms thrown along the aim
   const cx = P.x + P.w / 2, cy = P.y + P.h / 2;
@@ -1766,7 +1771,7 @@ function volleyFire() { // 화차: the overheated box empties itself
 }
 // 날: a sword's edge is spent like a gun's rounds — every plain cut dulls it a notch; rest the hand and it comes back,
 // a read blow (간파) or an 일섬 kill whets it at once. A dull blade does not bite: the cut glances off.
-const EDGE = { hwando: [4, .55], ssang: [6, .4], woldo: [3, .75], baldo: [3, .7] };   // [notches, seconds per notch]
+const EDGE = { hwando: [4, .55], ssang: [5, .45], woldo: [3, .75], baldo: [3, .7] };   // [notches, seconds per notch]
 const edgeOn = () => !!(P && run && mode !== "tutorial" && !isGun() && EDGE[wk()]);
 const edgeMax = () => (EDGE[wk()] || [4])[0] + treeStat("edge");
 function stepEdge(dt) { if (!edgeOn()) return; if (P.edge == null) P.edge = edgeMax();
@@ -2455,7 +2460,7 @@ function hurtEnemy(e, strike, kind) {
   if (!e.alive || ghostly(e)) return;
   const kan = isFlashing(e); if (kan) { strike = true; e.kanpa = true; if (P && P.iaiCut && wrule() === "baldo") addQi(25); e.kanZan = e.openT > songPos; e.kanMua = viaMua(); if (run && mode !== "tutorial") run.kanpa = (run.kanpa || 0) + 1;
     const x = e.x + e.w / 2, y = e.y + e.h / 2, big = e.type === "b";   // 간파: the crossed cut, gold flakes, the world holds a beat
-    { const bt = blowAt(e), perfect = bt != null && songPos >= bt - .09; momAdd(perfect || isGun() ? 35 : 25); if (isGun() && P) { gunReload(99); if (P.heat) P.heat = 0; P.overheat = 0; }   // a read shot: the gun is full again if (run && mode !== "tutorial") run.gKan = (run.gKan || 0) + 1;
+    { const bt = blowAt(e), perfect = bt != null && songPos >= bt - .09; momAdd(perfect || isGun() ? 35 : 20); if (isGun() && P) { gunReload(99); if (P.heat) P.heat = 0; P.overheat = 0; }   // a read shot: the gun is full again if (run && mode !== "tutorial") run.gKan = (run.gKan || 0) + 1;
       if (pet && Math.hypot(pet.x - x, pet.y - y) < 280) petJeong(1);
       if (pet && !pet.rest && kind !== "pet" && petStage() >= 2 && mode !== "tutorial") setTimeout(() => { if (!pet || state !== "play") return; const t = e.alive ? e : nearestFoes(x, y, 1, 320)[0]; if (t) { pet.cd = 0; petAttack(t, PETS[META.pet.kind], petStage() >= 3 ? 2 : 1); } }, 120);   // 합격
       if (perfect) { hitstop = Math.max(hitstop, .16); seals.push({ x, y: y - 10, t: 0, rot: (Math.random() - .5) * .3, ch: "妙" }); Music.sfx("strike"); Music.jing(); flashDim = .1; if (run && mode !== "tutorial") run.perfectN = (run.perfectN || 0) + 1; } }
@@ -2474,7 +2479,7 @@ function hurtEnemy(e, strike, kind) {
     if (!strike && !il && kind !== "pet" && !((e.recoverUntil || 0) > songPos)) { e.softHits = (e.softHits || 0) + 1;   // a flurry of plain cuts: the guardian sets its guard for a moment (never in its recovery)
       if ((e.guardT || 0) > songPos) { e.hitT = .1; Music.sfx("clang"); addFx("hud", HUD.spark, e.x + e.w / 2, e.y + e.h * .4, 40, { life: .25 }); return; }
       e.softN = songPos - (e.softAt ?? -9) < 1.6 ? (e.softN || 0) + 1 : 1; e.softAt = songPos;
-      if (e.softN >= 2) { e.softN = 0; e.guardT = songPos + 1.6; toast("막아 낸다 · 틈이나 간파를 노려라"); } }
+      if (e.softN >= 3) { e.softN = 0; e.guardT = songPos + 1.2; toast("막아 낸다 · 틈이나 간파를 노려라"); } }
     const aimed = kan || heavy, read = kan, mua = kan && e.kanMua; e.kanpa = false;   // 간파 breaks the blow; 천고난무 cuts deep; 일섬 bites harder than a plain cut
     e.hp -= kan ? 3 : heavy ? 3 : strike ? 2 : il ? 2 : (e.recoverUntil || 0) > songPos ? 2 : 1; e.hitT = .22;   // a cut in the opening bites twice
     addFx("bvfx", BV.impact, e.x + e.w / 2 + (Math.random() - .5) * e.w * .4, e.y + e.h * (.3 + Math.random() * .3), aimed ? 120 : strike ? 80 : 54, { life: .28, grow: .25, rot: Math.random() * 6.28, a: .9 });
@@ -2504,7 +2509,7 @@ function hurtEnemy(e, strike, kind) {
 function killEnemy(e) {
   if (!e.alive) return;
   e.alive = false; deadIds.add(e.id); run.kills++; if (e.type === "b") petJeong(5);
-  if (momOn()) { momAdd(P.dashT > 0 || P.aimDash ? 12 : 8); const t = momTier(); if (t >= 2) run.honBonus = (run.honBonus || 0) + (t >= 4 ? 2 : 1); if (t >= 3 && isGun()) gunReload(1, "slow"); }
+  if (momOn()) { momAdd(P.dashT > 0 || P.aimDash ? 16 : 12); const t = momTier(); if (t >= 2) run.honBonus = (run.honBonus || 0) + (t >= 4 ? 2 : 1); if (t >= 3 && isGun()) gunReload(1, "slow"); }
   if (momOn() && e.type !== "b" && !LV.drums.length && !enemies.some(o => o.alive && o.type !== "i")) { killCam = Math.max(killCam, 1.1); hitstop = Math.max(hitstop, .18); shake = Math.max(shake, 8); Music.jing(); }   // the last of the gate falls slowly
   if (e.type === "m") for (const o of enemies) if (o.wardBy === e.id) o.ward = false;
   if (has("hyeolhwa") && !inBloom) { inBloom = true; const bx = e.x + e.w / 2, by = e.y + e.h / 2; const br = has("hyeolu") ? 140 : 80; { const cf = CF("bloom"); if (cf && SPR[cf[0]]) addFx(cf[0], cf[1], bx, by, br * 1.3, { life: .5, grow: .4, ay: .5 }); else addFx("perkfx", PF.bloom, bx, by, br, { life: .45, grow: .5 }); } if (has("hyeolhyang")) P.invT = Math.max(P.invT || 0, .3);
@@ -2615,7 +2620,7 @@ function stepEnemies(dt) {
         e.fireAt = null; e.readyAt = songPos + Math.max(1, Math.round((sniper ? 4 : 2) / fast * (has("jeokmak") ? 1.5 : 1))) * bl;
         Music.sfx(sniper ? "snipe" : "shoot");
       }
-    } else if (sees && songPos >= e.readyAt) {
+    } else if (sees && songPos >= e.readyAt && !(e.sleepy && (e.sleepy = !(Math.abs(P.x - LV.start.x) > 48 || P.dashT > 0 || P.slashT > 0 || songPos > 8)))) {
       let k = Math.ceil((songPos + lead) / bl);
       if (sniper) { const m4 = Math.max(1, Math.round(4 / fast)); k = Math.ceil(k / m4) * m4; }
       e.fireAt = k * bl; e.aimFrom = songPos; e.tx = pcx; e.ty = pcy;
@@ -2666,7 +2671,7 @@ function stepFoe3(e, dt, pcx, pcy, dist, live, bl) { // 순라 · 자객 · 북�
 function dashThrough(e) { if (state === "play" && P.dashT > 0 && overlap(e, P) && !P.dashHit.has(e.id)) { P.dashHit.add(e.id); dashHurt(e); } }
 let inChain = false;
 const FLASH_BASE = .3; let FLASH = FLASH_BASE;   // the glint before a blow lands: long enough to answer by hand, longer still in 무아경 (the music slows)
-function flashSync() { FLASH = (FLASH_BASE + (simb("noe") ? .1 : 0) + (has("d_myeong") ? .15 : 0) + treeStat("kanWin") + (has("bd_b2") && P && (P.iaiHold || (P.focus && wk() === "baldo")) ? .1 : 0)) * (has("d_calm") && run && run.breath <= 1 && mode !== "tutorial" ? 2 : 1); }
+function flashSync() { FLASH = Math.min(.6, FLASH_BASE + (simb("noe") ? .1 : 0) + (has("d_myeong") ? .15 : 0) + treeStat("kanWin") + (has("bd_b2") && P && (P.iaiHold || (P.focus && wk() === "baldo")) ? .1 : 0)) * (has("d_calm") && run && run.breath <= 1 && mode !== "tutorial" ? 2 : 1); }
 function kanPerks(e) { // what the held 간파 비급 gives back for one read blow
   if (!P || state !== "play") return; const x = e.x + e.w / 2, y = e.y + e.h / 2, px = P.x + P.w / 2, py = P.y + P.h / 2;
   if (pet && !pet.act) pet.cd = Math.min(pet.cd, .05);   // the beast answers a read blow at once
@@ -3118,7 +3123,7 @@ function slashHits() {
     if (wk() === "woldo" && e.type !== "b" && e.type !== "d") { const kx = Math.sign(e.x + e.w / 2 - P.x - P.w / 2), hitWall = moveX(e, kx * (has("wd_c1") ? 64 : 34));
       if (has("wd_c2") && (hitWall || enemies.some(o => o !== e && o.alive && Math.abs(o.x - e.x) < 26 && Math.abs(o.y - e.y) < 30))) { e.stunT = Math.max(e.stunT || 0, 1); addFx("wfx", WF2.burst, e.x + e.w / 2, e.y + e.h / 2, 40, { life: .3 }); } }   // 참마
     if (has("heup") && (P.blood = (P.blood || 0) + 1) % 8 === 0 && run.breath < breathCap() && mode !== "tutorial") { run.breath++; setHud(); toast("흡혈 · 숨 하나를 빼앗았다"); }
-    if (!P.strike && !isFlashing(e) && ((e.type === "h" && !has("cheol") && wk() !== "woldo" && Math.sign(P.x + P.w / 2 - (e.x + e.w / 2)) === e.face) || (e.type === "k" && wk() !== "woldo" && !isGun()))) { if (!P.clanged.has(e.id)) { P.clanged.add(e.id); clang(e); } continue; }   // the shield only covers his front
+    if (!P.strike && !isFlashing(e) && ((e.type === "h" && !has("cheol") && Math.sign(P.x + P.w / 2 - (e.x + e.w / 2)) === e.face) || (e.type === "k" && !isGun()))) { if (!P.clanged.has(e.id)) { P.clanged.add(e.id); clang(e); } continue; }   // the shield only covers his front
     if (P.hitSet && P.hitSet.has(e.id)) continue;   // one hit per swing
     if (P.hitSet) P.hitSet.add(e.id);
     if (P.strike) seals.push({ x: e.x + e.w / 2, y: e.y + 6, t: 0, rot: (Math.random() - .5) * 0.4 });
@@ -4365,13 +4370,11 @@ function bdRow(title, desc, pic, btnLabel, onBtn, disabled) {
   if (btnLabel) { const b = document.createElement("button"); b.className = "btn"; b.textContent = btnLabel; b.disabled = !!disabled; b.addEventListener("click", onBtn); r.appendChild(b); } else r.appendChild(document.createElement("span"));
   return r;
 }
-function treeOpenScreen() { // 서고: learn the deeper steps of each weapon's tree with 혼 (gated by the weapon's mastery)
-  const rows = [curLine()];
-  for (const w of Object.keys(TREE_EXT)) { if (!(META.weapons || []).includes(w) && w !== "hwando") continue;
-    const lv = treeOpen(w), nx = TREE_OPEN[lv], ms = masteryLv(w), nm = (WEAPONS[w] && WEAPONS[w].name) || TREES[w].name;
-    const done = TREE_OPEN.slice(0, lv).map(o => o.name.replace(" 깨치기", "")).join(" · ") || "아직 없음";
-    rows.push(bdRow(`${nm} · 숙련 ${ms}`, nx ? `${nx.desc} — 혼 ${nx.hon}${nx.ms ? ` · 숙련 ${nx.ms} 필요` : ""} (연 것: ${done})` : `모두 열었다 (${done})`, null, nx ? nx.name : "완성", () => {
-      META.hon -= nx.hon; (META.treeOpen = META.treeOpen || {})[w] = lv + 1; saveMeta(); Music.sfx("lantern"); toast(`${nm} · ${nx.name.replace(" 깨치기", "")}을 깨쳤다`); treeOpenScreen(); }, !nx || META.hon < nx.hon || ms < nx.ms)); }
+function treeOpenScreen() { // 서고: learn the deeper steps of the trees with 혼, once for every weapon (gated by your best mastery)
+  const lv = treeOpen(), nx = TREE_OPEN[lv], ms = Math.max(0, ...Object.keys(WEAPONS).map(w => masteryLv(w)));
+  const rows = [curLine(), ...TREE_OPEN.map((o, i) => bdRow(`${i < lv ? "✓ " : ""}${o.name}`, `${o.desc} — 혼 ${o.hon}`))];
+  rows.push(bdRow(nx ? `다음 · ${nx.name}` : "모두 깨쳤다", nx ? `혼 ${nx.hon}${nx.ms ? ` · 가장 익숙한 무기 숙련 ${ms}/${nx.ms}` : ""}` : "3단·4단·합류가 모든 무기에 열려 있다", null, nx ? "깨치기" : null, () => {
+    META.hon -= nx.hon; META.treeOpen = { ...(META.treeOpen || {}), all: lv + 1 }; saveMeta(); Music.sfx("lantern"); toast(`${nx.name.replace(" 깨치기", "")}을 깨쳤다 · 모든 무기`); treeOpenScreen(); }, !nx || META.hon < nx.hon || ms < nx.ms));
   board("수련 깨치기", "판에서 수련점으로 익히기 전에, 여기서 먼저 깨쳐 둔다", rows, [["돌아가기", resumeHub]]);
 }
 const curLine = () => { const d = document.createElement("div"); d.className = "bd-cur"; d.innerHTML = `<span><i></i> 혼 ${META.hon}</span><span>천고 조각 ${META.shard}</span>`; return d; };
