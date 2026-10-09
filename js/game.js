@@ -3382,9 +3382,9 @@ function render(rdt) {
   if (SPR.perkfx) for (const c of clones) { ctx.globalAlpha = .45 + .15 * Math.sin(performance.now() / 40); const cf = CF("clone"); if (cf && SPR[cf[0]]) { drawSprite(cf[0], cf[1], c.x, c.y, HERO_H * 1.15 / SPR[cf[0]].f[cf[1]].h, c.face < 0, .5, false, 1); ctx.globalAlpha = 1; continue; } drawSprite("perkfx", PF.clone, c.x, c.y, kOf("hero3", H3.idle, HERO_H * 1.08) * 1.1, c.face < 0, .5, false, 1); ctx.globalAlpha = 1; }
   drawVfx(pal, true, vw);   // effects that belong behind the body (the 납도 ink at the feet)
   drawPet(pal); drawAmmo();
-  { const rr = redRing(); for (const e of enemies) if (e.alive && e.introUntil > songPos) { const k = (e.introUntil - songPos) / 2.5, r = Math.max(e.w, e.h) * .8 + 8, cx = e.x + e.w / 2, cy = e.y + e.h / 2, draw = Math.min(1, (1 - k) * 4);   // 처음 보는 적: a red 원상 brushed round it
+  { const rf = SPR.ui && SPR.ui.f[0]; for (const e of enemies) if (e.alive && e.introUntil > songPos) { const k = (e.introUntil - songPos) / 2.5, r = Math.max(e.w, e.h) * .8 + 8, cx = e.x + e.w / 2, cy = e.y + e.h / 2, draw = Math.min(1, (1 - k) * 4);   // 처음 보는 적: an ink 원상 brushed round it
     ctx.globalAlpha = Math.min(1, k * 2) * .9;
-    if (rr) { ctx.save(); ctx.translate(cx, cy); ctx.rotate(songPos * .6); ctx.beginPath(); ctx.moveTo(0, 0); ctx.arc(0, 0, r * 1.2, -1.8, -1.8 + 6.283 * draw); ctx.closePath(); ctx.clip(); ctx.drawImage(rr, -r, -r, r * 2, r * 2); ctx.restore(); }
+    if (rf) { ctx.save(); ctx.translate(cx, cy); ctx.rotate(songPos * .6); ctx.beginPath(); ctx.moveTo(0, 0); ctx.arc(0, 0, r * 1.2, -1.8, -1.8 + 6.283 * draw); ctx.closePath(); ctx.clip(); ctx.drawImage(SPR.ui.img, rf.x, rf.y, rf.w, rf.h, -r, -r, r * 2, r * 2); ctx.restore(); }
     else { ctx.strokeStyle = SEAL; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(cx, cy, r, 0, 6.283); ctx.stroke(); }
     ctx.globalAlpha = 1; } }
   if (P && (state === "play" || state === "pause" || state === "result" || state === "dead")) drawPlayer(pal);
@@ -4653,25 +4653,23 @@ function drawHubLabels(pal) { // the names of the stations, painted on small boa
     else { ctx.fillStyle = near ? "rgba(195,22,28,.92)" : "rgba(23,22,26,.72)"; ctx.fillRect(x - w / 2, y - 10, w, 20); ctx.fillStyle = "#f3ede0"; }
     ctx.fillText(st.name, x, y + 1); }
   const dk = hubDeco(); if (LV.hub) for (let k = 0; k < HUB_SLOTS.length; k++) if (!dk.slots[k]) { const x = HUB_SLOTS[k].tx * T + 16, y = HUB_SLOTS[k].ty * T - 4, near = hubNear && hubNear.slot === k;
-    const rf = SPR.ui && SPR.ui.f[0], rr = near && redRing(); if (rf) { ctx.globalAlpha = near ? .9 : .3; if (rr) ctx.drawImage(rr, x - 20, y - 6, 40, 12); else ctx.drawImage(SPR.ui.img, rf.x, rf.y, rf.w, rf.h, x - 20, y - 6, 40, 12); ctx.globalAlpha = 1; }   // an empty spot: a flattened brush circle on the ground
+    const rf = SPR.ui && SPR.ui.f[0]; if (rf) { ctx.globalAlpha = near ? .85 : .3; ctx.drawImage(SPR.ui.img, rf.x, rf.y, rf.w, rf.h, x - 20, y - 6, 40, 12); ctx.globalAlpha = 1; }   // an empty spot: a flattened brush circle on the ground
     else { ctx.strokeStyle = near ? "rgba(195,22,28,.8)" : "rgba(23,22,26,.3)"; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.ellipse(x, y, 18, 5, 0, 0, 7); ctx.stroke(); } }
 }
 // ---------- screens ----------
 // 먹 번짐 (scene change), painted with the game's own brushes: four dry-brush strokes lay ink across the page,
-// a red 원상 is drawn in one turn of the wrist, then the ink soaks away from the middle in ragged blots and the circle fades last
-let wipeRun = null, wipeRed = null;
-function redRing() { const ui = SPR.ui; if (!ui) return null; if (!wipeRed) { const f = ui.f[0], o = document.createElement("canvas"); o.width = f.w; o.height = f.h; const x = o.getContext("2d"); x.drawImage(ui.img, f.x, f.y, f.w, f.h, 0, 0, f.w, f.h); x.globalCompositeOperation = "source-in"; x.fillStyle = "#b8141b"; x.fillRect(0, 0, f.w, f.h); wipeRed = o; } return wipeRed; }   // the 원상 in 주홍
+// then the ink soaks away from the middle in ragged blots
+let wipeRun = null;
 function inkWipe() {
   const cvW = $("wipe"); if (!cvW || !cvW.getContext) return;
   const ui = SPR.ui, calm = settings.calm || matchMedia("(prefers-reduced-motion: reduce)").matches || !ui;
   const k = .6, w = Math.ceil(innerWidth * k), h = Math.ceil(innerHeight * k);
   cvW.width = w; cvW.height = h; const c = cvW.getContext("2d");
-  redRing();
   const R = Math.random, J = Array.from({ length: 40 }, () => R());
-  const D = calm ? .4 : 1.2, diag = Math.hypot(w, h), cx = w / 2, cy = h / 2;
+  const D = calm ? .4 : 1.0, diag = Math.hypot(w, h), cx = w / 2, cy = h / 2;
   const clamp = x => Math.min(1, Math.max(0, x)), easeO = x => 1 - Math.pow(1 - clamp(x), 3), easeIO = x => { x = clamp(x); return x < .5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2; };
   const strokes = [0, 1, 2, 3].map(j => ({ y: h * (j + .5) / 4 + (J[j] - .5) * h * .06, rot: (J[j + 4] - .5) * .09, dir: j % 2 ? -1 : 1, t0: j * .055, th: h / 4 * 2.3 }));
-  const blots = Array.from({ length: 6 }, (_, i) => ({ x: w * (.15 + J[i + 10] * .7), y: h * (.15 + J[i + 16] * .7), t0: .7 + J[i + 22] * .12, r: diag * (.18 + J[i + 28] * .14), rot: J[i + 34] * 6.28 }));
+  const blots = Array.from({ length: 6 }, (_, i) => ({ x: w * (.15 + J[i + 10] * .7), y: h * (.15 + J[i + 16] * .7), t0: .52 + J[i + 22] * .12, r: diag * (.18 + J[i + 28] * .14), rot: J[i + 34] * 6.28 }));
   const me = {}; if (wipeRun) cancelAnimationFrame(wipeRun.raf); wipeRun = me;
   const t0 = performance.now(); cvW.style.visibility = "visible";
   const sprite = (i, x, y, sw, sh, rot) => { const f = ui.f[i]; c.save(); c.translate(x, y); c.rotate(rot); c.drawImage(ui.img, f.x, f.y, f.w, f.h, -sw / 2, -sh / 2, sw, sh); c.restore(); };
@@ -4686,14 +4684,10 @@ function inkWipe() {
       const f = ui.f[2]; c.drawImage(ui.img, f.x, f.y, f.w, f.h, -len / 2, -st.th / 2, len, st.th); c.restore(); }
     const fill = easeO((t - .26) / .14); if (fill > 0) { c.globalAlpha = fill; c.fillStyle = "#17161a"; c.fillRect(0, 0, w, h); c.globalAlpha = 1; }   // the dry gaps fill as the ink spreads
     // 2. the ink soaks away: painted blots punched out of the page, the middle one first
-    if (t > .62) { c.globalCompositeOperation = "destination-out";
-      const q = easeIO((t - .62) / (D - .62 - .05)), s = q * diag * 1.5; if (s > 1) sprite(1, cx, cy, s, s * 1.03, J[38] * 6.28);
+    if (t > .45) { c.globalCompositeOperation = "destination-out";
+      const q = easeIO((t - .45) / (D - .45 - .05)), s = q * diag * 1.5; if (s > 1) sprite(1, cx, cy, s, s * 1.03, J[38] * 6.28);
       for (const b of blots) { const g = easeO((t - b.t0) / .35); if (g > 0) sprite(1, b.x, b.y, b.r * 2 * g, b.r * 2 * g, b.rot); }
       c.globalCompositeOperation = "source-over"; }
-    // 3. 원상: one red turn of the brush over the dark, lingering a moment over the new place
-    if (wipeRed && t > .3) { const q = easeO((t - .3) / .3), fade = 1 - clamp((t - .78) / .3), sz = Math.min(w, h) * .46;
-      c.save(); c.globalAlpha = fade; c.beginPath(); c.moveTo(cx, cy); c.arc(cx, cy, sz, -Math.PI / 2 - .25, -Math.PI / 2 - .25 + Math.PI * 2 * q); c.closePath(); c.clip();
-      c.drawImage(wipeRed, cx - sz / 2, cy - sz / 2 * 1.02, sz, sz * 1.02); c.restore(); }
     me.raf = requestAnimationFrame(frame);
   };
   me.raf = requestAnimationFrame(frame);
