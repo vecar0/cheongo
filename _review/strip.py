@@ -1,5 +1,5 @@
 from PIL import Image
-TS=[.05,.12,.2,.3,.45,.6,.75,.9]
+TS=[.06,.14,.24,.4,.55,.72,.9,1.08]
 for w in (844,390):
   ims=[Image.open(f'shots/wipe_{w}_{t}.png') for t in TS]; sc=.4 if w==844 else .3
   ims=[i.resize((int(i.width*sc),int(i.height*sc))) for i in ims]

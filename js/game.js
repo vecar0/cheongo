@@ -3382,7 +3382,11 @@ function render(rdt) {
   if (SPR.perkfx) for (const c of clones) { ctx.globalAlpha = .45 + .15 * Math.sin(performance.now() / 40); const cf = CF("clone"); if (cf && SPR[cf[0]]) { drawSprite(cf[0], cf[1], c.x, c.y, HERO_H * 1.15 / SPR[cf[0]].f[cf[1]].h, c.face < 0, .5, false, 1); ctx.globalAlpha = 1; continue; } drawSprite("perkfx", PF.clone, c.x, c.y, kOf("hero3", H3.idle, HERO_H * 1.08) * 1.1, c.face < 0, .5, false, 1); ctx.globalAlpha = 1; }
   drawVfx(pal, true, vw);   // effects that belong behind the body (the 납도 ink at the feet)
   drawPet(pal); drawAmmo();
-  for (const e of enemies) if (e.alive && e.introUntil > songPos) { const k = (e.introUntil - songPos) / 2.5, r = Math.max(e.w, e.h) * .75 + 6 + Math.sin(songPos * 9) * 2; ctx.globalAlpha = Math.min(1, k * 2); ctx.strokeStyle = SEAL; ctx.lineWidth = 2; ctx.setLineDash([5, 4]); ctx.beginPath(); ctx.arc(e.x + e.w / 2, e.y + e.h / 2, r, 0, 6.283); ctx.stroke(); ctx.setLineDash([]); ctx.globalAlpha = 1; }   // 처음 보는 적: a dashed red ring
+  { const rr = redRing(); for (const e of enemies) if (e.alive && e.introUntil > songPos) { const k = (e.introUntil - songPos) / 2.5, r = Math.max(e.w, e.h) * .8 + 8, cx = e.x + e.w / 2, cy = e.y + e.h / 2, draw = Math.min(1, (1 - k) * 4);   // 처음 보는 적: a red 원상 brushed round it
+    ctx.globalAlpha = Math.min(1, k * 2) * .9;
+    if (rr) { ctx.save(); ctx.translate(cx, cy); ctx.rotate(songPos * .6); ctx.beginPath(); ctx.moveTo(0, 0); ctx.arc(0, 0, r * 1.2, -1.8, -1.8 + 6.283 * draw); ctx.closePath(); ctx.clip(); ctx.drawImage(rr, -r, -r, r * 2, r * 2); ctx.restore(); }
+    else { ctx.strokeStyle = SEAL; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(cx, cy, r, 0, 6.283); ctx.stroke(); }
+    ctx.globalAlpha = 1; } }
   if (P && (state === "play" || state === "pause" || state === "result" || state === "dead")) drawPlayer(pal);
   drawHubLabels(pal);   // the names sit above every figure
   for (const p of parts) { // round drops of ink, stretched a little along their flight — never square specks
@@ -3468,6 +3472,7 @@ function render(rdt) {
     if (sf) { // 絶命 in red brush, written down the screen; lands large and settles
       const k = Math.min(1, deathT / .12), sw = Math.min(W * .22, 180) * (1.2 - .2 * k), sh = sw * sf.h / sf.w;
       ctx.drawImage(SPR.roguea.img, sf.x, sf.y, sf.w, sf.h, W / 2 - sw / 2, H / 2 - sh / 2 - 6, sw, sh);
+      ctx.font = `400 17px "Song Myung", serif`; ctx.fillText("절 명", W / 2, H / 2 + sh / 2 + 10);   // read aloud under the brush
     } else { ctx.font = `400 ${Math.min(72, W / 8)}px "Song Myung", serif`; ctx.fillText("절명", W / 2, H / 2 - 12); }
     if (mode !== "tutorial") { ctx.font = `600 13px ${BODY_FONT}`; ctx.fillText(run.breath > 0 ? `남은 숨 ${run.breath}` : "숨이 다했다", W / 2, H - 92); }
     ctx.textAlign = "left"; ctx.globalAlpha = 1;
@@ -4644,56 +4649,54 @@ function drawHubLabels(pal) { // the names of the stations, painted on small boa
       if (near) { ctx.fillStyle = "#9a1424"; ctx.beginPath(); ctx.moveTo(x - 6, by + h / 2 + 4); ctx.lineTo(x + 6, by + h / 2 + 4); ctx.lineTo(x, by + h / 2 + 11); ctx.fill(); } } }
   for (const st of LV.stations || []) { const x = st.tx * T + 16, y = (st.ty || 12) * T - Math.max(st.h, 44) - 10, near = hubNear && hubNear.st === st; if (LV.hub) continue;
     ctx.font = `400 ${near ? 15 : 12}px "Song Myung", serif`; const w = ctx.measureText(st.name).width + 14;
-    ctx.fillStyle = near ? "rgba(195,22,28,.92)" : "rgba(23,22,26,.72)"; ctx.fillRect(x - w / 2, y - 10, w, 20); ctx.fillStyle = "#f3ede0"; ctx.fillText(st.name, x, y + 1); }
+    const wf = SPR.ui && SPR.ui.f[5]; if (wf) { for (let i = 0; i < 2; i++) ctx.drawImage(SPR.ui.img, wf.x, wf.y, wf.w, wf.h, x - w / 2 - 12 + i * 3, y - 15 + i, w + 24, 30); ctx.fillStyle = near ? SEAL : "#17161a"; }   // the name on a wash of ink, red when you can speak
+    else { ctx.fillStyle = near ? "rgba(195,22,28,.92)" : "rgba(23,22,26,.72)"; ctx.fillRect(x - w / 2, y - 10, w, 20); ctx.fillStyle = "#f3ede0"; }
+    ctx.fillText(st.name, x, y + 1); }
   const dk = hubDeco(); if (LV.hub) for (let k = 0; k < HUB_SLOTS.length; k++) if (!dk.slots[k]) { const x = HUB_SLOTS[k].tx * T + 16, y = HUB_SLOTS[k].ty * T - 4, near = hubNear && hubNear.slot === k;
-    ctx.strokeStyle = near ? "rgba(195,22,28,.8)" : "rgba(23,22,26,.3)"; ctx.setLineDash([4, 4]); ctx.lineWidth = 1.5; ctx.beginPath(); ctx.ellipse(x, y, 18, 5, 0, 0, 7); ctx.stroke(); ctx.setLineDash([]); }
+    const rf = SPR.ui && SPR.ui.f[0], rr = near && redRing(); if (rf) { ctx.globalAlpha = near ? .9 : .3; if (rr) ctx.drawImage(rr, x - 20, y - 6, 40, 12); else ctx.drawImage(SPR.ui.img, rf.x, rf.y, rf.w, rf.h, x - 20, y - 6, 40, 12); ctx.globalAlpha = 1; }   // an empty spot: a flattened brush circle on the ground
+    else { ctx.strokeStyle = near ? "rgba(195,22,28,.8)" : "rgba(23,22,26,.3)"; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.ellipse(x, y, 18, 5, 0, 0, 7); ctx.stroke(); } }
 }
 // ---------- screens ----------
-// 먹 번짐 (scene change): a loaded brush sweeps across and covers the page, a drop of 주홍 blooms in the wet ink,
-// then the ink soaks away from the middle with a ragged edge and leaves a few drips behind
-let wipeRun = null;
-function inkWipe(kind = "") {
+// 먹 번짐 (scene change), painted with the game's own brushes: four dry-brush strokes lay ink across the page,
+// a red 원상 is drawn in one turn of the wrist, then the ink soaks away from the middle in ragged blots and the circle fades last
+let wipeRun = null, wipeRed = null;
+function redRing() { const ui = SPR.ui; if (!ui) return null; if (!wipeRed) { const f = ui.f[0], o = document.createElement("canvas"); o.width = f.w; o.height = f.h; const x = o.getContext("2d"); x.drawImage(ui.img, f.x, f.y, f.w, f.h, 0, 0, f.w, f.h); x.globalCompositeOperation = "source-in"; x.fillStyle = "#b8141b"; x.fillRect(0, 0, f.w, f.h); wipeRed = o; } return wipeRed; }   // the 원상 in 주홍
+function inkWipe() {
   const cvW = $("wipe"); if (!cvW || !cvW.getContext) return;
-  const calm = settings.calm || matchMedia("(prefers-reduced-motion: reduce)").matches;
-  const k = .5, w = Math.ceil(innerWidth * k), h = Math.ceil(innerHeight * k);   // half resolution: ink edges are soft anyway
+  const ui = SPR.ui, calm = settings.calm || matchMedia("(prefers-reduced-motion: reduce)").matches || !ui;
+  const k = .6, w = Math.ceil(innerWidth * k), h = Math.ceil(innerHeight * k);
   cvW.width = w; cvW.height = h; const c = cvW.getContext("2d");
-  const rnd = mulberry((Math.random() * 1e9) >>> 0), J = Array.from({ length: 160 }, () => rnd());
-  const dir = rnd() < .5 ? 1 : -1, red = kind !== "plain";
-  const D = calm ? .35 : 1.1, T_COVER = .3, T_OPEN = .52, diag = Math.hypot(w, h);
-  const spl = Array.from({ length: 26 }, (_, i) => ({ a: J[i] * 6.28, d: .3 + J[i + 30] * .5, r: 1 + J[i + 60] * 5 }));
-  if (wipeRun) cancelAnimationFrame(wipeRun.raf);
-  const me = {};
+  redRing();
+  const R = Math.random, J = Array.from({ length: 40 }, () => R());
+  const D = calm ? .4 : 1.2, diag = Math.hypot(w, h), cx = w / 2, cy = h / 2;
+  const clamp = x => Math.min(1, Math.max(0, x)), easeO = x => 1 - Math.pow(1 - clamp(x), 3), easeIO = x => { x = clamp(x); return x < .5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2; };
+  const strokes = [0, 1, 2, 3].map(j => ({ y: h * (j + .5) / 4 + (J[j] - .5) * h * .06, rot: (J[j + 4] - .5) * .09, dir: j % 2 ? -1 : 1, t0: j * .055, th: h / 4 * 2.3 }));
+  const blots = Array.from({ length: 6 }, (_, i) => ({ x: w * (.15 + J[i + 10] * .7), y: h * (.15 + J[i + 16] * .7), t0: .7 + J[i + 22] * .12, r: diag * (.18 + J[i + 28] * .14), rot: J[i + 34] * 6.28 }));
+  const me = {}; if (wipeRun) cancelAnimationFrame(wipeRun.raf); wipeRun = me;
   const t0 = performance.now(); cvW.style.visibility = "visible";
-  const ink = "#17161a", easeO = x => 1 - Math.pow(1 - Math.min(1, Math.max(0, x)), 3), easeIO = x => { x = Math.min(1, Math.max(0, x)); return x < .5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2; };
-  const blob = (x, y, r, n, seed, amp) => { c.beginPath(); for (let i = 0; i <= n; i++) { const a = i / n * 6.283, q = 1 + amp * (Math.sin(a * 3 + seed) * .5 + Math.sin(a * 7 + seed * 2.3) * .3 + (J[(i + (seed * 13 | 0)) % 160] - .5) * .4); const px = x + Math.cos(a) * r * q, py = y + Math.sin(a) * r * q; i ? c.lineTo(px, py) : c.moveTo(px, py); } c.closePath(); };
+  const sprite = (i, x, y, sw, sh, rot) => { const f = ui.f[i]; c.save(); c.translate(x, y); c.rotate(rot); c.drawImage(ui.img, f.x, f.y, f.w, f.h, -sw / 2, -sh / 2, sw, sh); c.restore(); };
   const frame = now => {
-    const t = window.__wipeT ?? (now - t0) / 1000; c.globalCompositeOperation = "source-over"; c.clearRect(0, 0, w, h);
     if (wipeRun !== me) return;
+    const t = window.__wipeT ?? (now - t0) / 1000; c.globalCompositeOperation = "source-over"; c.globalAlpha = 1; c.clearRect(0, 0, w, h);
     if (t >= D) { cvW.style.visibility = "hidden"; wipeRun = null; return; }
-    if (calm) { c.globalAlpha = Math.sin(Math.PI * t / D); c.fillStyle = ink; c.fillRect(0, 0, w, h); c.globalAlpha = 1; me.raf = requestAnimationFrame(frame); return; }
-    // 1. the stroke: stamps along a gently bowed diagonal, wide enough at full press to hide the whole page
-    const p = easeO(t / T_COVER), R = diag * .62, N = 34;
-    c.fillStyle = ink;
-    for (let i = 0; i < N * p; i++) { const u = i / N, x = dir > 0 ? -R * .6 + u * (w + R * 1.2) : w + R * .6 - u * (w + R * 1.2), y = h * (.5 + .18 * Math.sin(u * 3.1 + J[3] * 3)) ;
-      const press = Math.min(1, u * 5) * (1 - .1 * Math.sin(u * 9)); blob(x, y, R * press * (.3 + .7 * easeO(t / T_COVER)), 28, i * .7, .12); c.fill(); }
-    // dry-brush bristles trailing off the stroke's edges
-    if (p < 1) { c.strokeStyle = ink; c.lineCap = "round"; for (let b = 0; b < 22; b++) { const off = (J[b + 80] - .5) * h * 1.3, len = (w + R) * p, a = .25 + J[b + 100] * .5; c.globalAlpha = a; c.lineWidth = 1 + J[b + 120] * 4; c.beginPath(); const x0 = dir > 0 ? -20 : w + 20; c.moveTo(x0, h / 2 + off); c.lineTo(x0 + dir * len * (.7 + J[b + 40] * .3), h / 2 + off * (1 + .1 * J[b])); c.stroke(); } c.globalAlpha = 1; }
-    // splashes flung from the press
-    for (const s of spl) { const g = easeO((t - .05) / .3); if (g <= 0) continue; c.globalAlpha = 1 - Math.max(0, (t - .8) / .25); c.beginPath(); c.arc(w / 2 + Math.cos(s.a) * diag * s.d * g, h / 2 + Math.sin(s.a) * diag * s.d * .7 * g, s.r * (1 + g), 0, 6.283); c.fill(); }
-    c.globalAlpha = 1;
-    // 2. 주홍: a drop of red blooms in the wet ink and spreads its feathered rim
-    if (red && t > .22) { const q = easeO((t - .22) / .35), fade = 1 - Math.max(0, (t - .62) / .3), r = Math.min(w, h) * (.05 + .07 * q);
-      const g = c.createRadialGradient(w / 2, h / 2, 0, w / 2, h / 2, r * 1.6); g.addColorStop(0, `rgba(205,30,34,${.95 * fade})`); g.addColorStop(.55, `rgba(178,22,28,${.85 * fade})`); g.addColorStop(1, "rgba(120,10,16,0)");
-      c.fillStyle = g; blob(w / 2, h / 2, r * 1.5, 40, 4.2, .18); c.fill(); }
-    // 3. the ink soaks away from the middle: a ragged hole that widens, with a soft wet rim
-    if (t > T_OPEN) { const q = easeIO((t - T_OPEN) / (D - T_OPEN)), r = q * diag * .62; c.globalCompositeOperation = "destination-out"; c.fillStyle = "#000";
-      c.globalAlpha = .45; blob(w / 2, h / 2, r * 1.12 + 6, 48, 1.7, .22); c.fill();
-      c.globalAlpha = 1; blob(w / 2, h / 2, r, 48, 1.7, .22); c.fill();
-      for (let i = 0; i < 9; i++) { const a = J[i + 140] * 6.28, rr = r * (.85 + J[i + 10] * .3); c.beginPath(); c.arc(w / 2 + Math.cos(a) * rr, h / 2 + Math.sin(a) * rr * .8, r * .22 * J[i + 20], 0, 6.283); c.fill(); }
+    if (calm) { c.globalAlpha = Math.sin(Math.PI * t / D) * .92; c.fillStyle = "#17161a"; c.fillRect(0, 0, w, h); me.raf = requestAnimationFrame(frame); return; }
+    // 1. the strokes: each one painted along its length, the brush moving left or right
+    for (const st of strokes) { const q = easeO((t - st.t0) / .2); if (q <= 0) continue; const len = w * 1.55;
+      c.save(); c.translate(w / 2 - st.dir * len * (1 - q), st.y); c.rotate(st.rot); c.scale(st.dir, 1);   // dragged in tip first, so its ragged ends are the only edges
+      const f = ui.f[2]; c.drawImage(ui.img, f.x, f.y, f.w, f.h, -len / 2, -st.th / 2, len, st.th); c.restore(); }
+    const fill = easeO((t - .26) / .14); if (fill > 0) { c.globalAlpha = fill; c.fillStyle = "#17161a"; c.fillRect(0, 0, w, h); c.globalAlpha = 1; }   // the dry gaps fill as the ink spreads
+    // 2. the ink soaks away: painted blots punched out of the page, the middle one first
+    if (t > .62) { c.globalCompositeOperation = "destination-out";
+      const q = easeIO((t - .62) / (D - .62 - .05)), s = q * diag * 1.5; if (s > 1) sprite(1, cx, cy, s, s * 1.03, J[38] * 6.28);
+      for (const b of blots) { const g = easeO((t - b.t0) / .35); if (g > 0) sprite(1, b.x, b.y, b.r * 2 * g, b.r * 2 * g, b.rot); }
       c.globalCompositeOperation = "source-over"; }
+    // 3. 원상: one red turn of the brush over the dark, lingering a moment over the new place
+    if (wipeRed && t > .3) { const q = easeO((t - .3) / .3), fade = 1 - clamp((t - .78) / .3), sz = Math.min(w, h) * .46;
+      c.save(); c.globalAlpha = fade; c.beginPath(); c.moveTo(cx, cy); c.arc(cx, cy, sz, -Math.PI / 2 - .25, -Math.PI / 2 - .25 + Math.PI * 2 * q); c.closePath(); c.clip();
+      c.drawImage(wipeRed, cx - sz / 2, cy - sz / 2 * 1.02, sz, sz * 1.02); c.restore(); }
     me.raf = requestAnimationFrame(frame);
   };
-  wipeRun = me; me.raf = requestAnimationFrame(frame);
+  me.raf = requestAnimationFrame(frame);
 }
 function showScreen(id) {
   if (id !== null && typeof tipT !== "undefined") { tipT = 0; $("tip").classList.remove("on"); $("tip").hidden = true; }   // a play tip never hangs over a menu
@@ -4829,7 +4832,7 @@ $("bInstall").addEventListener("click", async () => { if (!installEvt) return; i
 const standalone = matchMedia("(display-mode: standalone)").matches || matchMedia("(display-mode: fullscreen)").matches || navigator.standalone;
 
 
-if (location.hash === "#debug" && /^(localhost|127\.0\.0\.1)$/.test(location.hostname)) window.__dbg = { get missing() { return ALL_SHEETS.filter(n => !LAZY_SHEETS.has(n) && !SPR[n]).concat(BASE_IMGS.filter(k => !IMG[k])); }, tp(tx, ty) { P.x = tx * T + 7; P.y = (ty + 1) * T - 30; P.vx = P.vy = 0; }, get state() { return state; }, get P() { return P; }, get LV() { return LV; }, get state2() { return state; }, get SC() { return LV.scenery; }, get E() { return enemies; }, get run() { return run; }, set hs(v) { hitstop = v; }, kill(e) { killEnemy(e); }, hurt(e, s, k) { hurtEnemy(e, s, k); }, die(k, d) { die(k, d); }, banner(a, b, c) { banner(a, b === "red" ? SEAL : JJOK, c); }, chungo() { chungo(); }, clear() { madangClear(); }, hubAct() { hubAct(); }, get hub() { return { hubOn, hubNear }; }, get songPos() { return songPos; }, get FLASH() { return FLASH; }, get hold() { return bulletHold; }, get bolts() { return bolts; }, get rings() { return rings; }, get B() { return bullets; }, get beams() { return beams; }, flashing: e => isFlashing(e), wipe: k => inkWipe(k), enlighten: f => enlighten(f), syncCombos: () => syncCombos(), has: id => has(id), get FL() { flashSync(); return FLASH; } };
+if (location.hash === "#debug" && /^(localhost|127\.0\.0\.1)$/.test(location.hostname)) window.__dbg = { get missing() { return ALL_SHEETS.filter(n => !LAZY_SHEETS.has(n) && !SPR[n]).concat(BASE_IMGS.filter(k => !IMG[k])); }, tp(tx, ty) { P.x = tx * T + 7; P.y = (ty + 1) * T - 30; P.vx = P.vy = 0; }, get state() { return state; }, get P() { return P; }, get LV() { return LV; }, get state2() { return state; }, get SC() { return LV.scenery; }, get E() { return enemies; }, get run() { return run; }, set hs(v) { hitstop = v; }, kill(e) { killEnemy(e); }, hurt(e, s, k) { hurtEnemy(e, s, k); }, die(k, d) { die(k, d); }, banner(a, b, c) { banner(a, b === "red" ? SEAL : JJOK, c); }, chungo() { chungo(); }, clear() { madangClear(); }, hubAct() { hubAct(); }, get hub() { return { hubOn, hubNear }; }, get songPos() { return songPos; }, get FLASH() { return FLASH; }, get hold() { return bulletHold; }, get bolts() { return bolts; }, get rings() { return rings; }, get B() { return bullets; }, get beams() { return beams; }, flashing: e => isFlashing(e), wipe: () => inkWipe(), enlighten: f => enlighten(f), syncCombos: () => syncCombos(), has: id => has(id), get FL() { flashSync(); return FLASH; } };
 window.addEventListener("pointerdown", () => Music.unlock(), { once: true, capture: true });   // first tap anywhere starts the sound
 resize();
 toMenu();
