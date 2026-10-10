@@ -266,14 +266,32 @@ body.padEdit #stickZone, body.padEdit #swipeZone { pointer-events: none; }
 #tip small { font-size: 11.5px; color: #e9a19a; }
 
 /* 로딩: paper, the name, and an ink bar that fills as the pictures arrive */
-#loading { position: fixed; inset: 0; z-index: 50; display: grid; place-items: center; background: var(--paper); }
+/* 로딩: a painted scene breathing slowly, the title brushed in stroke by stroke, a brush bar, and a word of advice */
+#loading { position: fixed; inset: 0; z-index: 50; overflow: hidden; background: #e8e1d0; transition: opacity .42s ease; }
 #loading[hidden] { display: none; }
-#loading .ld-in { display: grid; justify-items: center; gap: 6px; width: min(280px, 70vw); }
-#loading .ld-t { font-family: var(--f-head, serif); font-size: 44px; font-weight: 400; color: var(--ink); letter-spacing: .1em; }
-#loading .ld-h { font-family: var(--f-head, serif); font-size: 15px; color: #c3161c; margin-top: -6px; }
-#loading .ld-bar { width: 100%; height: 6px; margin-top: 14px; border-radius: 3px; background: rgba(23, 22, 26, .12); overflow: hidden; }
-#loading .ld-bar i { display: block; height: 100%; width: 0; background: linear-gradient(90deg, #17161a, #c3161c); border-radius: 3px; transition: width .15s; }
-#loading span { font-size: 12.5px; color: rgba(23, 22, 26, .6); }
+#loading.out { opacity: 0; pointer-events: none; }
+#loading .ld-art { position: absolute; inset: -4%; background: url("assets/load-wide.webp") center / cover no-repeat; animation: ldDrift 26s ease-out both; }
+@media (orientation: portrait) { #loading .ld-art { background-image: url("assets/load-tall.webp"); } }
+@keyframes ldDrift { from { transform: scale(1.06) translate(1.2%, .8%); } to { transform: scale(1) translate(0, 0); } }
+#loading .ld-mist { position: absolute; inset: -20%; pointer-events: none; opacity: .55;
+  background: radial-gradient(40% 18% at 30% 70%, rgba(240,235,224,.9), transparent 70%), radial-gradient(35% 14% at 75% 82%, rgba(240,235,224,.8), transparent 70%), radial-gradient(30% 12% at 55% 58%, rgba(240,235,224,.6), transparent 70%);
+  animation: ldMist 18s ease-in-out infinite alternate; }
+@keyframes ldMist { from { transform: translateX(-4%); } to { transform: translateX(5%); } }
+#loading .ld-in { position: absolute; left: 50%; top: 9%; transform: translateX(-50%); display: grid; justify-items: center; gap: 8px; width: min(340px, 78vw); text-align: center; }
+@media (orientation: portrait) { #loading .ld-in { top: 40%; } }
+#loading .ld-t { display: flex; gap: .08em; font-family: "Song Myung", var(--f-head, serif); font-weight: 400; font-size: clamp(64px, 14vmin, 128px); line-height: 1; color: #17161a; text-shadow: 0 0 24px rgba(236,230,216,.95), 0 0 6px rgba(236,230,216,.9); }
+#loading .ld-t span { display: inline-block; animation: ldBrush .9s cubic-bezier(.5,0,.25,1) both; }
+#loading .ld-t span:nth-child(2) { animation-delay: .45s; }
+@keyframes ldBrush { 0% { clip-path: inset(0 100% 0 0); filter: blur(4px); opacity: .2; transform: translateY(4px); } 60% { filter: blur(.6px); opacity: 1; } 100% { clip-path: inset(0 0 0 0); filter: none; transform: none; } }
+#loading .ld-bar { position: relative; width: 100%; height: 16px; margin-top: 18px; background: rgba(23,22,26,.16); overflow: hidden;
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 300 16' preserveAspectRatio='none'%3E%3Cpath d='M2 9 C20 3 40 4 60 5 C110 4 160 3 210 5 C250 4 280 4 298 7 C296 11 280 13 250 12 C200 14 150 13 100 13 C60 14 30 13 8 14 C3 13 0 11 2 9Z'/%3E%3C/svg%3E") center / 100% 100% no-repeat;
+          mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 300 16' preserveAspectRatio='none'%3E%3Cpath d='M2 9 C20 3 40 4 60 5 C110 4 160 3 210 5 C250 4 280 4 298 7 C296 11 280 13 250 12 C200 14 150 13 100 13 C60 14 30 13 8 14 C3 13 0 11 2 9Z'/%3E%3C/svg%3E") center / 100% 100% no-repeat; }
+#loading .ld-bar i { display: block; height: 100%; width: 0; background: linear-gradient(90deg, #17161a 0%, #2a2729 80%, #a8141b 100%); transition: width .25s ease-out; }
+#loading span#ldTxt { font-size: 12.5px; letter-spacing: .04em; color: rgba(23,22,26,.72); text-shadow: 0 0 8px rgba(236,230,216,.95); }
+#loading #ldTip { min-height: 2.8em; max-width: 100%; padding: 6px 12px; font-style: normal; font-size: 13px; line-height: 1.45; color: #2a2729; background: rgba(236,230,216,.72); border-radius: 4px; word-break: keep-all; transition: opacity .35s; }
+#loading #ldTip:empty { visibility: hidden; }
+#loading #ldTip.fade { opacity: 0; }
+@media (prefers-reduced-motion: reduce) { #loading .ld-art, #loading .ld-mist, #loading .ld-t span { animation: none; } }
 .card .tag.kind.ougi { background: #9a1424; }   /* 오의: the end of a branch */
 .ch-held span { white-space: nowrap; }
 /* 길 고르기: the road so far, a line of seals */

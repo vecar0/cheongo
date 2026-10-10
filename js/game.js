@@ -2,7 +2,7 @@
 (() => {
 "use strict";
 const T = 32;
-const ASSET_V = "133";   // bump when any picture changes: the service worker then fetches the new json and webp together
+const ASSET_V = "134";   // bump when any picture changes: the service worker then fetches the new json and webp together
 const $ = id => document.getElementById(id);
 const cv = $("cv"); let ctx = cv.getContext("2d", { alpha: false });   // let: the ground is baked by pointing ctx at an offscreen canvas for a moment   // opaque canvas: cheaper to composite on phones
 let W = 0, H = 0, DPR = 1, SCALE = 1;
@@ -315,7 +315,7 @@ const CAL = { title: 0, death: 1, madang: [2, 3, 4, 5, 6], end: 7, clear: 8 };  
 const PROP = { rope: 0, aim: 1, reticle: 2, pine: 3, stoneLantern: 4, jars: 5, banner: 6, sotdae: 7, palisade: 8 };
 const DRESS = [[PROP.pine, 74, 3], [PROP.stoneLantern, 34, 2], [PROP.jars, 26, 1], [PROP.banner, 80, 3], [PROP.sotdae, 84, 3], [PROP.palisade, 28, 1]]; // [frame, world height, headroom tiles]
 const OBJ = { lanternOn: 0, lanternOff: 1, kite: 2, thorns: 3, seal: 4, emitter: 5, slash: 6, slashRed: 7, splat: 8 };
-const LAZY_SHEETS = new Set(["gun1", "gun2", "grun2", "mv0", "mvrun", "weapons", "mu", "mv1", "mfx", "po", "mv2", "pfx", "arms", "bossA", "bossB", "bossC", "bossD", "bossE", "bossF", "bossfx", "bname"]);
+const LAZY_SHEETS = new Set(["bfx2", "bfx3", "gun1", "gun2", "grun2", "mv0", "mvrun", "weapons", "mu", "mv1", "mfx", "po", "mv2", "pfx", "arms", "bossA", "bossB", "bossC", "bossD", "bossE", "bossF", "bossfx", "bname"]);
 const CHAR_SHEETS = { mumyeong: ["mv0", "mvrun", "weapons"], munyeo: ["mu", "mv1", "mfx", "arms"], posu: ["po", "mv2", "pfx", "arms"] };
 const sheetLoading = new Set();
 function loadSheet(n) { // one atlas: frames JSON + image (ink-inverted copy for the night palette where needed)
@@ -328,17 +328,25 @@ function loadSheet(n) { // one atlas: frames JSON + image (ink-inverted copy for
     if (SPR[n].inv) gpuize(SPR[n].inv, bm => { SPR[n].inv = bm; }); applyUiSprites(); }).catch(() => { sheetLoading.delete(n); const a = (sheetTry[n] = (sheetTry[n] || 0) + 1); setTimeout(() => loadSheet(n), Math.min(5000, 1200 * a)); });   // a failed load (offline blip, a deploy in progress) is tried again
 }
 const sheetTry = {};
-function bossSheets(kind) { const B = BOSSES[kind]; if (!B) return []; const out = ["bossfx", "bcal", "bvfx", "bname", B.sheet];
+function bossSheets(kind) { const B = BOSSES[kind]; if (!B) return []; const out = ["bossfx", "bcal", "bvfx", "bname", "bfx2", "bfx3", B.sheet];
   for (const v of Object.values(BOSS_POSE[kind] || {})) out.push(v[0]); for (const a of BOSS_ANIM[kind] || []) out.push(a[0]); return out; }
-// 로딩: nothing starts until the pictures it needs are in — a bar fills while they arrive
+// 로딩: nothing starts until the pictures it needs are in — a bar fills while they arrive, and a word of advice turns over
+const LD_TIPS = ["원이 점으로 닫히는 순간 베면 간파 — 무엇이든 한 번에 쓰러진다", "벽에 붙어 점프하면 벽차기, 벽차기 뒤엔 한 번 더 뛸 수 있다", "대시를 길게 누르면 무아경 — 시간이 느려지고 겨눈 곳으로 벤다",
+  "북 다섯이 차면 천고난무 — 한 갈래를 3단까지 익히면 오의가 된다", "우두머리가 반짝이면 틈이다 — 그때 몰아쳐라", "땅이 붉게 갈라지면 곧 무언가 솟는다", "낭떠러지에 떨어져도 관문마다 한 번은 딛던 곳으로 돌아온다",
+  "막 휘두르면 날이 무뎌진다 — 손을 잠깐 쉬면 돌아온다", "총은 탄이 있으면 언제든 나간다 — 간파로 맞히면 탄이 다시 찬다", "쉼터에서는 숨을 고를 수 있다", "기세가 오를수록 장단도 빨라진다", "관문 과제를 이루면 등급이 오른다"];
+let ldTipT = null;
+function ldShow(el) { el.classList.remove("out"); el.hidden = false; const tip = $("ldTip"); if (!tip || ldTipT) return; let i = (Math.random() * LD_TIPS.length) | 0;
+  const next = () => { tip.classList.add("fade"); setTimeout(() => { tip.textContent = LD_TIPS[i++ % LD_TIPS.length]; tip.classList.remove("fade"); }, 350); };
+  tip.textContent = LD_TIPS[i++ % LD_TIPS.length]; ldTipT = setInterval(next, 3600); }
+function ldHide(el, then) { clearInterval(ldTipT); ldTipT = null; el.classList.add("out"); setTimeout(() => { el.hidden = true; el.classList.remove("out"); if (then) then(); }, 420); }
 function loadGate(sheets, imgs, then, label) {
   const el = $("loading"), bar = $("ldBar"), txt = $("ldTxt"), t0 = performance.now();
   const left = () => sheets.filter(n => !SPR[n]).length + imgs.filter(k => !IMG[k]).length, total = sheets.length + imgs.length;
   if (!left()) { el.hidden = true; then(); return; }
   for (const n of sheets) loadSheet(n);
-  el.hidden = false; txt.textContent = label || "먹을 가는 중";
+  ldShow(el); txt.textContent = label || "먹을 가는 중";
   const tick = () => { const l = left(), q = total ? 1 - l / total : 1; bar.style.width = Math.round(q * 100) + "%";
-    if (!l) { setTimeout(() => { el.hidden = true; then(); }, 150); return; }
+    if (!l) { setTimeout(() => ldHide(el, then), 150); return; }
     if (performance.now() - t0 > 8000) txt.textContent = "연결이 느리다 · 조금만 기다려라";
     setTimeout(tick, 100); };
   tick();
@@ -355,11 +363,11 @@ function bootLoad() {
   const one = async u => { for (let a = 0; ; a++) { try { const r = await fetch(u); if (r.ok) { await r.arrayBuffer(); break; } } catch (e) {} await new Promise(r => setTimeout(r, Math.min(5000, 800 * (a + 1)))); } got++; };   // keeps trying until it arrives
   const worker = async () => { while (q.length) await one(q.shift()); };
   Promise.all(Array.from({ length: 6 }, worker));   // six at a time, alongside the core loaders: fast on phones without choking the connection
-  el.hidden = false; txt.textContent = "먹을 가는 중";
+  ldShow(el); txt.textContent = "먹을 가는 중";
   const tick = () => { const dec = core.filter(n => SPR[n]).length + BASE_IMGS.filter(k => IMG[k]).length, decT = core.length + BASE_IMGS.length;
     const prog = (got + dec) / (urls.length + decT); bar.style.width = Math.round(prog * 100) + "%";
     const done = got >= urls.length && dec >= decT;
-    if (done) { setTimeout(() => { el.hidden = true; }, 150); return; }   // no time limit: the menu opens only once everything is here
+    if (done) { setTimeout(() => ldHide(el), 400); return; }   // no time limit: the menu opens only once everything is here
     txt.textContent = performance.now() - t0 > 10000 ? `연결이 느리다 · 받는 중 ${Math.round(prog * 100)}%` : `먹을 가는 중 · ${Math.round(prog * 100)}%`;
     setTimeout(tick, 100); };
   tick();
@@ -368,7 +376,7 @@ function playSheets() { const ch = (run && run.char) || "mumyeong", out = ALL_SH
   if (run && mode !== "tutorial" && (run.tower || run.m === LAST_M)) out.push(...bossSheets(bossKindOf(run)));
   return [...new Set(out)]; }
 function needSheets(list) { for (const n of list) loadSheet(n); }   // phones: only the hand being played and the guardian being fought are held in memory
-const ALL_SHEETS = ["hero", "hero2", "foes", "objects", "ui", "fx", "hud", "hudsolid", "props", "props2", "rocks", "pines", "slabs", "pillars", "rogue", "roguea", "rogue2", "rogue3", "rogue4", "foes2", "bossA", "bossB", "bossfx", "bossC", "bossD", "bossE", "bossF", "hero3", "herofx", "slashfx", "perkfx", "weapons", "chars", "misc", "arms", "ic0", "ic1", "ic2", "ic3", "ic4", "ic5", "ic6", "ic7", "ic8", "ic9", "ic10", "ic11", "ic12", "ic13", "ic14", "ic15", "mu", "po", "mfx", "pfx", "vis", "guide", "mv0", "mv1", "mv2", "bcal", "bvfx", "bname", "mvrun", "mech", "foes3", "kfx", "kring", "wfx", "ic16", "gfx", "swm", "gun1", "gun2", "grun2", "muz", "ogA", "ogB", "hub", "pet", "npc"];
+const ALL_SHEETS = ["hero", "hero2", "foes", "objects", "ui", "fx", "hud", "hudsolid", "props", "props2", "rocks", "pines", "slabs", "pillars", "rogue", "roguea", "rogue2", "rogue3", "rogue4", "foes2", "bossA", "bossB", "bossfx", "bossC", "bossD", "bossE", "bossF", "hero3", "herofx", "slashfx", "perkfx", "weapons", "chars", "misc", "arms", "ic0", "ic1", "ic2", "ic3", "ic4", "ic5", "ic6", "ic7", "ic8", "ic9", "ic10", "ic11", "ic12", "ic13", "ic14", "ic15", "mu", "po", "mfx", "pfx", "vis", "guide", "mv0", "mv1", "mv2", "bcal", "bvfx", "bname", "mvrun", "mech", "foes3", "kfx", "kring", "wfx", "ic16", "gfx", "swm", "gun1", "gun2", "grun2", "muz", "ogA", "ogB", "hub", "pet", "npc", "bfx2", "bfx3"];
 for (const n of ALL_SHEETS) if (!LAZY_SHEETS.has(n)) loadSheet(n);
 function inkInverted(img) { // night palette: grey ink becomes bone white, coloured accents stay as they are
   const c = document.createElement("canvas"); c.width = img.width; c.height = img.height; const g = c.getContext("2d"); g.drawImage(img, 0, 0);
@@ -2207,6 +2215,7 @@ function playerHazards() {
 // one hit point per cut 천고 beyond the first; a plain cut removes one, an 일격 kills outright
 function hurtEnemy(e, strike, kind) {
   if (!e.alive || ghostly(e)) return;
+  if (e.type === "b" && !e.hidden && (strike || isFlashing(e))) inkFx("cross", e.x + e.w / 2, e.y + e.h / 2, e.h * .9, { life: .35, rot: Math.random() * .6 - .3 });   // an 일격 or a read lands on a guardian: a great inked cross
   const kan = isFlashing(e); if (kan) { strike = true; e.kanpa = true; if (P && P.iaiCut && wrule() === "baldo") addQi(25); e.kanZan = e.openT > songPos; e.kanMua = viaMua(); if (run && mode !== "tutorial") run.kanpa = (run.kanpa || 0) + 1;
     const x = e.x + e.w / 2, y = e.y + e.h / 2, big = e.type === "b";   // 간파: the crossed cut, gold flakes, the world holds a beat
     { const bt = blowAt(e), perfect = bt != null && songPos >= bt - .09; momAdd(perfect || isGun() ? TUNING.MOM_PERFECT : TUNING.MOM_KAN); if (isGun() && P) { gunReload(99); if (P.heat) P.heat = 0; P.overheat = 0; }   // a read shot: the gun is full again if (run && mode !== "tutorial") run.gKan = (run.gKan || 0) + 1;
@@ -2289,6 +2298,7 @@ function killEnemy(e) {
   if (e.type === "b") { const x = e.x + e.w / 2, y = e.y + e.h / 2;   // ink and blood thrown wide, the body going up as wisps
     addFx("bcal", BC.inkBurst, x, y, e.h * 2.2, { life: .7, grow: .5, rot: Math.random() * 6.28, a: .9 }); addFx("bcal", BC.redBurst, x, y, e.h * 1.6, { life: .8, grow: .45, rot: Math.random() * 6.28, a: .85 });
     addFx("bvfx", BV.dissolve, x, e.y + e.h * .4, e.h * 1.8, { life: 1.4, grow: .3, ay: .7, a: .9 }); }
+  if (e.type === "b") { inkFx("smoke", e.x + e.w / 2, e.y + e.h, e.h * 1.8, { ay: .9, life: 1.2, grow: .3 }); sigFx(e, e.x + e.w / 2, e.y + e.h / 2, e.h * 1.6, { life: .9 }); }
   if (e.type === "b" && e.kind !== "cheongo") { bossOut = { t: 0, x: e.x + e.w / 2, y: e.y + e.h / 2, kind: e.kind, name: BOSSES[e.kind].name, han: BOSSES[e.kind].han }; killCam = Math.max(killCam, .9); sealArena(null, false); }
   if (e.type === "b") { haz = []; for (const o of enemies) if (o.type === "i") o.alive = false; toast(`${josa(BOSSES[e.kind].name, "이", "가")} 쓰러졌다 · ${run.m === LAST_M ? "천고를 베어라" : "길이 열렸다"}`); Music.jing(); shake = 14; for (let k = 0; k < 3; k++) bleed(e.x + e.w / 2 + (k - 1) * 20, e.y + 20 + k * 18, { x: k - 1, y: -.4 }, true); }
   if (omen("hyeolmaeng") && mode !== "tutorial") { run.hmN = (run.hmN || 0) + 1; if (run.hmN % 5 === 0 && run.breath < breathCap()) { run.breath++; setHud(); toast("피의 맹세 · 숨 하나를 되찾았다"); } }
@@ -2702,8 +2712,24 @@ function bossChoose(e, a, I) {
   else if (a === "gamtu") { e.invisT = 2 * bl; toast("도깨비 감투 · 모습이 사라졌다"); }
   else if (a === "mask") { e.mask = ((e.mask || 0) + 1) % 3; toast(`탈을 바꿔 썼다 · ${MASKS[e.mask]}`); }
 }
+// painted boss effects: each guardian's own (bfx2) and the shared ink strokes (bfx3)
+const BFX2 = { imugi: 0, gumiho: 1, dokkaebi: 2, haetae: 3, baekho: 4, wongwi: 5, jangseung: 6, bulgasari: 7, talchum: 8 };
+const BFX3 = { ring: 0, pillar: 1, crescent: 2, star: 3, vortex: 4, cross: 5, crack: 6, meteor: 7, smoke: 8 };
+function sigFx(e, x, y, h, o = {}) { const i = BFX2[e.kind]; if (i != null && SPR.bfx2) addFx("bfx2", i, x, y, h, { life: .55, grow: .3, ...o }); else if (SPR.bfx3) addFx("bfx3", e.kind === "cheongo" ? BFX3.vortex : BFX3.star, x, y, h * .8, { life: .45, grow: .3, ...o }); }
+function inkFx(i, x, y, h, o = {}) { if (SPR.bfx3) addFx("bfx3", BFX3[i], x, y, h, { life: .5, grow: .3, ...o }); }
+function bossSig(e, a, ecx, f) { // the moment an act lands, it is painted in the guardian's own manner
+  const front = ecx + e.face * (e.w / 2 + 40), mid = e.y + e.h / 2;
+  if (["slam", "club", "stomp", "inhale", "claw"].includes(a)) { sigFx(e, front, f - 50, 120, { ay: .6, flip: e.face < 0 }); inkFx("ring", a === "stomp" ? ecx : front, f, 70, { ay: .7, life: .45, grow: .5 }); }
+  else if (["volley", "foxfire", "spit", "scrap", "fan", "fan2", "coins", "breath"].includes(a)) sigFx(e, ecx + e.face * 30, mid - 10, 80, { life: .4, flip: e.face < 0 });
+  else if (a === "summon" || a === "spirits" || a === "illusion") { inkFx("vortex", ecx, mid, e.h * 1.2, { life: .7, grow: .2, a: .85 }); sigFx(e, ecx, mid, 80, { life: .5 }); }
+  else if (a === "roar" || a === "scream" || a === "drum") { inkFx("ring", ecx, f, 120, { ay: .7, life: .6, grow: .8 }); sigFx(e, ecx, mid, e.h * 1.3, { life: .6, a: .8 }); }
+  else if (["charge", "pounce", "leap", "dance", "shdash"].includes(a)) inkFx("crescent", ecx - e.face * 30, mid, e.h, { life: .4, flip: e.face < 0, a: .8 });
+  else if (a === "burst" || a === "burst2") { inkFx("pillar", e.tx || ecx, f, 170, { ay: 1, life: .6, grow: .15 }); sigFx(e, e.tx || ecx, f - 70, 150, { ay: .6 }); }
+  else if (a === "shcut" || a === "shstrike") inkFx("cross", ecx + e.face * 50, mid, a === "shstrike" ? 110 : 70, { life: .3 });
+}
 function bossPerform(e, a, I) {
   const { pcx, pcy, bl, c } = I, ecx = e.x + e.w / 2, f = e.floor;
+  bossSig(e, a, ecx, f);
   switch (a) {
     case "slam": case "club": { addFx("bvfx", BV.quake, ecx + e.face * 80, f - 18, 70, { life: .5, grow: .2, ay: .8 });
       const zone = { x: e.face > 0 ? ecx : ecx - 150, y: f - 70, w: 150, h: 70 };
@@ -2801,7 +2827,7 @@ function stepBoss(e, dt, pcx, pcy, dist, live) {
       if (e.mv > 4 && groundPt(ahead, e.y + e.h + 4) && !solidPt(ahead, e.y + e.h - 10)) { moveX(e, e.face * e.mv * dt); e.walkT = .12; e.wph = (e.wph || 0) + e.mv * dt / Math.max(22, e.w * .55); } else if (!go) e.mv = Math.max(0, e.mv - sp * 6 * dt); else e.mv = 0;
     }
     if (live && songPos >= e.nextAt && e.stagT <= 0) {
-      if (!e.raged && e.hp <= e.maxHp / 2) { e.raged = true; roar = { t: 0, e }; P.focus = false; Music.muffle(false); P.dashT = 0; P.invT = Math.max(P.invT || 0, 2.2); for (const b of bullets) if (!b.friendly) b.life = 0; haz = haz.filter(z => z.at > songPos + 2); shake = 14; Music.sfx("roar");   // no harm comes while it roars
+      if (!e.raged && e.hp <= e.maxHp / 2) { e.raged = true; inkFx("vortex", e.x + e.w / 2, e.y + e.h / 2, e.h * 1.8, { life: 1.1, grow: .4, a: .9, back: true }); inkFx("ring", e.x + e.w / 2, e.floor, 160, { ay: .7, life: .7, grow: 1 }); roar = { t: 0, e }; P.focus = false; Music.muffle(false); P.dashT = 0; P.invT = Math.max(P.invT || 0, 2.2); for (const b of bullets) if (!b.friendly) b.life = 0; haz = haz.filter(z => z.at > songPos + 2); shake = 14; Music.sfx("roar");   // no harm comes while it roars
         for (let i = 0; i < 3; i++) bleed(ecx + (i - 1) * 24, e.y + 20 + i * 10, { x: i - 1, y: -.5 }, true); }
       const pool = e.raged || cyc() >= 2 /* from the third turn a guardian knows all its moves */ ? [...B.pool(c), ...(RAGE_ADD[e.kind] || [])] : B.pool(c); let a = bossPick(e, pool, dist);
       if ((a === "slam" || a === "club" || a === "inhale") && dist > 280) a = e.kind === "sumun" ? (c >= 1 ? "volley" : "charge") : e.kind === "dokkaebi" ? "coins" : "scrap";
@@ -4103,6 +4129,11 @@ function drawHazards(pal) {
       ctx.strokeStyle = `rgba(23,22,26,${.75 * (1 - r / z.max)})`; ctx.lineWidth = 10; ctx.beginPath(); ctx.arc(z.x, z.y, r, 0, 7); ctx.stroke();
       ctx.strokeStyle = `rgba(236,230,216,${.8 * (1 - r / z.max)})`; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(z.x, z.y, r, 0, 7); ctx.stroke(); continue;
     }
+    if (songPos >= z.at && !z.fxd) { z.fxd = true; const zx = z.x + z.w / 2, zy = z.y + z.h;   // the hazard lands: painted
+      if (z.kind === "pillar") { inkFx("pillar", zx, zy, z.h * 1.1, { ay: 1, life: .5, grow: .15 }); inkFx("crack", zx, zy, 60, { ay: .6, life: .7, grow: .1 }); }
+      else if (z.kind === "claw" && hb) sigFx(hb, zx, z.y + z.h / 2, 90, { life: .3 });
+      else if (z.kind === "hair" && hb) sigFx(hb, zx, z.y + z.h / 2, z.h * .9, { life: .4 });
+      else if (z.kind === "coin") inkFx("star", zx, zy - 10, 40, { life: .3 }); }
     const live = songPos >= z.at, prog = Math.max(0, Math.min(1, (songPos - z.t0) / Math.max(.01, z.at - z.t0)));
     if (!live) { // warning: a reddening wash that fills in toward the beat
       if (z.kind === "coin") { // the coin falls into place; its shadow marks the spot

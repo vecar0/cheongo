@@ -1,0 +1,4 @@
+const { chromium } = require('/opt/node-tools/node_modules/playwright');
+(async () => { const b = await chromium.launch(); const p = await (await b.newContext({ viewport: { width: 1000, height: 462 }, serviceWorkers: 'block' })).newPage();
+  await p.goto('http://localhost:8765/'); await p.waitForFunction(() => document.getElementById('loading').hidden, null, { timeout: 60000 });
+  console.log(await p.evaluate(() => { const el = document.getElementById('loading'); el.hidden = false; const cs = getComputedStyle(el); const r = el.getBoundingClientRect(); const top = document.elementFromPoint(500, 200); return { d: cs.display, o: cs.opacity, z: cs.zIndex, r: [r.width, r.height], cls: el.className, top: top && (top.id || top.className), html: el.outerHTML.slice(0, 200) }; })); await b.close(); })();
