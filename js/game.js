@@ -973,7 +973,7 @@ function showInterlude() {
   if (isFinal() && LV.exit) { // the last 마당 ends at 천고 itself instead of a seal
     LV.drums = [{ id: 0, big: true, x: LV.exit.x + LV.exit.w / 2, y: LV.exit.y + LV.exit.h, w: 60, h: 80 }]; LV.exit = null; LV.gate = null;
   }
-  showScreen("interlude"); inkWipe();
+  showScreen("interlude");
   Music.unlock(); Music.stop(); Music.jing();
   setTimeout(() => $("bEnter").focus({ preventScroll: true }), 30);
   needSheets(playSheets());   // start fetching this gate's pictures while the card is read
@@ -997,7 +997,7 @@ function enterMadang() {
   Music.start(MADANG[run.tower ? [0, 2, 4][(run.floor - 1) % 3] : MD(run.m)].jd, run.seed + run.m, settings.tempo * (1 + .04 * Math.min(4, run.cycle || 0)) * (omen("geupbak") ? 1.15 : 1) * (upOn("fast") ? 1.15 : 1));
   songPos = Music.pos(); spawnEnemies(); spawnPet();
   cam.x = P.x; cam.y = P.y;
-  setHud(); showScreen(null); state = "play"; inkWipe();
+  setHud(); showScreen(null); state = "play"; if (mode !== "tutorial" && !(run.node === "rest" || run.node === "event")) inkWipe();   // the ink falls only when you walk into a fight
   Music.bak();
   try { navigator.wakeLock && navigator.wakeLock.request("screen").catch(() => {}); } catch (e) {}
 }
@@ -1391,7 +1391,7 @@ function endRun(won) {
   $("rRec").textContent = rec;
   lastResult = { daily: run.daily, reached, rate, kanpa: run.kanpa || 0, time: run.time, won };
   if (mode !== "tutorial") { const w = wpn(); META.mastery[w] = (META.mastery[w] || 0) + run.kills; if ((run.aimK || 0) >= 40) META.firsts.beat = true; saveMeta(); checkTitles(); }
-  showScreen("result"); inkWipe();
+  showScreen("result");
 }
 let lastResult = null, sealable = null, retryGain = null;
 // 혼 for everything done, 천고 조각 for the rare things (cutting 천고, every tenth floor); 업 multiplies both
@@ -2088,9 +2088,9 @@ function stepPlayer(dt) {
     const jb = P.jumpBuf > 0;
     if (P.jumpBuf > 0) {
       if (P.onGround || P.coyote > 0) { P.vy = -JUMPV * (1) * (1) * (oath("hyeon") ? 1.3 : 1); ; heroFx("jump", P.x + P.w / 2, P.y + P.h + 2, P.face); P.onGround = false; P.coyote = 0; P.jumpBuf = 0; Music.sfx("jump"); }
-      else if (P.wall || P.wallT > 0) { const wd = P.wall || P.wallMem; P.wallT = 0; P.vy = -600; P.vx = -wd * 380; P.face = -wd; P.wallLock = 0.15; P.jumpBuf = 0; P.wallBonus = 1; P.climbT = Math.max(P.climbT, 0.35); if (has("d_bisang")) { P.airDash = Math.max(P.airDash, baseAir() + 1); P.dashCd = 0; } Music.sfx("jump"); puff(wd > 0 ? P.x + P.w : P.x, P.y + P.h - 6, 6); heroFx("wall", P.x + P.w / 2 + wd * 10, P.y + P.h / 2, wd); }
-      else if (P.wallBonus > 0) { P.wallBonus = 0; P.vy = -JUMPV * .92; P.jumpBuf = 0; Music.sfx("jump"); heroFx("air", P.x + P.w / 2, P.y + P.h + 4, P.face); }   // a wall kick buys one more jump
-      else if ((has("d_jump") || chr("munyeo")) && (P.djN || 0) < 1 + (has("d_jump") && chr("munyeo") ? 1 : 0)) { P.vy = -JUMPV * .9; P.djN = (P.djN || 0) + 1; if (has("m_cloud")) P.cloudT = .3; heroFx("air", P.x + P.w / 2, P.y + P.h + 4, P.face); P.jumpBuf = 0; Music.sfx("jump"); addFx("hud", HUD.dust, P.x + P.w / 2, P.y + P.h, 26, { life: .35, a: .7 }); }
+      else if (P.wall || P.wallT > 0) { const wd = P.wall || P.wallMem; P.wallT = 0; P.vy = -600; P.vx = -wd * 380; P.face = -wd; P.wallLock = 0.15; P.jumpBuf = 0; P.wallBonus = 1; P.climbT = Math.max(P.climbT, 0.35); if (has("d_bisang")) { P.airDash = Math.max(P.airDash, baseAir() + 1); P.dashCd = 0; } Music.sfx("jump"); wallKickFx(wd > 0 ? P.x + P.w : P.x, P.y + P.h * .7, wd); }
+      else if (P.wallBonus > 0) { P.wallBonus = 0; P.vy = -JUMPV * .92; P.jumpBuf = 0; Music.sfx("jump"); airKickFx(P.x + P.w / 2, P.y + P.h, P.face); }   // a wall kick buys one more jump
+      else if ((has("d_jump") || chr("munyeo")) && (P.djN || 0) < 1 + (has("d_jump") && chr("munyeo") ? 1 : 0)) { P.vy = -JUMPV * .9; P.djN = (P.djN || 0) + 1; if (has("m_cloud")) P.cloudT = .3; airKickFx(P.x + P.w / 2, P.y + P.h, P.face); P.jumpBuf = 0; Music.sfx("jump"); }
     }
     if (jb && P.jumpBuf === 0) flow("jump");
     let g = GRAV; if (P.vy < 0 && !held.jump && !P.wallLock && !P.climbing) g *= 2.1;
@@ -2136,6 +2136,19 @@ function heroFx(kind, x, y, dir = 1, ang = 0) {
   const o = { dash: [70, .32, .5, .9], jump: [46, .4, 1, .85], land: [58, .4, 1, .8], air: [44, .4, .5, .85], wall: [52, .35, .5, .85], strike: [96, .3, .5, 1], arc: [80, .25, .5, .8], wind: [56, .45, .5, .8], ribbon: [40, .35, .5, .7] }[kind];
   const arc = kind === "strike" || kind === "arc", flip = arc ? dir > 0 : dir < 0, rot = (dir < 0 ? -ang : ang);   // the crescents are painted bulging left, the rest pointing right
   addFx("herofx", HFX[kind], x, y, o[0], { life: o[1], ay: o[2], a: o[3], flip, rot, grow: kind === "strike" || kind === "arc" ? .15 : .35 });
+}
+// 허공답보: the second jump treads on the air — a cup of ink pressed out under the feet and a few drops falling away
+function airKickFx(x, y, face) {
+  if (!SPR.herofx) return;
+  addFx("herofx", HFX.land, x, y + 4, 50, { life: .38, ay: .55, a: .85, grow: .45 });   // a cup of ink under the feet, as if the air were water
+  for (let i = 0; i < 6; i++) parts.push({ x: x + (Math.random() - .5) * 18, y: y + 4, vx: (Math.random() - .5) * 70, vy: 60 + Math.random() * 120, life: .35, max: .35, c: "#17161a", s: 1.6 + Math.random() * 1.4 });
+}
+// 벽차기: the foot kicks off the wall — ink bursts from the wall outward, a streak follows the leap
+function wallKickFx(wx, y, wd) {
+  if (!SPR.herofx) return;
+  addFx("herofx", HFX.jump, wx, y, 56, { life: .4, ay: 1, a: .9, rot: -wd * Math.PI / 2, grow: .35 });   // the splash's spikes point away from the wall
+  addFx("herofx", HFX.dash, wx - wd * 30, y - 14, 30, { life: .32, a: .6, flip: wd > 0, rot: wd * .5, grow: .4 });
+  for (let i = 0; i < 5; i++) parts.push({ x: wx, y: y + (Math.random() - .5) * 16, vx: -wd * (60 + Math.random() * 120), vy: (Math.random() - .3) * 80, life: .3, max: .3, c: "#17161a", s: 1.5 + Math.random() * 1.5 });
 }
 function findFloor(x, y) { let ty = Math.floor(y / T); while (ty < LV.h && tileAt(Math.floor(x / T), ty) !== 1) ty++; return ty < LV.h ? ty * T : null; }
 function bleed(x, y, dir, big) { // blood burst + spray along the blow + a pool where it lands
@@ -3092,12 +3105,12 @@ function drawGround(pal, ssn, x0, x1, y0, y1, R) { // the rock, its painted face
         ctx.fillStyle = pal.rim; const sx = tileAt(tx - 1, ty) !== 1 ? px : px + T - 1.5;
         for (let i = 0; i < 4; i++) ctx.fillRect(sx, py + ((tx * 13 + ty * 7 + i * 9) % T), 1.5, 2 + (i % 2) * 2);
       }
-    } else if (v === 3 && tileAt(tx - 1, ty) !== 3) { // one painted ledge per run of '=' tiles
-      let n = 1; while (tileAt(tx + n, ty) === 3) n++;
+    } else if (v === 3 && (tileAt(tx - 1, ty) !== 3 || tx === x0)) { // one painted ledge per run of '=' tiles — drawn whole even when its left end is off this view or chunk
+      let s0 = tx; while (tileAt(s0 - 1, ty) === 3) s0--; let n = tx - s0 + 1; while (tileAt(s0 + n, ty) === 3) n++; const lx = s0 * T;
       const i = LV.ledgeStone ? P2.ledge : P2.plank, f = SPR.props2 && SPR.props2.f[i];
       if (f) { const segN = Math.max(1, Math.round(n / 4)), segW = n * T / segN, hh = segW * f.h / f.w;
-        for (let k = 0; k < segN; k++) ctx.drawImage(pal.night ? SPR.props2.inv : SPR.props2.img, f.x, f.y, f.w, f.h, px + k * segW - 2, py - 3, segW + 4, Math.min(hh, LV.ledgeStone ? 30 : 26)); }
-      else { ctx.fillStyle = pal.tile; ctx.fillRect(px, py, n * T, 6); }
+        for (let k = 0; k < segN; k++) ctx.drawImage(pal.night ? SPR.props2.inv : SPR.props2.img, f.x, f.y, f.w, f.h, lx + k * segW - 2, py - 3, segW + 4, Math.min(hh, LV.ledgeStone ? 30 : 26)); }
+      else { ctx.fillStyle = pal.tile; ctx.fillRect(lx, py, n * T, 6); }
     } else if (v === 2 && SPR.objects) {
       const f = SPR.objects.f[OBJ.thorns];
       drawSprite("objects", OBJ.thorns, px + T / 2 + ((tx * 7) % 5) - 2, py + T + 3, (T + 10) / f.w, tx % 2 === 1, .5, pal.night);
@@ -4478,11 +4491,11 @@ let hubOn = false, hubNear = null;
 const HUB_W = 40, HUB_UP = 10, HUB_K = 40 * 32 / 1344, HUB_Y = 12 * 32 - 490 * (40 * 32 / 1344);   // the painting spans the map exactly   // the painting's ground line (y 490) sits on row 12; its terrace top lands on row 10
 const HUBIMG = new Image(); HUBIMG.src = `assets/hubscene.webp?v=${ASSET_V}`;
 const HUB_ST = [
-  { id: "gate", tx: 4, ty: 12, h: 150, name: "산문", han: "山門", act: "길 떠나기 · 천고탑 · 수련터" },
-  { id: "well", tx: 9, ty: 12, h: 80, name: "약수터", han: "藥水", act: "숨 다스리기 · 영물" },
-  { id: "hall", tx: 18, ty: HUB_UP, h: 150, name: "본당", han: "本堂", act: "서약·심법 · 기도 · 비급첩" },
-  { id: "forge", tx: 28, ty: 12, h: 110, name: "대장간", han: "鍛冶間", act: "무기 · 옷·띠" },
-  { id: "drum", tx: 36, ty: 12, h: 110, name: "큰북", han: "大鼓", act: "수행·기억 · 도감" }];
+  { id: "gate", tx: 4, lx: -27, ty: 12, h: 150, name: "산문", han: "山門", act: "길 떠나기 · 천고탑 · 수련터" },
+  { id: "well", tx: 9, lx: -24, ty: 12, h: 80, name: "약수터", han: "藥水", act: "숨 다스리기 · 영물" },
+  { id: "hall", tx: 18, lx: -9, ty: HUB_UP, h: 150, name: "본당", han: "本堂", act: "서약·심법 · 기도 · 비급첩" },
+  { id: "forge", tx: 28, lx: -13, ty: 12, h: 110, name: "대장간", han: "鍛冶間", act: "무기 · 옷·띠" },
+  { id: "drum", tx: 36, lx: -24, ty: 12, h: 110, name: "큰북", han: "大鼓", act: "수행·기억 · 도감" }];
 const HUB_SLOTS = [{ tx: 6, ty: 12 }, { tx: 25, ty: 12 }, { tx: 32, ty: 12 }];   // the front of the yard, where a few things may stand
 const DECO = [
   { id: "pine", name: "소나무", sheet: "props", i: PROP.pine, h: 96, hon: 30 }, { id: "lantern", name: "석등", sheet: "props", i: PROP.stoneLantern, h: 44, hon: 30 },
@@ -4532,7 +4545,7 @@ function enterHub() {
   if (!P || !P.hubKeep) P = newPlayer(6 * T + 7, LV.start.y); P.hubKeep = true; P.face = 1;
   bullets = []; parts = []; ghosts = []; seals = []; vfx = []; haz = []; beams = []; bolts = []; kegs = []; rings = []; cutLines = []; trails = []; pops = []; pfires = []; clones = []; chungoFx = null;
   songPos = Music.pos(); cam.x = P.x; cam.y = P.y; spawnPet();
-  document.body.classList.add("inhub"); setHud(); hubHud(); showScreen(null); inkWipe(); state = "play"; hubNear = null; hubPrompt(); hubTitle();
+  document.body.classList.add("inhub"); setHud(); hubHud(); showScreen(null); state = "play"; hubNear = null; hubPrompt(); hubTitle();
 }
 let hubTitled = false;
 function hubTitle() { // the name of the game, once, as the hermitage first comes into view
@@ -4546,7 +4559,7 @@ const stationsOn = () => !!(LV && LV.stations && state === "play" && P);
 function hubStep() { // which station (or empty plot) is underfoot — in the 거점, or a person on the road
   if (!stationsOn()) return; const cx = P.x + P.w / 2; let best = null, bd = 44;
   const feet = P.y + P.h, on = ty => Math.abs(feet - (ty || 12) * T) < 24;   // only what stands on your own floor
-  for (const st of LV.stations) { const d = Math.abs(st.tx * T + 16 - cx); if (d < bd && on(st.ty)) { bd = d; best = { st }; } }
+  for (const st of LV.stations) { const d = Math.abs(st.tx * T + 16 + (st.lx || 0) - cx); if (d < bd && on(st.ty)) { bd = d; best = { st }; } }
   if (LV.hub) for (let k = 0; k < HUB_SLOTS.length; k++) { const d = Math.abs(HUB_SLOTS[k].tx * T + 16 - cx); if (d < Math.min(bd, 30) && on(HUB_SLOTS[k].ty)) { bd = d; best = { slot: k }; } }
   const key = best ? best.st ? best.st.id : "s" + best.slot : ""; if (key !== (hubNear ? hubNear.key : "")) { hubNear = best ? { ...best, key } : null; hubPrompt(); }
 }
@@ -4638,7 +4651,7 @@ function drawHubLabels(pal) { // the names of the stations, painted on small boa
   if (!LV || !LV.stations) return; ctx.textAlign = "center"; ctx.textBaseline = "middle";
   if (LV.hub) { // 거점: a hanging name board (현판) over every place you can use, and a stone mark on the ground where you stand to use it
     const t = performance.now() / 1000;
-    for (const st of LV.stations) { const x = st.tx * T + 16, g = (st.ty || 12) * T, near = hubNear && hubNear.st === st, y = Math.max(camView.y0 + 22, g - st.h * .8 - 18);
+    for (const st of LV.stations) { const x = st.tx * T + 16 + (st.lx || 0), g = (st.ty || 12) * T, near = hubNear && hubNear.st === st, y = Math.max(camView.y0 + 22, g - st.h * .8 - 18);
       ctx.globalAlpha = near ? .9 : .55; ctx.fillStyle = near ? "rgba(195,22,28,.35)" : "rgba(23,22,26,.22)"; ctx.beginPath(); ctx.ellipse(x, g + 1, near ? 26 : 20, near ? 7 : 5, 0, 0, 7); ctx.fill(); ctx.globalAlpha = 1;
       ctx.font = `400 ${near ? 16 : 13}px "Song Myung", serif`; const tw = ctx.measureText(st.name).width, w = tw + 22, h = near ? 26 : 22, by = y + (near ? Math.sin(t * 4) * 2 : 0);
       ctx.strokeStyle = "rgba(23,22,26,.6)"; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(x - w / 2 + 6, by - h / 2); ctx.lineTo(x - 6, by - h / 2 - 8); ctx.lineTo(x + w / 2 - 6, by - h / 2); ctx.stroke();   // the cord it hangs from
@@ -4826,7 +4839,7 @@ $("bInstall").addEventListener("click", async () => { if (!installEvt) return; i
 const standalone = matchMedia("(display-mode: standalone)").matches || matchMedia("(display-mode: fullscreen)").matches || navigator.standalone;
 
 
-if (location.hash === "#debug" && /^(localhost|127\.0\.0\.1)$/.test(location.hostname)) window.__dbg = { get missing() { return ALL_SHEETS.filter(n => !LAZY_SHEETS.has(n) && !SPR[n]).concat(BASE_IMGS.filter(k => !IMG[k])); }, tp(tx, ty) { P.x = tx * T + 7; P.y = (ty + 1) * T - 30; P.vx = P.vy = 0; }, get state() { return state; }, get P() { return P; }, get LV() { return LV; }, get state2() { return state; }, get SC() { return LV.scenery; }, get E() { return enemies; }, get run() { return run; }, set hs(v) { hitstop = v; }, kill(e) { killEnemy(e); }, hurt(e, s, k) { hurtEnemy(e, s, k); }, die(k, d) { die(k, d); }, banner(a, b, c) { banner(a, b === "red" ? SEAL : JJOK, c); }, chungo() { chungo(); }, clear() { madangClear(); }, hubAct() { hubAct(); }, get hub() { return { hubOn, hubNear }; }, get songPos() { return songPos; }, get FLASH() { return FLASH; }, get hold() { return bulletHold; }, get bolts() { return bolts; }, get rings() { return rings; }, get B() { return bullets; }, get beams() { return beams; }, flashing: e => isFlashing(e), wipe: () => inkWipe(), enlighten: f => enlighten(f), syncCombos: () => syncCombos(), has: id => has(id), get FL() { flashSync(); return FLASH; } };
+if (location.hash === "#debug" && /^(localhost|127\.0\.0\.1)$/.test(location.hostname)) window.__dbg = { get missing() { return ALL_SHEETS.filter(n => !LAZY_SHEETS.has(n) && !SPR[n]).concat(BASE_IMGS.filter(k => !IMG[k])); }, tp(tx, ty) { P.x = tx * T + 7; P.y = (ty + 1) * T - 30; P.vx = P.vy = 0; }, get state() { return state; }, get P() { return P; }, get LV() { return LV; }, get state2() { return state; }, get SC() { return LV.scenery; }, get E() { return enemies; }, get run() { return run; }, set hs(v) { hitstop = v; }, kill(e) { killEnemy(e); }, hurt(e, s, k) { hurtEnemy(e, s, k); }, die(k, d) { die(k, d); }, banner(a, b, c) { banner(a, b === "red" ? SEAL : JJOK, c); }, chungo() { chungo(); }, clear() { madangClear(); }, hubAct() { hubAct(); }, get hub() { return { hubOn, hubNear }; }, get songPos() { return songPos; }, get FLASH() { return FLASH; }, get hold() { return bulletHold; }, get bolts() { return bolts; }, get rings() { return rings; }, get B() { return bullets; }, get beams() { return beams; }, flashing: e => isFlashing(e), wipe: () => inkWipe(), kickFx: (k, a, b, c) => k === "air" ? airKickFx(a, b, c) : wallKickFx(a, b, c), enlighten: f => enlighten(f), syncCombos: () => syncCombos(), has: id => has(id), get FL() { flashSync(); return FLASH; } };
 window.addEventListener("pointerdown", () => Music.unlock(), { once: true, capture: true });   // first tap anywhere starts the sound
 resize();
 toMenu();
