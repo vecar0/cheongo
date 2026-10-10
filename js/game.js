@@ -2,7 +2,7 @@
 (() => {
 "use strict";
 const T = 32;
-const ASSET_V = "135";   // bump when any picture changes: the service worker then fetches the new json and webp together
+const ASSET_V = "136";   // bump when any picture changes: the service worker then fetches the new json and webp together
 const $ = id => document.getElementById(id);
 const cv = $("cv"); let ctx = cv.getContext("2d", { alpha: false });   // let: the ground is baked by pointing ctx at an offscreen canvas for a moment   // opaque canvas: cheaper to composite on phones
 let W = 0, H = 0, DPR = 1, SCALE = 1;
@@ -2495,37 +2495,37 @@ let chungoFx = null;
 const ougiOf = () => OUGI[wpn()] || OUGI[wrule()] || OUGI.hwando;
 const drumName = () => ougiOpen() ? `천고난무-오의 · ${ougiOf().name}` : "천고난무";
 function ougiArt(key, x, y, h, o = {}) { const [sh, i] = key; if (SPR[sh]) { addFx(sh, i, x, y, h, { life: .6, grow: .3, ...o }); return true; } return false; }
-function ougiCall(o) { flashDim = Math.max(flashDim, .1); }   // the art speaks for itself: no name is written
+function ougiCall(o, plain) { if (plain) return; flashDim = Math.max(flashDim, .14); bossBannerLite = { name: o.name, han: "", t: 0 }; }   // only the true 오의 darkens the world and writes its name   // the art speaks for itself: no name is written
 let bossBannerLite = null;   // the 오의's name brushed large for a moment
 function chungo() { // the full drum: 천고난무 — plain and the same for every weapon until a branch's end turns it into the weapon's 오의
   const o = ougiOf(), w = wpn(), open = ougiOpen();
   if (WEAPONS[w] && WEAPONS[w].gun) return gunOugi(w, o, !open);
   const cx = P.x + P.w / 2, cy = P.y + P.h / 2, d = a => Math.hypot(a.x + a.w / 2 - cx, a.y + a.h / 2 - cy);
-  const ts = enemies.filter(e => e.alive && !ghostly(e) && !e.hidden && d(e) < (!open ? 400 : run.ougiAwake ? 640 : 480)).sort((a, b) => d(a) - d(b)).slice(0, !open ? 5 : (has("d_giseom") ? 10 : 8) + (run.ougiAwake ? 4 : 0));
+  const ts = enemies.filter(e => e.alive && !ghostly(e) && !e.hidden && d(e) < (!open ? TUNING.DRUM_PLAIN_R : run.ougiAwake ? 640 : 480)).sort((a, b) => d(a) - d(b)).slice(0, !open ? TUNING.DRUM_PLAIN_N : (has("d_giseom") ? 10 : 8) + (run.ougiAwake ? 4 : 0));
   if (!ts.length) return false;
   const pts = [{ x: cx, y: cy }, ...ts.map(e => ({ x: e.x + e.w / 2, y: e.y + e.h / 2 }))];
   chungoFx = { pts, ts, t: 0, done: false, w: wrule(), plain: !open }; run.qi = run.ougiAwake ? 50 : 0; P.invT = Math.max(P.invT || 0, 1.2); P.vx = P.vy = 0;
-  for (const e of ts) e.stunT = Math.max(e.stunT || 0, 2); Music.sfx("dash"); flashDim = .12; ougiCall(o); return true;
+  for (const e of ts) e.stunT = Math.max(e.stunT || 0, open ? 2 : .8); Music.sfx("dash"); if (open) flashDim = .12; ougiCall(o, !open); return true;
 }
 function gunOugi(w, o, plain) { // the four guns' 오의; plain (before a branch's end): the same move, smaller, and it does not wound a guardian
-  const cx = P.x + P.w / 2, cy = P.y + P.h / 2, near = nearestFoes(cx, cy, plain ? 5 : 12, plain ? 400 : 560), hit = e => hurtEnemy(e, e.type !== "b" ? true : plain ? false : 2, "il");
+  const cx = P.x + P.w / 2, cy = P.y + P.h / 2, near = nearestFoes(cx, cy, plain ? TUNING.DRUM_PLAIN_N : 12, plain ? TUNING.DRUM_PLAIN_R : 560), art = (...q) => plain ? null : ougiArt(...q), hit = e => hurtEnemy(e, e.type !== "b" ? true : plain ? false : 2, "il");
   if (!near.length && w !== "cheonja") return false;
-  run.qi = run.ougiAwake ? 50 : 0; P.invT = Math.max(P.invT || 0, 1); ougiCall(o); flash = .3; shake = 16; hitstop = Math.max(hitstop, .12); Music.jing(); killCam = Math.max(killCam, .5);
+  run.qi = run.ougiAwake ? 50 : 0; P.invT = Math.max(P.invT || 0, 1); ougiCall(o, plain); if (plain) { shake = 6; hitstop = Math.max(hitstop, .05); } else { flash = .3; shake = 16; hitstop = Math.max(hitstop, .12); Music.jing(); killCam = Math.max(killCam, .5); }
   if (w === "jochong") {   // 일발필중: one ball, foe to foe
-    let from = { x: cx, y: cy - 6 }, n = 0; for (const e of near.slice(0, plain ? 4 : 8)) { const ex = e.x + e.w / 2, ey = e.y + e.h / 2; beams.push({ x0: from.x, y0: from.y, x1: ex, y1: ey, t: -n * .05, life: .5, red: true, w: 2.4 });
-      if (SPR.gfx) trailFx(from.x, from.y, ex, ey, 4, .45, 5, "gfx"); hit(e); ougiArt(o.art, ex, ey, 80, { life: .45, rot: Math.random() * .6 - .3 }); from = { x: ex, y: ey }; n++; }
+    let from = { x: cx, y: cy - 6 }, n = 0; for (const e of near.slice(0, plain ? 3 : 8)) { const ex = e.x + e.w / 2, ey = e.y + e.h / 2; beams.push({ x0: from.x, y0: from.y, x1: ex, y1: ey, t: -n * .05, life: .5, red: true, w: 2.4 });
+      if (SPR.gfx) trailFx(from.x, from.y, ex, ey, 4, .45, 5, "gfx"); hit(e); art(o.art, ex, ey, 80, { life: .45, rot: Math.random() * .6 - .3 }); from = { x: ex, y: ey }; n++; }
     Music.sfx("snipe"); }
   else if (w === "seungja") {   // 포화: a ring of pellets, every enemy shot nearby wiped
     for (let i = 0, n = plain ? 10 : 16; i < n; i++) { const a = i / n * Math.PI * 2; aimRay({ x: Math.cos(a), y: Math.sin(a) }, plain ? 220 : 320, 12, 0, cx, cy, false, {}); }
     for (const e of near) if (Math.hypot(e.x + e.w / 2 - cx, e.y + e.h / 2 - cy) < (plain ? 220 : 320)) hit(e);
     for (const b of bullets) if (!b.friendly && Math.hypot(b.x - cx, b.y - cy) < 360) b.life = 0;
-    ougiArt(o.art, cx, cy, 240, { life: .6 }); ringFx(cx, cy, 320, "rgba(195,22,28,.7)", .4); Music.sfx("snipe"); }
+    art(o.art, cx, cy, 240, { life: .6 }); ringFx(cx, cy, plain ? 220 : 320, plain ? "rgba(23,22,26,.6)" : "rgba(195,22,28,.7)", .4); Music.sfx("snipe"); }
   else if (w === "singi") {   // 화차: sixteen arrows, each finding its own
-    for (let i = 0, n = plain ? 8 : 16; i < n; i++) { const a = -Math.PI / 2 + (i - (n - 1) / 2) * .16 * (plain ? 1.6 : 1); bullets.push({ x: cx, y: cy - 8, vx: Math.cos(a) * 380 + P.face * 120, vy: Math.sin(a) * 420, friendly: true, rocket: true, seek: 12, blast: 50, strike: !plain, life: 2.6, owner: null, r: 8 }); }
-    ougiArt(o.art, cx, cy - 40, 200, { life: .7, ay: .8 }); Music.sfx("shoot"); }
+    for (let i = 0, n = plain ? 3 : 16; i < n; i++) { const a = -Math.PI / 2 + (i - (n - 1) / 2) * .16 * (plain ? 1.6 : 1); bullets.push({ x: cx, y: cy - 8, vx: Math.cos(a) * 380 + P.face * 120, vy: Math.sin(a) * 420, friendly: true, rocket: true, seek: 12, blast: plain ? 24 : 50, strike: !plain, life: 2.6, owner: null, r: 8 }); }
+    art(o.art, cx, cy - 40, 200, { life: .7, ay: .8 }); Music.sfx("shoot"); }
   else {   // 천지포: the ground itself goes off, and the gunner rides the blast up
-    const f = P.y + P.h; blast(cx, f - 10, plain ? 90 : 130, true); ougiArt(o.art, cx, f, 260, { life: .7, ay: 1 });
-    for (const e of enemies) if (e.alive && !ghostly(e) && Math.abs(e.x + e.w / 2 - cx) < (plain ? 360 : 620) && Math.abs(e.y + e.h - f) < 100) { hit(e); addFx("wfx", WF2.quake, e.x + e.w / 2, e.y + e.h + 4, 60, { life: .45, ay: 1 }); }
+    const f = P.y + P.h; blast(cx, f - 10, plain ? 90 : 130, true); art(o.art, cx, f, 260, { life: .7, ay: 1 });
+    for (const e of (plain ? near : enemies)) if (e.alive && !ghostly(e) && Math.abs(e.x + e.w / 2 - cx) < (plain ? 360 : 620) && Math.abs(e.y + e.h - f) < 100) { hit(e); addFx("wfx", WF2.quake, e.x + e.w / 2, e.y + e.h + 4, 60, { life: .45, ay: 1 }); }
     P.vy = -900; P.onGround = false; regainAir(); }
   return true;
 }
@@ -2537,9 +2537,10 @@ function stepChungo(rdt) {
     const last = c.ts[c.ts.length - 1], side = Math.sign(last.x + last.w / 2 - c.pts[0].x) || P.face, nx = last.x + last.w / 2 + side * (last.w / 2 + 16) - P.w / 2, ny = last.y + last.h - P.h - .01;
     if (!rectSolid(nx, ny, P.w, P.h)) { P.x = nx; P.y = ny; P.face = -side; } P.vy = -200; regainAir();
     if (c.w === "woldo") for (const e of c.ts) addFx("wfx", WF2.quake, e.x + e.w / 2, e.y + e.h + 4, 70, { life: .5, grow: .2, ay: 1 });   // 낙월: each lands like a blow from above
-    { const o = ougiOf(), sc = c.plain ? .7 : 1; for (const e of c.ts) ougiArt(o.art, e.x + e.w / 2, e.y + e.h / 2, (c.w === "baldo" ? 150 : 110) * sc, { life: .55, rot: c.w === "woldo" ? 0 : Math.random() * .5 - .25, ay: c.w === "woldo" ? .85 : .5 }); }
-    for (const e of c.ts) addFx("wfx", c.w === "ssang" ? WF2.xcut : WF2.burst, e.x + e.w / 2, e.y + e.h / 2, c.w === "ssang" ? 90 : 76, { life: .4, grow: .3, rot: Math.random() * 6.28 });
-    shake = c.w === "woldo" ? 22 : 18; flash = c.w === "baldo" ? .5 : .35; killCam = Math.max(killCam, .7); Music.jing(); Music.sfx("strike"); }
+    if (!c.plain) { const o = ougiOf(), sc = 1; for (const e of c.ts) ougiArt(o.art, e.x + e.w / 2, e.y + e.h / 2, (c.w === "baldo" ? 150 : 110) * sc, { life: .55, rot: c.w === "woldo" ? 0 : Math.random() * .5 - .25, ay: c.w === "woldo" ? .85 : .5 }); }
+    if (c.plain) for (const e of c.ts) addFx("wfx", WF2.mark, e.x + e.w / 2, e.y + e.h / 2, 40, { life: .3, grow: .4 });
+    else for (const e of c.ts) addFx("wfx", c.w === "ssang" ? WF2.xcut : WF2.burst, e.x + e.w / 2, e.y + e.h / 2, c.w === "ssang" ? 90 : 76, { life: .4, grow: .3, rot: Math.random() * 6.28 });
+    if (c.plain) { shake = 6; Music.sfx("strike"); } else { shake = c.w === "woldo" ? 22 : 18; flash = c.w === "baldo" ? .5 : .35; killCam = Math.max(killCam, .7); Music.jing(); Music.sfx("strike"); } }
   if (c.t > n * lay + .9) chungoFx = null;
 }
 function drawChungo(tt) { // painted, laid in order — each weapon writes its own: 환도 joins foe to foe, 쌍검 crosses each, 월도 drives down from the sky, 발도 waits and draws one line
@@ -2547,6 +2548,8 @@ function drawChungo(tt) { // painted, laid in order — each weapon writes its o
   const mark = (x, y) => { if (!S || !drawSprite("wfx", WF2.mark, x, y, (20 + Math.sin(tt * 30) * 2) / S.f[WF2.mark].h, false, .5, false, .5)) { ctx.fillStyle = SEAL; ctx.beginPath(); ctx.arc(x, y, 3, 0, 7); ctx.fill(); } };
   const line = (fr, x0, y0, x1, y1, h, sd) => { if (!wfxLine(fr, x0, y0, x1, y1, h)) inkLine(x0, y0, x1, y1, h / 6, sd); };
   ctx.save(); ctx.globalAlpha = fade;
+  if (c.plain) { for (let i = 0; i < n; i++) { const k = Math.max(0, Math.min(1, (c.t - i * lay) / lay)); if (!k) break; const a = c.pts[i], b = c.pts[i + 1]; inkLine(a.x, a.y, a.x + (b.x - a.x) * k, a.y + (b.y - a.y) * k, 3, i * 7 + 3); }   // 천고난무: a plain ink line, foe to foe
+    ctx.restore(); ctx.globalAlpha = 1; return; }
   if (w === "baldo") {   // 일도: marks only, then a single drawn cut through them all
     for (let i = 0; i < n && c.t >= i * lay; i++) if (!c.done) mark(c.pts[i + 1].x, c.pts[i + 1].y);
     if (c.done) { const a = c.pts[0], far = c.pts.reduce((m, q) => Math.hypot(q.x - a.x, q.y - a.y) > Math.hypot(m.x - a.x, m.y - a.y) ? q : m, a), dx = far.x - a.x, dy = far.y - a.y, L = Math.hypot(dx, dy) || 1;
@@ -4003,7 +4006,7 @@ function drawOugiName(rdt) { // the 오의's name, brushed across the screen for
   ctx.save(); ctx.globalAlpha = a; ctx.textAlign = "center"; ctx.textBaseline = "middle";
   ctx.fillStyle = "rgba(14,10,12,.55)"; ctx.fillRect(0, y - sz * .8, W, sz * 1.6);
   ctx.font = `${sz}px ${BODY_FONT}`; ctx.fillStyle = "#ece6d8"; ctx.fillText(b.name, W / 2 + (1 - Math.min(1, b.t * 4)) * 40, y);
-  ctx.font = `${sz * .3}px ${BODY_FONT}`; ctx.fillStyle = SEAL; ctx.fillText("奧義 · " + b.han, W / 2, y + sz * .62); ctx.restore();
+  ctx.font = `${sz * .3}px ${BODY_FONT}`; ctx.fillStyle = SEAL; ctx.fillText("오의", W / 2, y + sz * .62); ctx.restore();
 }
 function drawCombatHud(pal) { // 기력 under the 숨, the chain's numeral at the right
   if (!P || !run || hubOn || (state !== "play" && state !== "pause")) return;

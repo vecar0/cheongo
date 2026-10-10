@@ -24,6 +24,7 @@ const TUNING = Object.freeze({
   HON_PER_GATE: 5, HON_PER_FLOOR: 9,
   SP_GAIN: { madang: 1, cycle: 2, bonus: 1, tower: 1, stage: 1 },
   TREE_OPEN_HON: [40, 90, 130],
+  DRUM_PLAIN_N: 3, DRUM_PLAIN_R: 300,   // plain 천고난무 (before a branch's end): how many foes, how near
   START_SP: 1,            // 수련점 a run starts with
   FREE_FALLS: 1,          // falls per gate that only send you back to where you stood
   // 매: how long it shows the dive (s), how fast it dives, beats it rests after
