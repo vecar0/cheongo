@@ -2,7 +2,7 @@
 (() => {
 "use strict";
 const T = 32;
-const ASSET_V = "132";   // bump when any picture changes: the service worker then fetches the new json and webp together
+const ASSET_V = "133";   // bump when any picture changes: the service worker then fetches the new json and webp together
 const $ = id => document.getElementById(id);
 const cv = $("cv"); let ctx = cv.getContext("2d", { alpha: false });   // let: the ground is baked by pointing ctx at an offscreen canvas for a moment   // opaque canvas: cheaper to composite on phones
 let W = 0, H = 0, DPR = 1, SCALE = 1;
@@ -1450,6 +1450,7 @@ function blast(x, y, r, strike, opts = {}) { // a gun's explosion: ink and fire,
 function chainBlast(x, y, depth) { if (has("sj_c3") && depth) ougiArt(["ogB", 5], x, y, 110, { life: .4 }); blast(x, y, 48, false, { after: e => { if (!e.alive && has("sj_c3") && depth < 4) setTimeout(() => chainBlast(e.x + e.w / 2, e.y + e.h / 2, depth + 1), 90); } }); }   // 유폭 · 연쇄유폭
 let pfires = [];   // fire left on the ground by your own shots: it burns foes, never you
 function pfire(x, y, w, t) { pfires.push({ x, y, w, h: 20, until: songPos + t, tick: 0 }); }
+const gunReady = () => { if (!isGun()) return false; const G = WEAPONS[wpn()]; return G.heat ? !((P.overheat || 0) > 0 && !has("sg_b3")) : (P.ammo ?? gunMag()) > 0; };
 function gunShot(hip) { // 총: the aimed release is a shot, and the recoil is the dash; an empty gun lunges with the bayonet instead
   const G = WEAPONS[wpn()], w = wpn();
   if (G.heat) { if ((P.overheat || 0) > 0 && !has("sg_b3")) return false; }
@@ -1458,7 +1459,7 @@ function gunShot(hip) { // 총: the aimed release is a shot, and the recoil is t
   let d = aimDir();
   { const cx = P.x + P.w / 2, cy = P.y + P.h / 2 - 4; let bs = .9;   // a marksman's eye: a foe within a hair of the aim draws the barrel onto it
     for (const e of enemies) { if (!e.alive || ghostly(e)) continue; const dx = e.x + e.w / 2 - cx, dy = e.y + e.h / 2 - cy, L = Math.hypot(dx, dy); if (L > 560 || L < 10) continue; const c = (dx * d.x + dy * d.y) / L; if (c > bs) { bs = c; d = { x: dx / L, y: dy / L }; } } }
-  const aimT = P.focusT || 0, air = !P.onGround, rot = t => ({ x: d.x * Math.cos(t) - d.y * Math.sin(t), y: d.x * Math.sin(t) + d.y * Math.cos(t) });
+  const aimT = P.focusT || 0, air = !P.onGround, noKick = air && P.airDash <= 0 && !P.hook, rot = t => ({ x: d.x * Math.cos(t) - d.y * Math.sin(t), y: d.x * Math.sin(t) + d.y * Math.cos(t) });
   const { x: cx, y: cy } = muzzleAt(w, d);
   if (G.heat) { P.heat = (P.heat || 0) + 38; if (P.heat >= 100) { if (has("sg_b3") && P.overheat > 0) { P.ki = Math.max(0, (P.ki || 0) - .2); ougiArt(["ogB", 7], P.x + P.w / 2, P.y + P.h, 80, { life: .4, ay: 1 }); } P.overheat = 1.6; P.heat = 100; if (has("sg_a3") && !P.volley) volleyFire(); } }
   else if (!(w === "cheonja" && air && has("cj_c2") && !P.airFree) && !(w === "jochong" && air && has("jc_b1") && !P.airFree)) P.ammo = (P.ammo ?? gunMag()) - 1;
@@ -1489,7 +1490,8 @@ function gunShot(hip) { // 총: the aimed release is a shot, and the recoil is t
   shake = Math.max(shake, w === "cheonja" ? 10 : 6); Music.sfx(w === "cheonja" ? "snipe" : "shoot"); P.fireT = .22; P.lastShotAt = songPos; P.shotDir = d;
   if (has("jc_c3") && w === "jochong") P.bayoT = .4;
   if (!P.onGround && !(has("jc_b1") && w === "jochong")) P.airDash = Math.max(0, P.airDash - 1);
-  { const v = TUNING.RECOIL_V * k, gx = P.onGround ? TUNING.RECOIL_GROUND_X : 1; P.vx = -d.x * v * gx; P.vy = -d.y * v - 90 * k; }   // the kick: lighter on the ground, still a lift when you fire downward in the air
+  if (noKick) { P.vx -= d.x * 90; P.vy = Math.min(P.vy, 40); }   // out of air: the shot still goes, the body only checks its fall
+  else { const v = TUNING.RECOIL_V * k, gx = P.onGround ? TUNING.RECOIL_GROUND_X : 1; P.vx = -d.x * v * gx; P.vy = -d.y * v - 90 * k; }   // the kick: lighter on the ground, still a lift when you fire downward in the air
   P.onGround = false; P.coyote = 0; if (Math.abs(d.x) > .2) P.face = Math.sign(d.x);
   return true;
 }
@@ -1733,6 +1735,15 @@ let flashDim = 0;
 const KR = { thin: 0, lock: 1, dashed: 2, burst: 3, dot: 4, indigo: 5, double: 6, drip: 7, dial: 8 };   // 간파 rings: no gold until the kill
 const MECH = { glint: 0, chungo: 1, drum: 2, slash: 3, n1: 4, deflect: 9, fire: 10, bar: 11 };   // 간파 glint, 天鼓, the drum, the cut, 一~五, the parry spark, the red shot, the gauge stroke
 const BNAME = { sumun: 0, gumiho: 1, dokkaebi: 2, imugi: 3, wongwi: 4, jangseung: 5, haetae: 6, bulgasari: 7, baekho: 8, talchum: 9, cheongo: 10, shadow: 11 };
+// each guardian brings its own ink, so their warnings and fury do not all look alike
+const BOSS_INK = { sumun: "#b8141b", gumiho: "#5d7fc4", dokkaebi: "#3f7a4a", imugi: "#27466a", wongwi: "#7a8fa6", jangseung: "#c0391b", haetae: "#e0661c", bulgasari: "#4a4448", baekho: "#8a8f99", talchum: "#c3161c", cheongo: "#b8141b", shadow: "#17161a" };
+const bossInk = k => BOSS_INK[k] || SEAL;
+const TINT = new Map();
+function tinted(sheet, i, col, mix = .7) { // one frame recoloured toward an ink, kept for reuse
+  const key = sheet + i + col + mix; if (TINT.has(key)) return TINT.get(key); const S = SPR[sheet]; if (!S || !S.f[i]) return null; const f = S.f[i];
+  const o = document.createElement("canvas"); o.width = f.w; o.height = f.h; const x = o.getContext("2d"); x.drawImage(S.img, f.x, f.y, f.w, f.h, 0, 0, f.w, f.h);
+  x.globalCompositeOperation = "source-atop"; x.globalAlpha = mix; x.fillStyle = col; x.fillRect(0, 0, f.w, f.h); TINT.set(key, o); return o; }
+function drawTinted(sheet, i, col, x, y, h, mix) { const o = tinted(sheet, i, col, mix); if (!o) return false; const w = o.width * h / o.height; ctx.drawImage(o, x - w / 2, y - h / 2, w, h); return true; }
 function spr(sheet, i, x, y, h, flip = false) { const S = SPR[sheet]; if (!S || !S.f[i]) return false; return drawSprite(sheet, i, x, y, h / S.f[i].h, flip, .5, sheet === "bname" && nightNow(), .5); }   // a name in black ink turns bone-white on the inverted night
 function sprW(sheet, i, h) { const S = SPR[sheet]; return S && S.f[i] ? S.f[i].w * h / S.f[i].h : 0; }
 function banner(text, col, sub) { bossBanner = { text, col, sub, t: 0 }; }
@@ -1892,7 +1903,7 @@ function brushRing(x, y, r, col, w, seed = 0) { // a circle swept by a dry brush
   ctx.globalAlpha = a0; ctx.lineCap = "butt";
 }
 function inkWash(x, y, w, h, col, seed = 0) { // a zone washed in with horizontal dry strokes, ragged at the edges
-  if (SPR.guide) { guideSprite(6, x + w / 2, y + h / 2, 0, w * 1.08, h * 1.15, false); return; }
+  if (SPR.guide) { const o = col !== SEAL && tinted("guide", 6, col, .85); if (o) ctx.drawImage(o, x + w / 2 - w * .54, y + h / 2 - h * .575, w * 1.08, h * 1.15); else guideSprite(6, x + w / 2, y + h / 2, 0, w * 1.08, h * 1.15, false); return; }   // the painted wash, in a guardian's own ink when it has one
   const n = Math.max(2, Math.round(h / 9)), a0 = ctx.globalAlpha; ctx.fillStyle = col;
   for (let i = 0; i < n; i++) { const yy = y + (i + .5) * h / n, l = x + hrnd(seed + i, 1) * w * .08, r = x + w - hrnd(seed + i, 2) * w * .1, th = h / n * (1.1 + hrnd(seed + i, 3) * .5);
     ctx.globalAlpha = a0 * (.7 + hrnd(seed + i, 4) * .3); ctx.beginPath(); ctx.moveTo(l, yy - th * .3); ctx.quadraticCurveTo((l + r) / 2, yy - th * .62, r, yy - th * .15); ctx.quadraticCurveTo(r - w * .05, yy + th * .5, l + w * .04, yy + th * .45); ctx.closePath(); ctx.fill(); }
@@ -1983,7 +1994,7 @@ function frameInput(rdt) {
       if (startDash({ x: dx / L, y: dy / L }, true)) { P.dashT = Math.min(.3, L / DASHV); ringFx(cx, cy, 50, "rgba(195,22,28,.8)", .25); } else { P.aimDash = false; P.retDash = false; }
       press.dash = 0; } }
   if (press.dash && !oath("hyeon") && !P.focus) {
-    if (P.dashCd <= 0 && (P.onGround || P.hook || P.airDash > 0 || (P.wall && has("d_wall"))) && ((P.ki || 0) > .06 || mode === "tutorial")) { P.focus = true; P.focusT = 0; P.focusGround = P.onGround || !!P.wall; Music.muffle(true); }   // tap: dash now · hold: slow and aim
+    if (gunReady() || (P.dashCd <= 0 && (P.onGround || P.hook || P.airDash > 0 || (P.wall && has("d_wall"))) && ((P.ki || 0) > .06 || mode  === "tutorial"))) { P.focus = true; P.focusT = 0; P.focusGround = P.onGround || !!P.wall; Music.muffle(true); }   // tap: dash now · hold: slow and aim
     press.dash = 0;
   }
   if (P.kiteFlash && (P.kiteFlash.t -= rdt) <= 0) P.kiteFlash = null;
@@ -2468,7 +2479,7 @@ function chainAdd(n) { if (!P) return; const g0 = Math.min(5, P.chain || 0); P.c
 function addQi(n) { // 천고 기운: won by fighting well — 일섬, 간파, 과녁
   if (mode === "tutorial" || !run) return; const before = run.qi || 0; run.qi = Math.min(100, before + n * .6 * (1 + treeStat("qi")) * (oath("jangdan") ? 2 : 1) * (1 + .15 * Math.min(8, (P && P.chain) || 0)));
   if (before < 100 && run.qi >= 100) { if (META.tips && META.tips.chungo) toast(`천고 기운이 찼다 · ${MOBILE ? "태극 북" : "북 또는 Q"} → ${drumName()}`);
-    else tipOnce("chungo", "천고난무", `북이 다 찼다 — 가까운 적 다섯을 먹선으로 잇고 한 번에 벤다. 한 갈래를 3단까지 익히면 무기의 오의로 바뀐다`, MOBILE ? "아래 태극 북을 누르기" : "태극 북 클릭 또는 Q"); Music.jing(); }
+    else tipOnce("chungo", "천고난무", `북이 다 찼다 — 무기의 오의를 약하게 펼친다(우두머리에겐 통하지 않는다). 한 갈래를 3단까지 익히면 온전한 오의가 된다`, MOBILE ? "아래 태극 북을 누르기" : "태극 북 클릭 또는 Q"); Music.jing(); }
 }
 let chungoFx = null;
 const ougiOf = () => OUGI[wpn()] || OUGI[wrule()] || OUGI.hwando;
@@ -2478,33 +2489,33 @@ function ougiCall(o) { flashDim = Math.max(flashDim, .1); }   // the art speaks 
 let bossBannerLite = null;   // the 오의's name brushed large for a moment
 function chungo() { // the full drum: 천고난무 — plain and the same for every weapon until a branch's end turns it into the weapon's 오의
   const o = ougiOf(), w = wpn(), open = ougiOpen();
-  if (open && WEAPONS[w] && WEAPONS[w].gun) return gunOugi(w, o);
+  if (WEAPONS[w] && WEAPONS[w].gun) return gunOugi(w, o, !open);
   const cx = P.x + P.w / 2, cy = P.y + P.h / 2, d = a => Math.hypot(a.x + a.w / 2 - cx, a.y + a.h / 2 - cy);
   const ts = enemies.filter(e => e.alive && !ghostly(e) && !e.hidden && d(e) < (!open ? 400 : run.ougiAwake ? 640 : 480)).sort((a, b) => d(a) - d(b)).slice(0, !open ? 5 : (has("d_giseom") ? 10 : 8) + (run.ougiAwake ? 4 : 0));
   if (!ts.length) return false;
   const pts = [{ x: cx, y: cy }, ...ts.map(e => ({ x: e.x + e.w / 2, y: e.y + e.h / 2 }))];
-  chungoFx = { pts, ts, t: 0, done: false, w: open ? wrule() : "hwando", plain: !open }; run.qi = run.ougiAwake ? 50 : 0; P.invT = Math.max(P.invT || 0, 1.2); P.vx = P.vy = 0;
+  chungoFx = { pts, ts, t: 0, done: false, w: wrule(), plain: !open }; run.qi = run.ougiAwake ? 50 : 0; P.invT = Math.max(P.invT || 0, 1.2); P.vx = P.vy = 0;
   for (const e of ts) e.stunT = Math.max(e.stunT || 0, 2); Music.sfx("dash"); flashDim = .12; ougiCall(o); return true;
 }
-function gunOugi(w, o) { // the four guns' 오의
-  const cx = P.x + P.w / 2, cy = P.y + P.h / 2, near = nearestFoes(cx, cy, 12, 560);
+function gunOugi(w, o, plain) { // the four guns' 오의; plain (before a branch's end): the same move, smaller, and it does not wound a guardian
+  const cx = P.x + P.w / 2, cy = P.y + P.h / 2, near = nearestFoes(cx, cy, plain ? 5 : 12, plain ? 400 : 560), hit = e => hurtEnemy(e, e.type !== "b" ? true : plain ? false : 2, "il");
   if (!near.length && w !== "cheonja") return false;
   run.qi = run.ougiAwake ? 50 : 0; P.invT = Math.max(P.invT || 0, 1); ougiCall(o); flash = .3; shake = 16; hitstop = Math.max(hitstop, .12); Music.jing(); killCam = Math.max(killCam, .5);
   if (w === "jochong") {   // 일발필중: one ball, foe to foe
-    let from = { x: cx, y: cy - 6 }, n = 0; for (const e of near.slice(0, 8)) { const ex = e.x + e.w / 2, ey = e.y + e.h / 2; beams.push({ x0: from.x, y0: from.y, x1: ex, y1: ey, t: -n * .05, life: .5, red: true, w: 2.4 });
-      if (SPR.gfx) trailFx(from.x, from.y, ex, ey, 4, .45, 5, "gfx"); hurtEnemy(e, e.type !== "b" ? true : 2, "il"); ougiArt(o.art, ex, ey, 80, { life: .45, rot: Math.random() * .6 - .3 }); from = { x: ex, y: ey }; n++; }
+    let from = { x: cx, y: cy - 6 }, n = 0; for (const e of near.slice(0, plain ? 4 : 8)) { const ex = e.x + e.w / 2, ey = e.y + e.h / 2; beams.push({ x0: from.x, y0: from.y, x1: ex, y1: ey, t: -n * .05, life: .5, red: true, w: 2.4 });
+      if (SPR.gfx) trailFx(from.x, from.y, ex, ey, 4, .45, 5, "gfx"); hit(e); ougiArt(o.art, ex, ey, 80, { life: .45, rot: Math.random() * .6 - .3 }); from = { x: ex, y: ey }; n++; }
     Music.sfx("snipe"); }
   else if (w === "seungja") {   // 포화: a ring of pellets, every enemy shot nearby wiped
-    for (let i = 0; i < 16; i++) { const a = i / 16 * Math.PI * 2; aimRay({ x: Math.cos(a), y: Math.sin(a) }, 320, 12, 0, cx, cy, false, {}); }
-    for (const e of near) if (Math.hypot(e.x + e.w / 2 - cx, e.y + e.h / 2 - cy) < 320) hurtEnemy(e, e.type !== "b" ? true : 2, "il");
+    for (let i = 0, n = plain ? 10 : 16; i < n; i++) { const a = i / n * Math.PI * 2; aimRay({ x: Math.cos(a), y: Math.sin(a) }, plain ? 220 : 320, 12, 0, cx, cy, false, {}); }
+    for (const e of near) if (Math.hypot(e.x + e.w / 2 - cx, e.y + e.h / 2 - cy) < (plain ? 220 : 320)) hit(e);
     for (const b of bullets) if (!b.friendly && Math.hypot(b.x - cx, b.y - cy) < 360) b.life = 0;
     ougiArt(o.art, cx, cy, 240, { life: .6 }); ringFx(cx, cy, 320, "rgba(195,22,28,.7)", .4); Music.sfx("snipe"); }
   else if (w === "singi") {   // 화차: sixteen arrows, each finding its own
-    for (let i = 0; i < 16; i++) { const a = -Math.PI / 2 + (i - 7.5) * .16; bullets.push({ x: cx, y: cy - 8, vx: Math.cos(a) * 380 + P.face * 120, vy: Math.sin(a) * 420, friendly: true, rocket: true, seek: 12, blast: 50, strike: true, life: 2.6, owner: null, r: 8 }); }
+    for (let i = 0, n = plain ? 8 : 16; i < n; i++) { const a = -Math.PI / 2 + (i - (n - 1) / 2) * .16 * (plain ? 1.6 : 1); bullets.push({ x: cx, y: cy - 8, vx: Math.cos(a) * 380 + P.face * 120, vy: Math.sin(a) * 420, friendly: true, rocket: true, seek: 12, blast: 50, strike: !plain, life: 2.6, owner: null, r: 8 }); }
     ougiArt(o.art, cx, cy - 40, 200, { life: .7, ay: .8 }); Music.sfx("shoot"); }
   else {   // 천지포: the ground itself goes off, and the gunner rides the blast up
-    const f = P.y + P.h; blast(cx, f - 10, 130, true); ougiArt(o.art, cx, f, 260, { life: .7, ay: 1 });
-    for (const e of enemies) if (e.alive && !ghostly(e) && Math.abs(e.x + e.w / 2 - cx) < 620 && Math.abs(e.y + e.h - f) < 100) { hurtEnemy(e, e.type !== "b" ? true : 2, "il"); addFx("wfx", WF2.quake, e.x + e.w / 2, e.y + e.h + 4, 60, { life: .45, ay: 1 }); }
+    const f = P.y + P.h; blast(cx, f - 10, plain ? 90 : 130, true); ougiArt(o.art, cx, f, 260, { life: .7, ay: 1 });
+    for (const e of enemies) if (e.alive && !ghostly(e) && Math.abs(e.x + e.w / 2 - cx) < (plain ? 360 : 620) && Math.abs(e.y + e.h - f) < 100) { hit(e); addFx("wfx", WF2.quake, e.x + e.w / 2, e.y + e.h + 4, 60, { life: .45, ay: 1 }); }
     P.vy = -900; P.onGround = false; regainAir(); }
   return true;
 }
@@ -2516,7 +2527,7 @@ function stepChungo(rdt) {
     const last = c.ts[c.ts.length - 1], side = Math.sign(last.x + last.w / 2 - c.pts[0].x) || P.face, nx = last.x + last.w / 2 + side * (last.w / 2 + 16) - P.w / 2, ny = last.y + last.h - P.h - .01;
     if (!rectSolid(nx, ny, P.w, P.h)) { P.x = nx; P.y = ny; P.face = -side; } P.vy = -200; regainAir();
     if (c.w === "woldo") for (const e of c.ts) addFx("wfx", WF2.quake, e.x + e.w / 2, e.y + e.h + 4, 70, { life: .5, grow: .2, ay: 1 });   // 낙월: each lands like a blow from above
-    if (!c.plain) { const o = ougiOf(); for (const e of c.ts) ougiArt(o.art, e.x + e.w / 2, e.y + e.h / 2, c.w === "baldo" ? 150 : 110, { life: .55, rot: c.w === "woldo" ? 0 : Math.random() * .5 - .25, ay: c.w === "woldo" ? .85 : .5 }); }
+    { const o = ougiOf(), sc = c.plain ? .7 : 1; for (const e of c.ts) ougiArt(o.art, e.x + e.w / 2, e.y + e.h / 2, (c.w === "baldo" ? 150 : 110) * sc, { life: .55, rot: c.w === "woldo" ? 0 : Math.random() * .5 - .25, ay: c.w === "woldo" ? .85 : .5 }); }
     for (const e of c.ts) addFx("wfx", c.w === "ssang" ? WF2.xcut : WF2.burst, e.x + e.w / 2, e.y + e.h / 2, c.w === "ssang" ? 90 : 76, { life: .4, grow: .3, rot: Math.random() * 6.28 });
     shake = c.w === "woldo" ? 22 : 18; flash = c.w === "baldo" ? .5 : .35; killCam = Math.max(killCam, .7); Music.jing(); Music.sfx("strike"); }
   if (c.t > n * lay + .9) chungoFx = null;
@@ -4044,7 +4055,7 @@ function drawBoss(e, pal, cx, feet) {
     const x = e.tx || cx, w = 40 + Math.sin(performance.now() / 80) * 6; ctx.fillStyle = "rgba(40,34,30,.55)"; ctx.beginPath(); ctx.ellipse(x, e.floor - 2, w, 7, 0, 0, 7); ctx.fill(); return;
   }
   if (e.act && songPos < e.hitAt && !e.hidden && SPR.bvfx) { const q = Math.max(0, Math.min(1, 1 - (e.hitAt - songPos) / Math.max(.2, e.hitAt - (e.actFrom ?? e.hitAt - 1))));   // sparks gathering to the moment it lands
-    ctx.save(); ctx.globalAlpha = .25 + .6 * q; ctx.translate(cx, e.y + e.h * .45); ctx.rotate(performance.now() / 700); spr("bvfx", BV.warn, 0, 0, e.h * (1.4 - .7 * q)); ctx.restore(); }
+    ctx.save(); ctx.globalAlpha = .25 + .6 * q; ctx.translate(cx, e.y + e.h * .45); ctx.rotate(performance.now() / 700); if (!drawTinted("bvfx", BV.warn, bossInk(e.kind), 0, 0, e.h * (1.4 - .7 * q), .55)) spr("bvfx", BV.warn, 0, 0, e.h * (1.4 - .7 * q)); ctx.restore(); }
   if (e.stagT > 0 && !e.hidden && SPR.bvfx) { ctx.save(); ctx.translate(cx, e.y - 14); ctx.rotate(performance.now() / 260); ctx.globalAlpha = Math.min(1, e.stagT * 3); spr("bvfx", BV.dizzy, 0, 0, 30); ctx.restore(); }
   if (e.act && songPos < e.hitAt && ACT_NAME[e.act] && !e.hidden) { const span = Math.max(.2, e.hitAt - (e.actFrom ?? e.hitAt - Music.beatLen)), q = Math.max(0, Math.min(1, (songPos - (e.actFrom ?? songPos)) / span)), y = e.y - 22;
     ctx.save(); ctx.font = `400 15px "Song Myung", serif`; ctx.textAlign = "center"; ctx.textBaseline = "middle"; 
@@ -4053,14 +4064,14 @@ function drawBoss(e, pal, cx, feet) {
   if (e.act && songPos < e.hitAt) { // telegraph what is coming
     const prog = Math.max(0, Math.min(1, 1 - (e.hitAt - songPos) / Music.beatLen)), a = .1 + prog * .3, f = e.floor;
     const sd = e.id * 7 + (e.hitAt * 3 | 0);   // the same strokes for the whole wind-up
-    if (e.act === "slam" || e.act === "club" || e.act === "inhale") { const w = e.act === "inhale" ? 110 : 150; ctx.globalAlpha = a * 2.2; inkWash(e.face > 0 ? cx : cx - w, f - 70, w, 70, SEAL, sd); ctx.globalAlpha = 1; }
-    else if (e.act === "stomp") { ctx.globalAlpha = a * 2.2; inkWash(e.x - 50, f - 40, e.w + 100, 40, SEAL, sd); ctx.globalAlpha = 1; }
-    else if (["charge", "pounce", "leap", "dance"].includes(e.act)) { ctx.globalAlpha = Math.min(1, (a + .2) * 1.6); brushLine(cx, f - 20, cx + e.face * 220, f - 20, SEAL, 9, false, sd); ctx.globalAlpha = 1; }
-    else if (["volley", "fan", "fan2", "spit", "scrap", "foxfire"].includes(e.act)) { ctx.globalAlpha = Math.min(1, a + .4); const r = 6 + prog * 8; for (let i = 0; i < 4; i++) inkDab(cx + e.face * 26, e.y + 22, i * .8 + hrnd(sd, i), r * 2.2, r * 1.2, SEAL); ctx.globalAlpha = 1; }
-    else if (e.act === "shcut" || e.act === "shstrike") { const w = e.act === "shstrike" ? 120 : 70; ctx.globalAlpha = a * 2.2; inkWash(e.face > 0 ? cx : cx - w, e.y - 20, w, e.h + 30, SEAL, sd); ctx.globalAlpha = 1; }
+    if (e.act === "slam" || e.act === "club" || e.act === "inhale") { const w = e.act === "inhale" ? 110 : 150; ctx.globalAlpha = a * 2.2; inkWash(e.face > 0 ? cx : cx - w, f - 70, w, 70, bossInk(e.kind), sd); ctx.globalAlpha = 1; }
+    else if (e.act === "stomp") { ctx.globalAlpha = a * 2.2; inkWash(e.x - 50, f - 40, e.w + 100, 40, bossInk(e.kind), sd); ctx.globalAlpha = 1; }
+    else if (["charge", "pounce", "leap", "dance"].includes(e.act)) { ctx.globalAlpha = Math.min(1, (a + .2) * 1.6); brushLine(cx, f - 20, cx + e.face * 220, f - 20, bossInk(e.kind), 9, false, sd); ctx.globalAlpha = 1; }
+    else if (["volley", "fan", "fan2", "spit", "scrap", "foxfire"].includes(e.act)) { ctx.globalAlpha = Math.min(1, a + .4); const r = 6 + prog * 8; for (let i = 0; i < 4; i++) inkDab(cx + e.face * 26, e.y + 22, i * .8 + hrnd(sd, i), r * 2.2, r * 1.2, bossInk(e.kind)); ctx.globalAlpha = 1; }
+    else if (e.act === "shcut" || e.act === "shstrike") { const w = e.act === "shstrike" ? 120 : 70; ctx.globalAlpha = a * 2.2; inkWash(e.face > 0 ? cx : cx - w, e.y - 20, w, e.h + 30, bossInk(e.kind), sd); ctx.globalAlpha = 1; }
     else if (["summon", "spirits", "illusion", "mask", "gamtu", "roar", "scream", "blink", "drum", "shblink"].includes(e.act)) { ctx.globalAlpha = Math.min(1, (a + .2) * 1.5); brushRing(cx, e.y + e.h / 2, 30 + prog * 40, "#17161a", 4, sd); ctx.globalAlpha = 1; }
   }
-  if (e.raged && SPR.bvfx) { const fl = 1 + Math.sin(performance.now() / 90) * .05; ctx.globalAlpha = .55 + .15 * Math.sin(performance.now() / 140); spr("bvfx", BV.rage, cx, e.y + e.h * .45, e.h * 1.5 * fl); ctx.globalAlpha = 1; }   // 격노: a painted fire behind the body
+  if (e.raged && SPR.bvfx) { const fl = 1 + Math.sin(performance.now() / 90) * .05; ctx.globalAlpha = .55 + .15 * Math.sin(performance.now() / 140); if (!drawTinted("bvfx", BV.rage, bossInk(e.kind), cx, e.y + e.h * .45, e.h * 1.5 * fl, .6)) spr("bvfx", BV.rage, cx, e.y + e.h * .45, e.h * 1.5 * fl); ctx.globalAlpha = 1; }   // 격노: a painted fire behind the body, in the guardian's own ink
   else if (e.raged) { const g = ctx.createRadialGradient(cx, e.y + e.h / 2, 6, cx, e.y + e.h / 2, Math.max(e.w, e.h)); g.addColorStop(0, `rgba(195,22,28,${.18 + .08 * Math.sin(performance.now() / 120)})`); g.addColorStop(1, "rgba(195,22,28,0)"); ctx.fillStyle = g; ctx.fillRect(cx - e.w - e.h, e.y - e.h, (e.w + e.h) * 2, e.h * 3); }   // 격노
   if (e.invisT > 0) ctx.globalAlpha *= .12;   // 도깨비 감투
   const atk = e.act || e.swingT > 0 || e.chargeT > 0 || e.air || e.swoopT > 0 || e.danceT > 0 || e.suck;
@@ -4085,7 +4096,7 @@ function drawBoss(e, pal, cx, feet) {
   if (e.kind === "talchum") { ctx.fillStyle = SEAL; ctx.font = `400 13px "Song Myung", serif`; ctx.textAlign = "center"; ctx.fillText(MASKS[e.mask || 0], cx, e.y - 34); ctx.textAlign = "left"; }
 }
 function drawHazards(pal) {
-  const tt = performance.now() / 1000;
+  const tt = performance.now() / 1000, hb = enemies.find(e => e.type === "b" && e.alive), hInk = hb ? bossInk(hb.kind) : SEAL;
   for (const z of haz) {
     if (z.kind === "ring") {
       const r = (songPos - z.at) * z.speed; if (r < 0) { ctx.globalAlpha = .45; brushRing(z.x, z.y, 20, "#17161a", 3, z.x); ctx.globalAlpha = 1; continue; }
@@ -4104,7 +4115,7 @@ function drawHazards(pal) {
       else { // the ground warns first: a red crack opens along the floor, then a thin wash climbs out of it toward the strike
         const gy = z.y + z.h, cw = z.w * (.4 + .6 * prog);
         ctx.globalAlpha = .55 + prog * .4; brushLine(z.x + z.w / 2 - cw / 2, gy - 1, z.x + z.w / 2 + cw / 2, gy - 1, SEAL, 2 + prog * 3, false, z.x);
-        const rise = Math.max(0, (prog - .35) / .65); if (rise > 0) { ctx.globalAlpha = .08 + rise * .3; inkWash(z.x + z.w * .15, gy - z.h * rise, z.w * .7, z.h * rise, SEAL, z.x + z.y); }
+        const rise = Math.max(0, (prog - .35) / .65); if (rise > 0) { ctx.globalAlpha = .1 + rise * .32; inkWash(z.x + z.w * .15, gy - z.h * rise, z.w * .7, z.h * rise, hInk, z.x + z.y); }
         if (!LITE() && Math.random() < .35) parts.push({ x: z.x + Math.random() * z.w, y: gy - 2, vx: (Math.random() - .5) * 20, vy: -60 - Math.random() * 90 * (1 + prog), life: .5, max: .5, c: "rgba(23,22,26,.7)", s: 1.5 + Math.random() * 2 });
         ctx.globalAlpha = 1; }
       if (z.kind === "beam") { ctx.globalAlpha = .4 + prog * .5; brushLine(z.x, z.y, z.x + z.w, z.y, SEAL, 3, false, z.x); brushLine(z.x, z.y + z.h, z.x + z.w, z.y + z.h, SEAL, 3, false, z.y); ctx.globalAlpha = 1; }
