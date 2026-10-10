@@ -832,8 +832,15 @@ function rectSolid(x, y, w, h) {
 }
 function solidPt(x, y) { return tileAt(Math.floor(x / T), Math.floor(y / T)) === 1; }
 function los(x0, y0, x1, y1) { const n = Math.ceil(Math.hypot(x1 - x0, y1 - y0) / 10); for (let i = 1; i < n; i++) { const t = i / n; if (solidPt(x0 + (x1 - x0) * t, y0 + (y1 - y0) * t)) return false; } return true; }
-function moveX(o, dx) { o.x += dx; if (!rectSolid(o.x, o.y, o.w, o.h)) return false; o.x = dx > 0 ? Math.floor((o.x + o.w) / T) * T - o.w - 0.001 : (Math.floor(o.x / T) + 1) * T + 0.001; return true; }
-function moveY(o, dy) { o.y += dy; if (!rectSolid(o.x, o.y, o.w, o.h)) return false; o.y = dy > 0 ? Math.floor((o.y + o.h) / T) * T - o.h - 0.001 : (Math.floor(o.y / T) + 1) * T + 0.001; return true; }
+// moves step at most half a tile at a time, so a big shove (a hook's drag, a blast) can never carry a body through a wall into the rock
+function moveX(o, dx) { const n = Math.max(1, Math.ceil(Math.abs(dx) / (T / 2))), st = dx / n;
+  for (let i = 0; i < n; i++) { o.x += st; if (rectSolid(o.x, o.y, o.w, o.h)) { o.x = st > 0 ? Math.floor((o.x + o.w) / T) * T - o.w - 0.001 : (Math.floor(o.x / T) + 1) * T + 0.001; return true; } } return false; }
+function moveY(o, dy) { const n = Math.max(1, Math.ceil(Math.abs(dy) / (T / 2))), st = dy / n;
+  for (let i = 0; i < n; i++) { o.y += st; if (rectSolid(o.x, o.y, o.w, o.h)) { o.y = st > 0 ? Math.floor((o.y + o.h) / T) * T - o.h - 0.001 : (Math.floor(o.y / T) + 1) * T + 0.001; return true; } } return false; }
+function unstick(o) { // a body found inside the rock is lifted or slid to the nearest open air
+  if (!rectSolid(o.x, o.y, o.w, o.h)) return;
+  for (let k = 1; k <= 24; k++) { const d = k * 4;
+    for (const [ox, oy] of [[0, -d], [-d, 0], [d, 0], [-d, -d], [d, -d]]) if (!rectSolid(o.x + ox, o.y + oy, o.w, o.h)) { o.x += ox; o.y += oy; return; } } }
 // ledges (tile 3): only the top edge is solid, and only while falling onto it from above
 function ledgeBelow(o, prevBottom) {
   const bottom = o.y + o.h, x0 = Math.floor(o.x / T), x1 = Math.floor((o.x + o.w - .01) / T);
@@ -1366,7 +1373,7 @@ function endRun(won) {
   const rate = run.slashes ? Math.round(run.strikes / run.slashes * 100) : 0;
   $("rSeal").textContent = won ? "登" : "終";
   $("rTitle").textContent = won ? "등천" : "절명";
-  $("rSub").textContent = run.tower ? (won ? "천고가 다시 울렸다." : `천고탑 ${run.floor}층에서 숨이 다했다.`) : won ? "천고는 아직 위에서 울린다." : stageName(run.m) + (run.lastCause ? `에서 ${run.lastCause}에 마지막 숨을 잃었다.` : "에서 숨이 다했다.");
+  $("rSub").textContent = run.tower ? (won ? "천고가 다시 울렸다." : `천고탑 ${run.floor}층에서 숨이 다했다.`) : won ? "천고는 아직 위에서 울린다." : stageOf(run.m).ko + (run.lastCause ? `에서 ${run.lastCause}에 마지막 숨을 잃었다.` : "에서 숨이 다했다.");
   $("rStats").innerHTML = "";
   const gain = runRewards(reached);
   if (mode !== "tutorial") { META.log = (Array.isArray(META.log) ? META.log : []).slice(-29); META.log.push({ d: todayKey(), w: run.weapon, diff: settings.diff, r: reached, won: !!won, hon: gain.hon, cause: won ? null : run.lastCause || null, t: Math.round(run.time), g: (run.log || []).slice(-8) });   // the last thirty runs, for the 기록 board
@@ -1467,7 +1474,7 @@ function gunShot(hip) { // 총: the aimed release is a shot, and the recoil is t
     for (let i = 0; i < n; i++) aimRay(rot(-sp + 2 * sp * i / (n - 1)), 180, 8, 0, cx, cy, false, { pellet: true, once });
     if (has("sj_a3")) ougiArt(["ogB", 3], cx + d.x * 50, cy + d.y * 50, 100, { life: .3, rot: Math.atan2(d.y, Math.abs(d.x)) * Math.sign(d.x || 1), flip: d.x < 0 });
     if (has("sj_a3")) for (const b of bullets) if (!b.friendly && Math.hypot(b.x - cx, b.y - cy) < 200 && ((b.x - cx) * d.x + (b.y - cy) * d.y) > 0) b.life = 0;
-    fxi = 1; k = (has("sj_b1") ? 1.6 : 1.5) * (has("sj_b2") && air && P.airShots >= 1 ? 2 : 1); if (air) P.airShots = (P.airShots || 0) + 1;
+    fxi = 1; k = (has("sj_b1") ? 1.35 : 1.25) * (has("sj_b2") && air && P.airShots >= 1 ? 2 : 1); if (air) P.airShots = (P.airShots || 0) + 1;
     if (has("sj_b3")) { P.cannonT = .45; ougiArt(["ogB", 4], P.x + P.w / 2, P.y + P.h / 2, 90, { life: .45, rot: Math.atan2(-d.y, Math.abs(d.x)) * Math.sign(-d.x || 1), flip: d.x > 0 }); } }
   else if (w === "singi") {   // 신기전: three rocket arrows that burst
     const hot = (P.heat || 0) >= 70 && has("sg_b2"), spd = 560 * (has("sg_b2") ? 1 + (P.heat || 0) / 200 : 1);
@@ -1476,13 +1483,14 @@ function gunShot(hip) { // 총: the aimed release is a shot, and the recoil is t
   else if (w === "cheonja") {   // 천자총통: a ball on an arc that bursts large
     const planted = P.onGround && (P.stillT || 0) >= 1 && has("cj_b1");
     bullets.push({ x: cx, y: cy, vx: d.x * 640, vy: d.y * 640 - 60, g: 900, friendly: true, cannon: true, blast: 70 * (has("cj_a1") ? 1.4 : 1) * (planted ? 1.6 : 1), strike: true, core: true, life: 2.6, owner: null, r: 10, bounces: has("cj_a2") ? 1 : 0 });
-    k = has("cj_c1") && d.y > .6 ? 2.6 : 1.9; }
+    k = has("cj_c1") && d.y > .6 ? 2.2 : 1.5; }
   const mz = { x: cx, y: cy }; muzzleFx(w, cx, cy, d);
   for (let i = 0; i < 10; i++) parts.push({ x: mz.x, y: mz.y, vx: d.x * 60 + (Math.random() - .5) * 90, vy: d.y * 60 - 30 - Math.random() * 60, life: .7, max: .7, c: "rgba(90,86,94,.75)", s: 4 + Math.random() * 5 });
   shake = Math.max(shake, w === "cheonja" ? 10 : 6); Music.sfx(w === "cheonja" ? "snipe" : "shoot"); P.fireT = .22; P.lastShotAt = songPos; P.shotDir = d;
   if (has("jc_c3") && w === "jochong") P.bayoT = .4;
   if (!P.onGround && !(has("jc_b1") && w === "jochong")) P.airDash = Math.max(0, P.airDash - 1);
-  P.vx = -d.x * 560 * k; P.vy = -d.y * 560 * k - 140 * k; P.onGround = false; P.coyote = 0; if (Math.abs(d.x) > .2) P.face = Math.sign(d.x);
+  { const v = TUNING.RECOIL_V * k, gx = P.onGround ? TUNING.RECOIL_GROUND_X : 1; P.vx = -d.x * v * gx; P.vy = -d.y * v - 90 * k; }   // the kick: lighter on the ground, still a lift when you fire downward in the air
+  P.onGround = false; P.coyote = 0; if (Math.abs(d.x) > .2) P.face = Math.sign(d.x);
   return true;
 }
 function hipShot(G, w) { // a tap: fired from the hip — short, one wound, one round, barely a kick
@@ -2301,6 +2309,7 @@ function stepEnemiesIn(dt) {
   const pcx = P.x + P.w / 2, pcy = P.y + P.h / 2, live = state === "play", bl = Music.beatLen; foeIntro(pcx, pcy);
   for (const e of enemies) {
     if (!e.alive) continue; curFoe = e;   // whoever is acting now: if a blow lands, it is theirs
+    if (e.type !== "b" && !e.hidden) unstick(e);
     if (e.hitT > 0) e.hitT -= dt;
     if (!"dbri".includes(e.type)) { const f = e.y + e.h;   /* walkers fall: a foe shoved off a ledge drops instead of hanging in the air */
       if (!groundPt(e.x + 3, f + 1) && !groundPt(e.x + e.w - 3, f + 1)) { e.fvy = Math.min(900, (e.fvy || 0) + 1900 * dt); if (moveY(e, e.fvy * dt)) e.fvy = 0; else { const l = ledgeBelow(e, f); if (l != null) { e.y = l - e.h - .001; e.fvy = 0; } }
@@ -3396,6 +3405,8 @@ function render(rdt) {
   if (SPR.perkfx) for (const c of clones) { ctx.globalAlpha = .45 + .15 * Math.sin(performance.now() / 40); const cf = CF("clone"); if (cf && SPR[cf[0]]) { drawSprite(cf[0], cf[1], c.x, c.y, HERO_H * 1.15 / SPR[cf[0]].f[cf[1]].h, c.face < 0, .5, false, 1); ctx.globalAlpha = 1; continue; } drawSprite("perkfx", PF.clone, c.x, c.y, kOf("hero3", H3.idle, HERO_H * 1.08) * 1.1, c.face < 0, .5, false, 1); ctx.globalAlpha = 1; }
   drawVfx(pal, true, vw);   // effects that belong behind the body (the 납도 ink at the feet)
   drawPet(pal); drawAmmo();
+  for (const e of enemies) if (e.type === "b" && e.alive && e.awake && !e.hidden && (e.recoverUntil || 0) > songPos && !e.act && SPR.hud) {   // 틈: the guardian is open — a glint flickers on it
+    const k = .5 + .5 * Math.sin(performance.now() / 70); ctx.globalAlpha = .55 + .45 * k; drawSprite("hud", HUD.spark, e.x + e.w / 2 + Math.sin(songPos * 7) * e.w * .2, e.y + e.h * .35, (34 + 10 * k) / SPR.hud.f[HUD.spark].h, false, .5, false, .5); ctx.globalAlpha = 1; }
   { const rf = SPR.ui && SPR.ui.f[0]; for (const e of enemies) if (e.alive && e.introUntil > songPos) { const k = (e.introUntil - songPos) / 2.5, r = Math.max(e.w, e.h) * .8 + 8, cx = e.x + e.w / 2, cy = e.y + e.h / 2, draw = Math.min(1, (1 - k) * 4);   // 처음 보는 적: an ink 원상 brushed round it
     ctx.globalAlpha = Math.min(1, k * 2) * .9;
     if (rf) { ctx.save(); ctx.translate(cx, cy); ctx.rotate(songPos * .6); ctx.beginPath(); ctx.moveTo(0, 0); ctx.arc(0, 0, r * 1.2, -1.8, -1.8 + 6.283 * draw); ctx.closePath(); ctx.clip(); ctx.drawImage(SPR.ui.img, rf.x, rf.y, rf.w, rf.h, -r, -r, r * 2, r * 2); ctx.restore(); }
@@ -3458,19 +3469,26 @@ function render(rdt) {
     ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
     const bw = Math.min(440, W * .6), bx = W / 2 - bw / 2, by = 48, fr = Math.max(0, boss.hp) / boss.maxHp;
     boss.hpShow = Math.max(boss.hp, (boss.hpShow ?? boss.hp) - rdt * boss.maxHp * .35);
-    ctx.fillStyle = "rgba(23,22,26,.3)"; ctx.fillRect(bx - 2, by - 2, bw + 4, 12);
-    ctx.fillStyle = "rgba(242,226,200,.85)"; ctx.fillRect(bx, by, bw * Math.max(0, boss.hpShow) / boss.maxHp, 8);
-    ctx.fillStyle = boss.raged ? "#e0331f" : SEAL; ctx.fillRect(bx, by, bw * fr, 8);
-    ctx.fillStyle = "rgba(255,255,255,.18)"; ctx.fillRect(bx, by, bw * fr, 3);
-    if (!boss.raged) { ctx.fillStyle = pal.text; ctx.fillRect(bx + bw / 2 - 1, by - 4, 2, 16); }   // where the fury wakes
+    const uf = SPR.ui && SPR.ui.f[2];
+    if (uf) { // one long dry-brush stroke: the spent part stays as a faint ghost, the last blow's loss lingers pale, the rest is wet red ink
+      const bh = 16, by0 = by - 4, T3 = bossStrokes(uf), clipTo = (k, im, al) => { if (k <= 0) return; ctx.save(); ctx.beginPath(); ctx.rect(bx - 6, by0 - 6, (bw + 12) * k, bh + 12); ctx.clip(); ctx.globalAlpha = al; ctx.drawImage(im, bx - 6, by0, bw + 12, bh); ctx.restore(); };
+      clipTo(1, T3.ink, .16); clipTo(Math.max(0, boss.hpShow) / boss.maxHp, T3.pale, .9); clipTo(fr, boss.raged ? T3.rage : T3.red, 1); clipTo(fr, T3.ink, .35);
+      if (!boss.raged) { ctx.globalAlpha = .8; ctx.fillStyle = pal.text; ctx.beginPath(); ctx.moveTo(bx + bw / 2, by0 + bh + 3); ctx.lineTo(bx + bw / 2 - 4, by0 + bh + 9); ctx.lineTo(bx + bw / 2 + 4, by0 + bh + 9); ctx.fill(); ctx.globalAlpha = 1; }   // where the fury wakes
+    } else {
+      ctx.fillStyle = "rgba(23,22,26,.3)"; ctx.fillRect(bx - 2, by - 2, bw + 4, 12);
+      ctx.fillStyle = "rgba(242,226,200,.85)"; ctx.fillRect(bx, by, bw * Math.max(0, boss.hpShow) / boss.maxHp, 8);
+      ctx.fillStyle = boss.raged ? "#e0331f" : SEAL; ctx.fillRect(bx, by, bw * fr, 8);
+      if (!boss.raged) { ctx.fillStyle = pal.text; ctx.fillRect(bx + bw / 2 - 1, by - 4, 2, 16); } }
     if ((boss.recoverUntil || 0) > songPos && !boss.act && boss.stagT <= .5) { ctx.fillStyle = SEAL; ctx.font = `400 12px "Song Myung", serif`; ctx.textAlign = "left"; ctx.textBaseline = "middle"; ctx.fillText("틈", bx + bw + 8, by + 4); }
     if (boss.stagT > .5) { ctx.fillStyle = JJOK; ctx.font = `400 12px "Song Myung", serif`; ctx.textAlign = "left"; ctx.textBaseline = "middle"; ctx.fillText("흐트러짐", bx + bw + 8, by + 4); }
     { const ni = BNAME[boss.kind], hw = SPR.bname && ni != null ? sprW("bname", ni, 20) : 0, label = `${BOSSES[boss.kind].name}${boss.raged ? " · 격노" : ""}`;
-      ctx.font = `400 16px "Song Myung", serif`; const tw = ctx.measureText(label).width, x0 = W / 2 - (tw + (hw ? hw + 8 : 0)) / 2;
-      ctx.fillStyle = boss.raged ? SEAL : pal.text; ctx.textAlign = "left"; ctx.textBaseline = "bottom"; ctx.fillText(label, x0, by - 4);
-      if (hw) spr("bname", ni, x0 + tw + 8 + hw / 2, by - 13, 20); else { ctx.fillStyle = pal.text; ctx.fillText(" " + BOSSES[boss.kind].han, x0 + tw, by - 4); } }
+      ctx.font = `400 18px "Song Myung", serif`; const tw = ctx.measureText(label).width, x0 = W / 2 - (tw + (hw ? hw + 8 : 0)) / 2;
+      ctx.fillStyle = boss.raged ? SEAL : pal.text; ctx.textAlign = "left"; ctx.textBaseline = "bottom"; ctx.fillText(label, x0, by - 8);
+      if (hw) { ctx.globalAlpha = .7; spr("bname", ni, x0 + tw + 8 + hw / 2, by - 17, 20); ctx.globalAlpha = 1; } }
     ctx.setTransform(1, 0, 0, 1, 0, 0);
   }
+  if (boss && boss.raged && state === "play" && !settings.calm) { ctx.setTransform(DPR, 0, 0, DPR, 0, 0); const ph = ((Music.pos() / Music.beatLen) % 1 + 1) % 1, k = .12 + .1 * Math.max(0, 1 - ph * 3);   // 격노: red ink bleeds in at the edges, pulsing on the beat
+    const g = ctx.createRadialGradient(W / 2, H / 2, Math.min(W, H) * .42, W / 2, H / 2, Math.max(W, H) * .72); g.addColorStop(0, "rgba(150,14,20,0)"); g.addColorStop(1, `rgba(150,14,20,${k})`); ctx.fillStyle = g; ctx.fillRect(0, 0, W, H); ctx.setTransform(1, 0, 0, 1, 0, 0); }
   drawBossCards(pal); drawCombatHud(pal);
   if (P && P.focus && state === "play") { ctx.fillStyle = "rgba(39,70,106,.14)"; ctx.fillRect(0, 0, cv.width, cv.height); }
   else if (killCam > 0 && state === "play") { ctx.fillStyle = `rgba(120,10,16,${.12 * Math.min(1, killCam * 3)})`; ctx.fillRect(0, 0, cv.width, cv.height); }   // a faint red breath over the held moment
@@ -3978,6 +3996,11 @@ function drawCombatHud(pal) { // 기력 under the 숨, the chain's numeral at th
     ctx.font = `400 12px "Song Myung", serif`; ctx.textAlign = "center"; ctx.fillStyle = g >= 5 ? SEAL : pal.text; ctx.fillText(`${n} 연속`, x, y + 24); ctx.textAlign = "left"; }
   ctx.setTransform(1, 0, 0, 1, 0, 0);
 }
+let bossStrokeC = null;
+function bossStrokes(f) { // the ui brush stroke tinted once into the boss bar's inks
+  if (bossStrokeC) return bossStrokeC; const mk = col => { const o = document.createElement("canvas"); o.width = f.w; o.height = f.h; const x = o.getContext("2d"); x.drawImage(SPR.ui.img, f.x, f.y, f.w, f.h, 0, 0, f.w, f.h); if (col) { x.globalCompositeOperation = "source-in"; x.fillStyle = col; x.fillRect(0, 0, f.w, f.h); } return o; };
+  return (bossStrokeC = { ink: mk(null), red: mk("#a8141b"), rage: mk("#d42a1c"), pale: mk("#e6b3a6") });
+}
 function drawBossCards(pal) { // screen-space: the guardian's entrance, the big words, the fall — painted where the sheets are in
   ctx.setTransform(DPR, 0, 0, DPR, 0, 0); ctx.textAlign = "center"; ctx.textBaseline = "middle";
   const halo = pal.night ? "rgba(20,18,20,.75)" : "rgba(242,239,230,.88)";
@@ -4077,7 +4100,13 @@ function drawHazards(pal) {
         if (!drawSprite("bossfx", FXB.coin, z.x + z.w / 2, y + z.h / 2, 30 / (SPR.bossfx ? SPR.bossfx.f[FXB.coin].h : 1), false, .5, false, .5)) { ctx.fillStyle = "#b08a3a"; ctx.beginPath(); ctx.arc(z.x + z.w / 2, y + z.h / 2, 12, 0, 7); ctx.fill(); }
         continue;
       }
-      ctx.globalAlpha = .1 + prog * .4; inkWash(z.x, z.y, z.w, z.h, SEAL, z.x + z.y); ctx.globalAlpha = 1;   // a reddening wash, brushed in
+      if (z.kind === "beam") { ctx.globalAlpha = .1 + prog * .4; inkWash(z.x, z.y, z.w, z.h, SEAL, z.x + z.y); ctx.globalAlpha = 1; }
+      else { // the ground warns first: a red crack opens along the floor, then a thin wash climbs out of it toward the strike
+        const gy = z.y + z.h, cw = z.w * (.4 + .6 * prog);
+        ctx.globalAlpha = .55 + prog * .4; brushLine(z.x + z.w / 2 - cw / 2, gy - 1, z.x + z.w / 2 + cw / 2, gy - 1, SEAL, 2 + prog * 3, false, z.x);
+        const rise = Math.max(0, (prog - .35) / .65); if (rise > 0) { ctx.globalAlpha = .08 + rise * .3; inkWash(z.x + z.w * .15, gy - z.h * rise, z.w * .7, z.h * rise, SEAL, z.x + z.y); }
+        if (!LITE() && Math.random() < .35) parts.push({ x: z.x + Math.random() * z.w, y: gy - 2, vx: (Math.random() - .5) * 20, vy: -60 - Math.random() * 90 * (1 + prog), life: .5, max: .5, c: "rgba(23,22,26,.7)", s: 1.5 + Math.random() * 2 });
+        ctx.globalAlpha = 1; }
       if (z.kind === "beam") { ctx.globalAlpha = .4 + prog * .5; brushLine(z.x, z.y, z.x + z.w, z.y, SEAL, 3, false, z.x); brushLine(z.x, z.y + z.h, z.x + z.w, z.y + z.h, SEAL, 3, false, z.y); ctx.globalAlpha = 1; }
       continue;
     }

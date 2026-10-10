@@ -6,6 +6,8 @@ const TUNING = Object.freeze({
   FLASH_BASE: 0.34,       // the 간파 window before a blow lands
   FLASH_MAX: 0.6,         // all 간파 bonuses together never widen it past this (calm at one breath may still double it)
   HIT_INVULN: 1.5,        // seconds untouchable after losing a breath
+  RECOIL_V: 480,          // a shot's kick (px/s) before each gun's own weight
+  RECOIL_GROUND_X: 0.55,  // standing, the feet take most of the push
   // 숨
   START_BREATH: 4, GATE_HEAL_TO: 4,   // a cleared gate gives one back while below this
   REST_BREATH: 2,                     // 쉼터 · 숨 고르기
