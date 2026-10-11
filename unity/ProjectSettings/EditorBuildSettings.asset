@@ -4,5 +4,8 @@
 EditorBuildSettings:
   m_ObjectHideFlags: 0
   serializedVersion: 2
-  m_Scenes: []
+  m_Scenes:
+  - enabled: 1
+    path: Assets/Cheongo/Main.unity
+    guid: 2b0dc2debb1c9404284079ce6ee8adcb
   m_configObjects: {}

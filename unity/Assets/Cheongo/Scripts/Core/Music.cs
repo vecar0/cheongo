@@ -27,10 +27,10 @@ namespace Cheongo
         public static Music I { get { if (inst == null) { var go = new GameObject("Music"); DontDestroyOnLoad(go); inst = go.AddComponent<Music>(); } return inst; } }
 
         const int SR = 44100;
-        const float MUS = .8f * .9f * 1.6f, SFX = .9f * 1.6f;   // the web desk's bus gains; the last factor stands in for its limiter's make-up
+        float MUS => MusVol * .9f * 1.6f; float SFX => SfxVol * .9f * 1.6f;   // the web desk's bus gains; the last factor stands in for its limiter's make-up
         readonly List<AudioSource> pool = new List<AudioSource>();
         readonly Dictionary<string, AudioClip> clips = new Dictionary<string, AudioClip>();
-        Def def; double t0, lastNow, lastDsp, lastReal; int nextIdx, melDeg, tier; bool running; uint seed = 1; float pos;
+        Def def; double baseTime, lastNow, lastDsp, lastReal; float rate = 1, basePos; int nextIdx, melDeg, tier; bool running; uint seed = 1; float pos;
         public float Volume = 1;
 
         public Def Current => def;
@@ -38,6 +38,11 @@ namespace Cheongo
         public float Pos => pos;                                   // song position (seconds since the first beat)
         public float OffBeat(float p) { float b = BeatLen; return p - Mathf.Round(p / b) * b; }   // signed distance to the nearest beat
         public void SetTier(int t) { tier = Mathf.Clamp(t, 0, 5); }
+        public float MusVol = .8f, SfxVol = 1;
+        // 무아경: the whole 장단 slows with the held world; 기세 quickens it. The song position stays continuous.
+        public void SetRate(float r) { if (!running || Mathf.Approximately(r, rate)) return; double now = Now(); basePos = pos; baseTime = now; rate = r; nextIdx = Mathf.Max(nextIdx, Mathf.CeilToInt(pos / (60f / def.bpm / def.sub))); }
+        AudioLowPassFilter lp;
+        public void Muffle(bool on) { if (lp == null) { var l = FindAnyObjectByType<AudioListener>(); if (l == null) return; lp = l.GetComponent<AudioLowPassFilter>(); if (lp == null) lp = l.gameObject.AddComponent<AudioLowPassFilter>(); } lp.cutoffFrequency = on ? 700 : 22000; }
 
         void Awake() { Build(); }
 
@@ -48,7 +53,7 @@ namespace Cheongo
             if (d != lastDsp) { lastDsp = d; lastReal = r; }
             return d + Math.Min(.05, r - lastReal);
         }
-        double AudioAt(float sp) => t0 + sp;
+        double AudioAt(float sp) => baseTime + (sp - basePos) / rate;
         float Rng() { seed = seed * 1664525u + 1013904223u; return seed / 4294967296f; }
 
         public void StartSong(string key, int songSeed)
@@ -57,7 +62,7 @@ namespace Cheongo
             def = JANGDAN.TryGetValue(key ?? "", out var d) ? d : JANGDAN["jungmori"];
             seed = (uint)songSeed; if (seed == 0) seed = 1;
             nextIdx = 0; melDeg = 0; tier = 0; running = true;
-            lastNow = Now(); t0 = lastNow + .25; pos = (float)(lastNow - t0);
+            lastNow = Now(); rate = 1; baseTime = lastNow + .25; basePos = 0; pos = -.25f;
         }
         public void StopSong() { running = false; }
 
@@ -66,11 +71,11 @@ namespace Cheongo
         {
             if (!running) return;
             double now = Now();
-            if (now - lastNow > .25) t0 += now - lastNow - 1 / 60.0;   // the game stood still (pause, lost focus): the song waits with it
+            if (now - lastNow > .25) baseTime += now - lastNow - 1 / 60.0;   // the game stood still (pause, lost focus): the song waits with it
             if (now < lastNow) now = lastNow;
-            lastNow = now; pos = (float)(now - t0);
+            lastNow = now; pos = basePos + (float)(now - baseTime) * rate;
             double horizon = AudioSettings.dspTime + .15; float sl = 60f / def.bpm / def.sub; int len = def.pat.Length;
-            if (AudioAt(nextIdx * sl) < AudioSettings.dspTime - .1) nextIdx = Mathf.CeilToInt((float)(AudioSettings.dspTime - t0) / sl);   // never play the strokes that fell inside a pause
+            if (AudioAt(nextIdx * sl) < AudioSettings.dspTime - .1) nextIdx = Mathf.CeilToInt(pos / sl);   // never play the strokes that fell inside a pause
             while (AudioAt(nextIdx * sl) < horizon)
             {
                 double t = AudioAt(nextIdx * sl); int i = nextIdx % len; char ch = def.pat[i]; float v = (i == 0 ? 1 : .8f) * .7f;   // 장구 keeps the beat the game is judged on

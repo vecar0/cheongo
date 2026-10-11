@@ -9,8 +9,8 @@ namespace Cheongo
         const int SF_FWD = 0, SF_UP = 1, SF_DOWN = 2, SF_ARC = 3, SF_ARC_RED = 4; const float SLASH_K = 1.18f;   // the lunge reads at ~80% of standing height
         static readonly float[] SF_AX = { .44f, .55f, .6f };
 
-        Sim sim; SpriteRenderer sr, arc, arcBack; Sheet sheet, slash; float k;
-        HeroFrames H; float[] AX; readonly SpriteRenderer[] notch = new SpriteRenderer[4];
+        Sim sim; SpriteRenderer sr, arc, arcBack, aimLine, reticle, dim; Sheet sheet, slash; float k;
+        HeroFrames H; float[] AX; readonly SpriteRenderer[] notch = new SpriteRenderer[8];
 
         public static PlayerView Create(Sim sim, Transform parent)
         {
@@ -19,7 +19,8 @@ namespace Cheongo
             v.sheet = Sheet.Get("hero3"); v.slash = Sheet.Get("slashfx"); v.H = DB.Tables.H3; v.AX = DB.Tables.H3_AX;
             if (v.sheet != null) v.k = World.ScaleFor(DB.Tables.HERO_H * 1.08f, v.sheet.FrameH(v.H.idle));
             v.arc = Child("Cut", parent, 12); v.arcBack = Child("CutBehind", parent, 11);
-            for (int i = 0; i < 4; i++) { v.notch[i] = Child("Edge", parent, 30); v.notch[i].sprite = Fx.Dot(); }
+            for (int i = 0; i < v.notch.Length; i++) { v.notch[i] = Child("Edge", parent, 30); v.notch[i].sprite = Fx.Dot(); }
+            v.aimLine = Child("AimLine", parent, 24); v.reticle = Child("Reticle", parent, 25); v.dim = Child("Hush", parent, 6); v.dim.sprite = FightView.Box();
             return v;
         }
         static SpriteRenderer Child(string name, Transform parent, int order) { var go = new GameObject(name); go.transform.SetParent(parent, false); var s = go.AddComponent<SpriteRenderer>(); s.sortingOrder = order; s.enabled = false; return s; }
@@ -58,14 +59,28 @@ namespace Cheongo
             }
 
             // 날: short strokes over the head, dark while sharp — shown only once the edge has been used
-            bool show = sim.state == "play" && p.edge >= 0 && p.edge < notch.Length;
+            int max = Mathf.Min(notch.Length, sim.EdgeNotches); bool show = sim.state == "play" && p.edge >= 0 && p.edge < max;
             for (int n = 0; n < notch.Length; n++)
             {
-                notch[n].enabled = show; if (!show) continue;
-                notch[n].transform.localPosition = World.ToUnity(cx - (notch.Length - 1) * 4 + n * 8, p.b.y - 12, -1); notch[n].transform.localRotation = Quaternion.Euler(0, 0, 28);
+                notch[n].enabled = show && n < max; if (!notch[n].enabled) continue;
+                notch[n].transform.localPosition = World.ToUnity(cx - (max - 1) * 4 + n * 8, p.b.y - 12, -1); notch[n].transform.localRotation = Quaternion.Euler(0, 0, 28);
                 notch[n].transform.localScale = new Vector3(2.6f / World.T, 9f / World.T, 1); notch[n].color = n < p.edge ? new Color(.09f, .086f, .1f, 1) : p.edge < 1 ? new Color(.76f, .09f, .11f, .45f) : new Color(.09f, .086f, .1f, .2f);
             }
         }
+
+        // 무아경: the world hushes under a wash of ink and the aim is brushed out from the body, a reticle where the dash will end
+        public void SyncAim(Camera cam)
+        {
+            var p = sim.P; bool on = sim.state == "play" && p.focus && p.focusT > DB.Tuning.TAP_T; float want = on || sim.killCam > 0 ? (on ? .42f : .2f) : 0;
+            hush = Mathf.MoveTowards(hush, want, Time.unscaledDeltaTime * 3); dim.enabled = hush > .01f;
+            if (dim.enabled) { float h = cam.orthographicSize * 2 + 2, w = h * cam.aspect + 2; dim.color = new Color(.05f, .045f, .06f, hush); dim.transform.position = new Vector3(cam.transform.position.x - w / 2, cam.transform.position.y + h / 2, 1); dim.transform.localScale = new Vector3(w, h, 1); }
+            var solid = Sheet.Get("hudsolid"); aimLine.enabled = reticle.enabled = on && solid != null; if (!aimLine.enabled) return;
+            var d = sim.aimNow; float L = DB.Tuning.DASHV * .15f * (sim.run.Has("d_far") ? 1.8f : 1), cx = p.b.cx, cy = p.b.cy; var f = solid.Frames[3];
+            aimLine.sprite = solid.Frame(3, 0, .5f); aimLine.transform.localPosition = World.ToUnity(cx + d.x * 14, cy + d.y * 14, -.6f); aimLine.transform.localRotation = Quaternion.Euler(0, 0, -Mathf.Atan2(d.y, d.x) * Mathf.Rad2Deg);
+            aimLine.transform.localScale = new Vector3((L - 14) / World.T / (f.w / World.PPU), 10 / World.T / (f.h / World.PPU), 1); aimLine.color = new Color(1, 1, 1, .85f);
+            float k = World.ScaleFor(30, solid.FrameH(4)); reticle.sprite = solid.Frame(4, .5f, .5f); reticle.transform.localPosition = World.ToUnity(cx + d.x * L, cy + d.y * L, -.6f); reticle.transform.localScale = new Vector3(k, k, 1); reticle.transform.localRotation = Quaternion.Euler(0, 0, Time.unscaledTime * 60);
+        }
+        float hush;
 
         void Place(SpriteRenderer r, int frame, float x, float y, float rot, float h, bool flip, float a)
         {

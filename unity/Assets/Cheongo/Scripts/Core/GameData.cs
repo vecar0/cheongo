@@ -16,7 +16,9 @@ namespace Cheongo
         public int HON_PER_GATE, HON_PER_FLOOR, START_SP, FREE_FALLS, DRUM_PLAIN_N;
         public float DRUM_PLAIN_R, HAWK_TELL, HAWK_DIVE_V, HAWK_REST_BEATS;
         public int[] TREE_OPEN_HON;
+        public Diff[] DIFF;   // 난이도: 숨, 간파 판정(초), 적이 다시 공격하기까지 걸리는 배수, 우두머리 체력, 혼
     }
+    [Serializable] public class Diff { public string name, desc; public int breath; public float kan, fire, bossHp, hon; }
 
     [Serializable] public class Madang { public string jd; public string line; public string[] tiers; }
     [Serializable] public class Palette { public string bg, tile, fig, foe, text, wash; public float farA, midA; }

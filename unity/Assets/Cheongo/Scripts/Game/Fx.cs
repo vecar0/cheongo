@@ -114,6 +114,9 @@ namespace Cheongo
             seals.Add(new SealOne { sr = sr, x = x, y = y - 30, big = big });
             words.Add(new Word { x = x, y = y - 30, txt = "妙", col = Rgb("#f6f0e2"), stamp = true });
         }
+        // a name brushed large across the screen for a breath (an 오의, a guardian coming in)
+        public string banner, bannerSub; public float bannerT = 9;
+        public void Banner(string name, string sub) { banner = name; bannerSub = sub; bannerT = 0; }
         public void Pop(float x, float y, string txt, string col) { words.Add(new Word { x = x, y = y, txt = txt, col = Rgb(col) }); if (words.Count > 12) words.RemoveAt(0); }
 
         // blood burst + spray along the blow
@@ -131,7 +134,7 @@ namespace Cheongo
 
         void Update()
         {
-            float dt = Mathf.Min(.05f, Time.deltaTime);
+            float dt = Mathf.Min(.05f, Time.unscaledDeltaTime); bannerT += dt;
             for (int i = live.Count - 1; i >= 0; i--) { var o = live[i]; o.t += dt; if (o.t >= o.life) { Retire(i); continue; } Shape(o); }
             for (int i = drops.Count - 1; i >= 0; i--)
             {

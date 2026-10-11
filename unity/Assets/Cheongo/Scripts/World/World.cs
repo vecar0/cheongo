@@ -30,6 +30,8 @@ namespace Cheongo
         public int w, h; public byte[] grid;   // 0 air, 1 rock, 2 thorns, 3 ledge
         public Vector2 start; public Rect exit; public readonly List<Foe> foes = new List<Foe>();
         public Palette pal; public int madang;
+        public readonly List<Target> targets = new List<Target>(); public readonly List<Vector2> cps = new List<Vector2>();   // 과녁 · lanterns (checkpoints)
+        public bool hasDrum, sealOn; public Vector2 drum; public int sealX0, sealX1, sealY1;   // 천고 itself · the talisman barrier around a guardian
 
         public int TileAt(int tx, int ty) { if (tx < 0 || tx >= w) return 1; if (ty < 0 || ty >= h) return 0; return grid[ty * w + tx]; }
 
@@ -88,36 +90,51 @@ namespace Cheongo
             return false;
         }
 
-        // a gate laid out as on the web: the start piece, then hand-made pieces drawn from this 마당's tier list, then the way out
-        public static Level Build(int m, int seed)
+        // a gate laid out as on the web: the start piece, then hand-made pieces drawn from the tier list of this 마당, then the way out.
+        // md: which of the five 마당 (장단) it draws on · arena: 천고대, where the guardian and the drum wait · cycle: how many times 천고 has been cut · crowd: extra guards (험로)
+        public static Level Build(int md, int seed, bool arena = false, int cycle = 0, int crowd = 0, int len = 5)
         {
-            var tb = DB.Tables; var rng = new System.Random(seed);
+            var tb = DB.Tables; var rng = new System.Random(seed ^ ((md + 1) * 0x9E3779) ^ (cycle * 0x85EBCA));   // each turn of the tower lays out fresh
             var rows = new List<string>(tb.START_PIECE);
-            var tiers = new List<string>(tb.MADANG[m].tiers);
+            var tiers = new List<string>(tb.MADANG[md].tiers);
             for (int i = tiers.Count - 1; i > 0; i--) { int j = rng.Next(i + 1); (tiers[i], tiers[j]) = (tiers[j], tiers[i]); }
             var used = new HashSet<int>();
-            foreach (var tier in tiers.GetRange(0, Mathf.Min(5, tiers.Count)))
+            foreach (var tier in tiers.GetRange(0, Mathf.Min(arena ? 2 : len, tiers.Count)))
             {
                 char kind = char.IsLetter(tier[0]) ? tier[0] : ' '; int t = int.Parse(kind == ' ' ? tier : tier.Substring(1));
                 var pool = new List<int>();
                 for (int i = 0; i < DB.Chunks.Length; i++) { var c = DB.Chunks[i]; bool fits = kind == 'w' ? c.wall && c.tier <= t : kind == 'm' ? c.multi && c.tier <= t : c.tier == t && !c.multi; if (fits && !used.Contains(i)) pool.Add(i); }
                 if (pool.Count == 0) for (int i = 0; i < DB.Chunks.Length; i++) { var c = DB.Chunks[i]; if (kind == 'w' ? c.wall && c.tier <= t : kind == 'm' ? c.multi && c.tier <= t : c.tier == t && !c.multi) pool.Add(i); }
                 int ci = pool[rng.Next(pool.Count)]; used.Add(ci);
-                var map = (string[])DB.Chunks[ci].map.Clone(); bool flip = rng.NextDouble() < .5;
+                var map = DB.Chunks[ci].map; bool flip = rng.NextDouble() < .5; var piece = new char[16][];
                 for (int y = 0; y < 16; y++)
                 {
                     var row = map[y].ToCharArray(); if (flip) System.Array.Reverse(row);
                     for (int x = 0; x < row.Length; x++)
                     {
-                        if (row[x] == '?') { double r = rng.NextDouble(); row[x] = m == 0 ? (r < .55 ? 'p' : 'g') : m == 1 ? (r < .35 ? 'p' : r < .62 ? 'g' : r < .82 ? 's' : 'a') : (r < .2 ? 'p' : r < .36 ? 'g' : r < .52 ? 'h' : r < .66 ? 's' : r < .84 ? 'a' : 'k'); }
-                        else if (row[x] == '*') row[x] = rng.NextDouble() < .5 + .12 * m ? 'd' : ' ';
-                        else if (row[x] == 'L' || row[x] == 'M') row[x] = ' ';   // light beams: a later step
+                        if (row[x] == '?')
+                        {
+                            double r = rng.NextDouble(); row[x] = md == 0 ? (r < .55 ? 'p' : 'g') : md == 1 ? (r < .35 ? 'p' : r < .62 ? 'g' : r < .82 ? 's' : 'a') : (r < .2 ? 'p' : r < .36 ? 'g' : r < .52 ? 'h' : r < .66 ? 's' : r < .84 ? 'a' : 'k');   // 순라 in front, then 포수·저격수, 등패수, 자객, 북잡이
+                            if (cycle >= 1) { double r2 = rng.NextDouble(); if (r2 < .14) row[x] = 'm'; else if (cycle >= 2 && r2 < .28) row[x] = 'r'; }   // 무당 from the second turn, 저승사자 from the third
+                        }
+                        else if (row[x] == '*') row[x] = rng.NextDouble() < .5 + .12 * md ? 'd' : ' ';
+                        else if (row[x] == 'L' || row[x] == 'M' || row[x] == 'o') row[x] = ' ';   // 금줄 and 연: not ported
                     }
-                    rows[y] += new string(row);
+                    piece[y] = row;
                 }
+                if (piece[11].Length > 1 && piece[11][1] == ' ') piece[11][1] = 'C';
+                // extra guards on open ground; each turn of 천고 brings more
+                for (int extra = 1 + crowd + Mathf.Min(4, cycle); extra > 0; extra--) if (rng.NextDouble() < .45 + .08 * md + .35 * Mathf.Min(1, crowd) + .1 * Mathf.Min(3, cycle)) for (int tries = 0; tries < 8; tries++)
+                {
+                    int x = 3 + rng.Next(Mathf.Max(1, piece[0].Length - 6)), y = 2; while (y < 15 && piece[y][x] == ' ') y++;
+                    bool near = false; for (int k = Mathf.Max(0, x - 2); k < Mathf.Min(piece[y - 1].Length, x + 3); k++) if ("gshdmrpak".IndexOf(piece[y - 1][k]) >= 0) near = true;
+                    if (y < 15 && piece[y][x] == '#' && piece[y - 1][x] == ' ' && piece[y - 2][x] == ' ' && !near) { piece[y - 1][x] = md >= 2 && rng.NextDouble() < .35 ? 'h' : rng.NextDouble() < .5 ? 'p' : 'g'; break; }
+                }
+                for (int y = 0; y < 16; y++) rows[y] += new string(piece[y]);
             }
-            for (int y = 0; y < 16; y++) rows[y] += y >= 12 ? "##########" : y == 11 ? "      E   " : "          ";
-            return FromRows(rows.ToArray(), m);
+            if (arena) for (int y = 0; y < 16; y++) rows[y] += tb.ARENA_PIECE[y];   // only 天鼓臺 has a guardian, 천고 right behind it
+            for (int y = 0; y < 16; y++) rows[y] += y >= 12 ? "########" : y == 11 ? (arena ? "     D  " : "     E  ") : "        ";
+            return FromRows(rows.ToArray(), md);
         }
 
         public static Level FromRows(string[] map, int m)
@@ -133,6 +150,9 @@ namespace Cheongo
                 else if (ch == '=') lv.grid[y * lv.w + x] = 3;
                 else if (ch == 'P') lv.start = new Vector2(x * World.T + 7, (y + 1) * World.T - 30);
                 else if (ch == 'E') lv.exit = new Rect(x * World.T + 1, (y - 1) * World.T + 6, World.T - 2, 2 * World.T - 6);
+                else if (ch == 'D') { lv.hasDrum = true; lv.drum = new Vector2(x * World.T + 16, (y + 1) * World.T); }
+                else if (ch == 'T') lv.targets.Add(new Target { x = x * World.T + 16, y = y * World.T + 16 });
+                else if (ch == 'C') lv.cps.Add(new Vector2(x * World.T + 16, (y + 1) * World.T));
                 else if ("gsdhmrbpak".IndexOf(ch) >= 0) lv.foes.Add(new Foe { type = ch, tx = x, ty = y, id = id++ });
             }
             return lv;
