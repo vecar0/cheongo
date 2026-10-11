@@ -1,6 +1,8 @@
 // 무명's body: the web game's stepPlayer movement, ported line for line (run, jump with buffer and coyote time,
 // variable height, ledges you drop through, wall slide, wall run, wall kick and the jump it buys, the dash and its air count).
-// Combat (cuts, 간파, guns, 무아경 aiming) comes in the next steps.
+// The cut's own state lives here too (its timers, the edge, what it has already struck); the fight itself is Sim.
+// Guns and 무아경 aiming come in the next steps.
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace Cheongo
@@ -12,7 +14,14 @@ namespace Cheongo
         public float coyote, jumpBuf, wallLock, wallT, climbT = .5f, dashT, dashCd, dropT, landT, run;
         public int wall, wallMem, airDash = 1, wallBonus, djN; public bool climbing;
         public Vector2 dashDir = new Vector2(1, 0);
-        public System.Action<string, float, float, int> Fx;   // effect hooks: "jump", "land", "dash", "wall", "air"
+        public System.Action<string, float, float, int> Fx;   // effect hooks: "jump", "land", "dust", "dash", "wall", "air"
+        public System.Func<Vector2, bool> DashHook;            // 간파 돌진: the fight may take the dash for itself
+        // the cut
+        public float slashT, slashDur = .14f, slashCd; public Vector2 slashDir = new Vector2(1, 0); public bool strike, countered, airCutUsed, tapDash;
+        public readonly HashSet<int> hitSet = new HashSet<int>(), dashHit = new HashSet<int>();
+        public int edge = -1, chain; public float edgeIdle, edgeT, chainPop, landG;   // 날: notches left (-1 until first read)
+        // being struck
+        public float invT, offBal, counterT, kanLungeT, lastVy, safeT; public bool hasSafe; public Vector2 safe;   // 낙법 remembers firm ground
         readonly Level lv; readonly Tuning tu;
         public int AirJumps = 0;   // 2단 점프 (비급 · 무녀): extra jumps in the air
 
@@ -25,6 +34,7 @@ namespace Cheongo
         {
             int ix = inp.x > .3f ? 1 : inp.x < -.3f ? -1 : 0;
             dashCd = Mathf.Max(0, dashCd - dt); dropT = Mathf.Max(0, dropT - dt); landT = Mathf.Max(0, landT - dt);
+            invT = Mathf.Max(0, invT - dt); offBal = Mathf.Max(0, offBal - dt); counterT = Mathf.Max(0, counterT - dt); slashCd = Mathf.Max(0, slashCd - dt); kanLungeT = Mathf.Max(0, kanLungeT - dt);
             if (inp.jumpPressed && onGround && inp.y > .5f && lv.OnLedge(b)) { dropT = .25f; b.y += 3; onGround = false; inp.jumpPressed = false; }   // down + jump: drop through a ledge
             if (inp.jumpPressed) jumpBuf = .18f;
             if (inp.dashPressed) TryDash(inp);
@@ -34,7 +44,7 @@ namespace Cheongo
                 dashT -= dt; vx = dashDir.x * tu.DASHV; vy = dashDir.y * tu.DASHV;
                 float pb = b.y + b.h; bool hx = lv.MoveX(b, vx * dt), hy = lv.MoveY(b, vy * dt);
                 if (!hy && vy > 0 && !(dropT > 0)) { var top = lv.LedgeBelow(b, pb); if (top != null) { b.y = top.Value - b.h - .001f; hy = true; } }
-                if (dashT <= 0 || hx || hy) { dashT = 0; vx = dashDir.x * MaxV * 1.35f; vy = dashDir.y * 380; }
+                if (dashT <= 0 || hx || hy) { dashT = 0; tapDash = false; vx = dashDir.x * MaxV * 1.35f; vy = dashDir.y * 380; }
             }
             else
             {
@@ -59,16 +69,18 @@ namespace Cheongo
                 climbing = wall != 0 && ix == wall && climbT > 0 && wallLock <= 0;   // wall run: for a moment you carry on up it
                 if (climbing) { vy = Mathf.Min(vy, -tu.CLIMBV); climbT -= dt; }
                 lv.MoveX(b, vx * dt);
-                float pb = b.y + b.h;
+                float pb = b.y + b.h; lastVy = vy;
                 if (lv.MoveY(b, vy * dt)) vy = 0;
                 else if (vy > 0 && !(dropT > 0)) { var top = lv.LedgeBelow(b, pb); if (top != null) { b.y = top.Value - b.h - .001f; vy = 0; } }
             }
 
             bool was = onGround;
             onGround = vy >= 0 && (lv.RectSolid(b.x, b.y + b.h, b.w, 2) || (!(dropT > 0) && lv.OnLedge(b)));
-            if (onGround && !was) { landT = .12f; Fx?.Invoke("land", b.x + b.w / 2, b.y + b.h, face); }
-            if (onGround) { coyote = .14f; airDash = BaseAir; climbT = tu.CLIMB_T; if (Mathf.Abs(vx) > 20) run += dt * Mathf.Abs(vx) * .045f; }
-            else coyote = Mathf.Max(0, coyote - dt);
+            if (onGround && lv.RectSolid(b.x - 6, b.y + b.h, b.w + 12, 2)) { safeT += dt; if (safeT > .35f) { safe = new Vector2(b.x, b.y); hasSafe = true; } }
+            if (!onGround) safeT = 0;
+            if (onGround && !was) { landT = .1f; Fx?.Invoke("dust", b.x + b.w / 2, b.y + b.h + 2, face); if (lastVy > 650) Fx?.Invoke("land", b.x + b.w / 2, b.y + b.h + 3, face); }
+            if (onGround) { airCutUsed = false; if (chain > 0) { landG += dt; if (landG > .3f) chain = 0; } coyote = .14f; airDash = BaseAir; climbT = tu.CLIMB_T; if (Mathf.Abs(vx) > 20) run += dt * Mathf.Abs(vx) * .045f; }
+            else { coyote = Mathf.Max(0, coyote - dt); landG = 0; }
             bool wl = lv.RectSolid(b.x - 3, b.y + 4, 3, b.h - 8), wr = lv.RectSolid(b.x + b.w, b.y + 4, 3, b.h - 8);
             wall = onGround ? 0 : wr ? 1 : wl ? -1 : 0;
             if (wall != 0) { wallMem = wall; wallT = .12f; } else wallT = Mathf.Max(0, wallT - dt);   // a wall kick still works a moment after slipping off
@@ -78,14 +90,17 @@ namespace Cheongo
             jumpBuf = Mathf.Max(0, jumpBuf - dt);
         }
 
+        public int BaseAirDash => BaseAir;
+        public void RegainAir() { airDash = Mathf.Max(airDash, BaseAir); dashCd = 0; djN = 0; }
         void TryDash(PlayerInput inp)
         {
             if (dashCd > 0 || dashT > 0) return;
-            if (!onGround) { if (airDash <= 0) return; airDash--; }
             var d = new Vector2(inp.x, inp.y); if (d.magnitude < .5f) d = new Vector2(face, 0); d.Normalize();
+            if (DashHook != null && DashHook(d)) return;
+            if (!onGround) { if (airDash <= 0) return; airDash--; }
             if (onGround && d.y > .2f) d = new Vector2(d.x == 0 ? face : Mathf.Sign(d.x), 0);
             Fx?.Invoke("dash", b.x + b.w / 2 - d.x * 26, b.y + b.h / 2 - d.y * 26, Mathf.Abs(d.x) > .2f ? (int)Mathf.Sign(d.x) : face);
-            dashDir = d; bool fromGround = onGround; dashT = .15f;
+            dashDir = d; bool fromGround = onGround; dashT = .15f; dashCd = .32f; dashHit.Clear(); tapDash = true;
             if (fromGround) dashCd = Mathf.Max(dashCd, .45f);   // on the ground the dash is free of the air count, so it cools a little longer
             if (Mathf.Abs(d.x) > .2f) face = (int)Mathf.Sign(d.x);
         }

@@ -1,42 +1,76 @@
-// 무명 drawn from the hero3 sheet: idle, the six-step run, rise / turn / fall, the wall, the dash, the landing.
+// 무명 drawn as the web game's drawPlayer does: the hero3 sheet for moving (idle, the six-step run, rise / turn / fall, the wall,
+// the dash, the landing), the lunge poses and the ink crescent for a cut, the blink of being struck, the 날 notches over the head.
 using UnityEngine;
 
 namespace Cheongo
 {
     public class PlayerView : MonoBehaviour
     {
-        Player p; SpriteRenderer sr; Sheet sheet; float k;
-        HeroFrames H; float[] AX;
+        const int SF_FWD = 0, SF_UP = 1, SF_DOWN = 2, SF_ARC = 3, SF_ARC_RED = 4; const float SLASH_K = 1.18f;   // the lunge reads at ~80% of standing height
+        static readonly float[] SF_AX = { .44f, .55f, .6f };
 
-        public static PlayerView Create(Player p, Transform parent)
+        Sim sim; SpriteRenderer sr, arc, arcBack; Sheet sheet, slash; float k;
+        HeroFrames H; float[] AX; readonly SpriteRenderer[] notch = new SpriteRenderer[4];
+
+        public static PlayerView Create(Sim sim, Transform parent)
         {
             var go = new GameObject("Mumyeong"); go.transform.SetParent(parent, false);
-            var v = go.AddComponent<PlayerView>(); v.p = p; v.sr = go.AddComponent<SpriteRenderer>(); v.sr.sortingOrder = 10;
-            v.sheet = Sheet.Get("hero3"); v.H = DB.Tables.H3; v.AX = DB.Tables.H3_AX;
-            if (v.sheet != null) v.k = World.ScaleFor(DB.Tables.HERO_H, v.sheet.FrameH(v.H.idle));
+            var v = go.AddComponent<PlayerView>(); v.sim = sim; v.sr = go.AddComponent<SpriteRenderer>(); v.sr.sortingOrder = 10;
+            v.sheet = Sheet.Get("hero3"); v.slash = Sheet.Get("slashfx"); v.H = DB.Tables.H3; v.AX = DB.Tables.H3_AX;
+            if (v.sheet != null) v.k = World.ScaleFor(DB.Tables.HERO_H * 1.08f, v.sheet.FrameH(v.H.idle));
+            v.arc = Child("Cut", parent, 12); v.arcBack = Child("CutBehind", parent, 11);
+            for (int i = 0; i < 4; i++) { v.notch[i] = Child("Edge", parent, 30); v.notch[i].sprite = Fx.Dot(); }
             return v;
         }
+        static SpriteRenderer Child(string name, Transform parent, int order) { var go = new GameObject(name); go.transform.SetParent(parent, false); var s = go.AddComponent<SpriteRenderer>(); s.sortingOrder = order; s.enabled = false; return s; }
 
-        int Pick()
+        // [the lunge sheet?, frame]
+        (bool cut, int f) Pose(Player p)
         {
-            if (p.dashT > 0) return H.dash;
-            if (!p.onGround)
-            {
-                if (p.wall != 0) return H.wall;
-                return p.vy < -60 ? H.rise : p.vy > 60 ? H.fall : H.flip;
-            }
-            if (p.landT > 0) return H.land;
-            if (Mathf.Abs(p.vx) > 20) return H.run[Mathf.FloorToInt(p.run) % H.run.Length];
-            return H.idle;
+            if (p.slashT > 0 && slash != null) return (true, p.slashDir.y < -.5f ? SF_UP : p.slashDir.y > .5f && !p.onGround ? SF_DOWN : SF_FWD);
+            if (p.dashT > 0 || p.kanLungeT > 0) return (false, H.dash);
+            if (!p.onGround) return (false, p.wall != 0 ? H.wall : p.vy < -150 ? H.rise : Mathf.Abs(p.vy) < 150 ? H.flip : H.fall);
+            if (p.landT > 0) return (false, H.land);
+            if (Mathf.Abs(p.vx) > 40) return (false, H.run[Mathf.FloorToInt(p.run / 1.05f) % H.run.Length]);
+            return (false, H.idle);
         }
 
         public void Sync()
         {
             if (sheet == null) return;
-            int f = Pick(); int face = p.wall != 0 && !p.onGround ? -p.wall : p.face;   // on a wall he faces away from it, ready to kick
-            sr.sprite = sheet.Frame(f, f < AX.Length ? AX[f] : .5f, 1f); sr.flipX = face < 0;
-            transform.localPosition = World.ToUnity(p.b.x + p.b.w / 2, p.b.y + p.b.h, 0);
-            transform.localScale = new Vector3(k, k, 1);
+            var p = sim.P; var (cut, f) = Pose(p); float cx = p.b.cx;
+            bool onWall = !cut && f == H.wall; int face = onWall ? p.wall : p.face;
+            sr.sprite = cut ? slash.Frame(f, SF_AX[f], 1f) : sheet.Frame(f, f < AX.Length ? AX[f] : .5f, 1f); sr.flipX = face < 0;
+            float breathe = !cut && f == H.idle ? 1 + Mathf.Sin(Time.time / .38f) * .012f : 1, s = cut ? k * SLASH_K : k;
+            transform.localPosition = World.ToUnity(cx, p.b.y + p.b.h + 1, 0); transform.localScale = new Vector3(s, s * breathe, 1);
+            float al = sim.state == "dead" ? Mathf.Max(0, 1 - sim.deathT / .75f) : sim.state == "over" ? 0 : p.invT > 0 ? (Mathf.FloorToInt(p.invT * 14) % 2 != 0 ? .35f : 1) : 1;
+            sr.color = new Color(1, 1, 1, al);
+
+            // one clean crescent of black ink, an afterimage of the swing a beat behind it
+            bool cutting = p.slashT > 0 && sim.state == "play" && slash != null; arc.enabled = arcBack.enabled = cutting;
+            if (cutting)
+            {
+                var d = p.slashDir; float prog = 1 - Mathf.Min(1, p.slashT / p.slashDur); int i = p.strike ? SF_ARC_RED : SF_ARC;
+                bool left = d.x < -.2f; float ang = Mathf.Atan2(d.y, Mathf.Abs(d.x) < .2f ? .001f : Mathf.Abs(d.x)), hh = (p.strike ? 78 : 68) * (.9f + prog * .15f), sw = left ? -1 : 1;
+                float ox = cx + d.x * 26, oy = p.b.cy - 2 + d.y * 24, rot = left ? -ang : ang, a0 = prog < .2f ? prog / .2f : Mathf.Min(1, (1 - prog) * 2.2f);
+                Place(arc, i, ox, oy, rot, hh, left, a0);
+                float r2 = rot - .42f * sw; Place(arcBack, i, ox - 6 * sw * Mathf.Cos(r2), oy - 6 * sw * Mathf.Sin(r2), r2, hh * .86f, left, a0 * .32f);
+            }
+
+            // 날: short strokes over the head, dark while sharp — shown only once the edge has been used
+            bool show = sim.state == "play" && p.edge >= 0 && p.edge < notch.Length;
+            for (int n = 0; n < notch.Length; n++)
+            {
+                notch[n].enabled = show; if (!show) continue;
+                notch[n].transform.localPosition = World.ToUnity(cx - (notch.Length - 1) * 4 + n * 8, p.b.y - 12, -1); notch[n].transform.localRotation = Quaternion.Euler(0, 0, 28);
+                notch[n].transform.localScale = new Vector3(2.6f / World.T, 9f / World.T, 1); notch[n].color = n < p.edge ? new Color(.09f, .086f, .1f, 1) : p.edge < 1 ? new Color(.76f, .09f, .11f, .45f) : new Color(.09f, .086f, .1f, .2f);
+            }
+        }
+
+        void Place(SpriteRenderer r, int frame, float x, float y, float rot, float h, bool flip, float a)
+        {
+            r.sprite = slash.Frame(frame, .5f, .5f); r.flipX = flip; r.color = new Color(1, 1, 1, a); float s = World.ScaleFor(h, slash.FrameH(frame));
+            r.transform.localPosition = World.ToUnity(x, y, -.5f); r.transform.localRotation = Quaternion.Euler(0, 0, -rot * Mathf.Rad2Deg); r.transform.localScale = new Vector3(s, s, 1);
         }
     }
 }

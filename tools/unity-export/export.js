@@ -32,7 +32,7 @@ write("Data/chunks.json", { chunks: box.CHUNKS.map(c => ({ tier: c.tier, wall: !
 write("Data/game.json", clean(G));
 
 // pictures: sheets keep their frame json (wrapped so Unity's JsonUtility can read it), images become png
-const CORE = ["hero3", "herofx", "slashfx", "hud", "hudsolid", "fx", "props", "props2", "ui"];
+const CORE = ["hero3", "herofx", "slashfx", "hud", "hudsolid", "fx", "props", "props2", "ui", "foes", "foes3", "kfx", "kring", "perkfx", "vis", "mech", "wfx"];
 const IMGS = ["far", "mid", "tex-paper", "tex-stone", "tex-giwa", "tex-granite", "tex-slab"];
 const all = process.argv.includes("--all");
 const sheets = all ? fs.readdirSync(path.join(ROOT, "assets/sprites")).filter(f => f.endsWith(".json")).map(f => f.slice(0, -5)) : CORE;

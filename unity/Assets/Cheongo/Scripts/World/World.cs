@@ -5,7 +5,13 @@ using UnityEngine;
 
 namespace Cheongo
 {
-    public class Box { public float x, y, w, h; }
+    public class Box
+    {
+        public float x, y, w, h;
+        public float cx => x + w / 2; public float cy => y + h / 2;
+        public bool Overlaps(Box o) => x < o.x + o.w && x + w > o.x && y < o.y + o.h && y + h > o.y;
+        public bool Overlaps(float ox, float oy, float ow, float oh) => x < ox + ow && x + w > ox && y < oy + oh && y + h > oy;
+    }
 
     public static class World
     {
@@ -47,6 +53,23 @@ namespace Cheongo
             for (int i = 0; i < n; i++) { o.y += st; if (RectSolid(o.x, o.y, o.w, o.h)) { o.y = st > 0 ? Mathf.Floor((o.y + o.h) / World.T) * World.T - o.h - .001f : (Mathf.Floor(o.y / World.T) + 1) * World.T + .001f; return true; } }
             return false;
         }
+        public bool SolidPt(float x, float y) => TileAt(Mathf.FloorToInt(x / World.T), Mathf.FloorToInt(y / World.T)) == 1;
+        public bool GroundPt(float x, float y) { int v = TileAt(Mathf.FloorToInt(x / World.T), Mathf.FloorToInt(y / World.T)); return v == 1 || v == 3; }
+        // a clear line between two points, sampled every 10px
+        public bool Los(float x0, float y0, float x1, float y1)
+        {
+            float dx = x1 - x0, dy = y1 - y0; int n = Mathf.CeilToInt((float)System.Math.Sqrt(dx * dx + dy * dy) / 10);
+            for (int i = 1; i < n; i++) { float t = (float)i / n; if (SolidPt(x0 + dx * t, y0 + dy * t)) return false; }
+            return true;
+        }
+        static readonly int[,] UNSTICK = { { 0, -1 }, { -1, 0 }, { 1, 0 }, { -1, -1 }, { 1, -1 } };
+        // a body found inside the rock is lifted or slid to the nearest open air
+        public void Unstick(Box o)
+        {
+            if (!RectSolid(o.x, o.y, o.w, o.h)) return;
+            for (int k = 1; k <= 24; k++) { int d = k * 4; for (int i = 0; i < 5; i++) { float ox = UNSTICK[i, 0] * d, oy = UNSTICK[i, 1] * d; if (!RectSolid(o.x + ox, o.y + oy, o.w, o.h)) { o.x += ox; o.y += oy; return; } } }
+        }
+        public float? FindFloor(float x, float y) { int tx = Mathf.FloorToInt(x / World.T), ty = Mathf.FloorToInt(y / World.T); while (ty < h && TileAt(tx, ty) != 1) ty++; return ty < h ? ty * World.T : (float?)null; }
         // a ledge ('=') catches you only when you fall onto its top from above
         public float? LedgeBelow(Box o, float prevBottom)
         {
