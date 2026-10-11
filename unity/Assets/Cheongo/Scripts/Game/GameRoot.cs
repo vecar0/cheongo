@@ -10,7 +10,7 @@ namespace Cheongo
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         static void Boot()
         {
-            if (FindObjectOfType<GameRoot>() != null) return;
+            if (FindFirstObjectByType<GameRoot>() != null) return;
             new GameObject("천고").AddComponent<GameRoot>();
         }
 

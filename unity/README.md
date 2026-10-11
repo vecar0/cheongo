@@ -3,7 +3,7 @@
 웹 버전(저장소 루트의 `index.html`, `js/`)을 Unity로 옮기는 중입니다. 앞으로의 개발은 이 폴더에서 합니다.
 
 ## 여는 법
-1. **Unity Hub**에서 **Unity 2022.3 LTS**를 설치합니다(2022.3.x 아무 버전이나 됩니다).
+1. **Unity Hub**에서 **Unity 6 (6000.x)**을 설치합니다. 2022.3 LTS 이상이면 열립니다.
 2. Unity Hub → **Add → Add project from disk** → 이 `unity` 폴더를 고릅니다.
 3. 처음 열 때 그림·데이터를 가져오느라 몇 분 걸립니다.
 4. 빈 씬(기본 `SampleScene`이나 새 씬) 그대로 **Play**를 누르면 게임이 시작됩니다.
