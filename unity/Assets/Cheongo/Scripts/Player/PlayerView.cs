@@ -25,6 +25,23 @@ namespace Cheongo
         }
         static SpriteRenderer Child(string name, Transform parent, int order) { var go = new GameObject(name); go.transform.SetParent(parent, false); var s = go.AddComponent<SpriteRenderer>(); s.sortingOrder = order; s.enabled = false; return s; }
 
+        static readonly float[] G1_AX = { .5f, .3f, .25f, .45f, .28f, .5f, .5f, .38f, .3f }, G2_AX = { .42f, .24f, .45f, .45f, .25f, .5f, .45f, .25f, .5f };
+        static readonly float[] GRUN_AX = { .544f, .551f, .522f, .510f, .553f, .573f, .536f, .522f, .606f, .629f, .612f, .609f, .576f, .623f, .618f, .605f, .620f, .603f, .590f, .591f, .595f, .601f, .591f, .591f, .575f, .567f, .565f, .583f, .542f, .559f, .578f, .577f };
+        // 무명 with a gun: aim, fire, recoil, thrust, reload — and an eight-step run for each gun
+        bool GunPose(Player p, out Sheet sh, out int fr, out float ax)
+        {
+            string w = sim.W.key; bool j = w == "jochong"; int b = w == "singi" ? 3 : w == "cheonja" ? 6 : 0; var g1 = Sheet.Get("gun1"); var g2 = Sheet.Get("gun2"); var gr = Sheet.Get("grun2");
+            sh = j ? g1 : g2; fr = j ? 0 : b; ax = .5f; if (g1 == null || g2 == null) return false; var a = sim.aimNow;
+            if (p.fireT > 0) fr = j ? 2 : b + 1;
+            else if (p.focus && p.focusT > DB.Tuning.TAP_T) fr = j ? (a.y > .6f ? 5 : !p.onGround ? 8 : 1) : w == "singi" && a.y < -.5f ? 5 : w == "cheonja" && a.y > .5f ? 8 : b;
+            else if (p.slashT > 0) fr = j ? 4 : b;
+            else if (!p.onGround && sim.songPos - p.lastShotAt < .6f) fr = j ? 3 : w == "seungja" ? 2 : b;
+            else if (p.reloadT > 0 && p.onGround && j) fr = 6;
+            else if (!p.onGround) fr = j ? 8 : b;
+            else if (Mathf.Abs(p.vx) > 40 && gr != null) { sh = gr; fr = (w == "seungja" ? 8 : w == "singi" ? 16 : w == "cheonja" ? 24 : 0) + Mathf.FloorToInt(p.run / 1.05f) % 8; ax = GRUN_AX[fr]; return true; }
+            ax = (j ? G1_AX : G2_AX)[fr]; return true;
+        }
+
         // [the lunge sheet?, frame]
         (bool cut, int f) Pose(Player p)
         {
@@ -43,12 +60,14 @@ namespace Cheongo
             bool onWall = !cut && f == H.wall; int face = onWall ? p.wall : p.face;
             sr.sprite = cut ? slash.Frame(f, SF_AX[f], 1f) : sheet.Frame(f, f < AX.Length ? AX[f] : .5f, 1f); sr.flipX = face < 0;
             float breathe = !cut && f == H.idle ? 1 + Mathf.Sin(Time.time / .38f) * .012f : 1, s = cut ? k * SLASH_K : k;
+            Sheet gs = null; int gf = 0; float gax = .5f; bool gun = sim.IsGun && sim.state != "dead" && GunPose(p, out gs, out gf, out gax);
+            if (gun) { sr.sprite = gs.Frame(gf, gax, 1f); sr.flipX = p.face < 0; s = k * SLASH_K * .75f / .8f; breathe = 1; cut = true; }
             transform.localPosition = World.ToUnity(cx, p.b.y + p.b.h + 1, 0); transform.localScale = new Vector3(s, s * breathe, 1);
             float al = sim.state == "dead" ? Mathf.Max(0, 1 - sim.deathT / .75f) : sim.state == "over" ? 0 : p.invT > 0 ? (Mathf.FloorToInt(p.invT * 14) % 2 != 0 ? .35f : 1) : 1;
             sr.color = new Color(1, 1, 1, al);
 
             // one clean crescent of black ink, an afterimage of the swing a beat behind it
-            bool cutting = p.slashT > 0 && sim.state == "play" && slash != null; arc.enabled = arcBack.enabled = cutting;
+            bool cutting = p.slashT > 0 && sim.state == "play" && slash != null && !gun; arc.enabled = arcBack.enabled = cutting;
             if (cutting)
             {
                 var d = p.slashDir; float prog = 1 - Mathf.Min(1, p.slashT / p.slashDur); int i = p.strike ? SF_ARC_RED : SF_ARC;

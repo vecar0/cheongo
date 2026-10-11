@@ -49,10 +49,17 @@ namespace Cheongo
             var s = new Screen { title = "천고", sub = "天鼓 · 북을 베러 가는 길", art = Sheet.Image("title"), note = "방향키·마우스로 고르고 Enter · 클릭" };
             var saved = meta.LoadRun();
             if (saved != null) s.items.Add(new Item { label = "이어 가기", sub = $"{saved.cycle + 1}번째 바퀴 · {Content.STAGE[Mathf.Min(saved.m, Run.LAST_M)]} · 숨 {saved.breath}", act = () => { run = saved; earned = 0; LoadGate(); } });
-            s.items.Add(new Item { label = "길을 떠나다", sub = saved != null ? "새로 떠난다 (이어 가던 길은 지워진다)" : "새 길", act = () => { run = Run.Fresh(meta.diff); earned = 0; meta.runs++; LoadGate(); } });
+            s.items.Add(new Item { label = "길을 떠나다", sub = saved != null ? "새로 떠난다 (이어 가던 길은 지워진다)" : "새 길", act = ShowWeapons });
             s.items.Add(new Item { label = "사당", sub = $"혼 {meta.hon} · 남는 것들", act = ShowShrine });
             s.items.Add(new Item { label = "설정", act = () => ShowSettings(ShowTitle) });
             s.items.Add(new Item { label = "끝내기", act = () => Application.Quit() });
+            Show(s);
+        }
+        // what to carry: the sword, or one of the guns the 사당 has opened
+        void ShowWeapons()
+        {
+            sim = null; var s = new Screen { title = "무엇을 들고 떠나는가", sub = "무기마다 싸우는 법이 다르다", cards = true, note = "← → 고르기 · Enter 떠나기 · Esc 돌아가기", back = ShowTitle };
+            foreach (var kv in Weapon.ALL) { var w = kv.Value; bool have = meta.weapons.Contains(w.key); s.items.Add(new Item { label = w.name, tag = w.han + (have ? "" : $" · 사당에서 혼 {w.cost}"), sub = w.desc, enabled = have, act = () => { meta.lastWeapon = w.key; run = Run.Fresh(meta.diff, w.key); earned = 0; meta.runs++; LoadGate(); } }); if (have && w.key == meta.lastWeapon) s.sel = s.items.Count - 1; }
             Show(s);
         }
         void Show(Screen s) { screen = s; clicked = -1; fade = 0; while (s.sel < s.items.Count && !s.items[s.sel].enabled) s.sel++; if (s.sel >= s.items.Count) s.sel = 0; }
@@ -116,7 +123,7 @@ namespace Cheongo
             s.items.Add(new Item { label = "관문", tag = "關門", sub = "늘 가던 길. 지키는 이들을 넘어 문을 지난다.", act = () => { run.node = "gate"; LoadGate(); } });
             s.items.Add(new Item { label = "험로", tag = "險路", sub = "지키는 이가 많고 정예가 섞여 있다. 넘으면 혼 +20, 천고 기운이 크게 찬다.", act = () => { run.node = "elite"; LoadGate(); } });
             if (run.m % 2 == 0) s.items.Add(new Item { label = "쉼터", tag = "酒幕", sub = $"주막에서 숨을 고른다. 숨 +{DB.Tuning.REST_BREATH}. 관문 하나를 건너뛰지만 비급은 얻지 못한다.", enabled = run.breath < run.BreathCap, act = () => { run.node = "rest"; LoadGate(); } });
-            s.items.Add(new Item { label = "수련", tag = "修鍊", sub = $"수련점 {run.sp}점으로 환도의 갈래를 닦는다.", enabled = run.sp > 0, act = () => ShowTree("수련", "한 걸음에 한 점. 한 갈래의 셋째 걸음이 오의다.", true) });
+            s.items.Add(new Item { label = "수련", tag = "修鍊", sub = $"수련점 {run.sp}점으로 {Weapon.Of(run.weapon).name}의 갈래를 닦는다.", enabled = run.sp > 0, act = () => ShowTree("수련", "한 걸음에 한 점. 한 갈래의 셋째 걸음이 오의다.", true) });
             Show(s);
         }
         void ShowRest()
@@ -131,12 +138,12 @@ namespace Cheongo
         void ShowTree(string title, string sub, bool fromRoute = false)
         {
             music.StopSong(); ClearWorld(); sim = null;
-            var t = Content.Tree("hwando"); var s = new Screen { title = title, sub = sub, cards = true, note = $"수련점 {run.sp} · Esc 넘어가기" };
+            var t = Content.Tree(run.weapon); var s = new Screen { title = title, sub = sub, cards = true, note = $"수련점 {run.sp} · Esc 넘어가기" };
             Action next = fromRoute ? (Action)(() => { if (run.Arena) { run.node = "gate"; LoadGate(); } else ShowRoute(); }) : ShowRoute;
             if (t != null)
             {
                 if (t.root != null && !run.tree.Contains(t.root.id)) s.items.Add(NodeItem(t.root, "단련", title, sub, fromRoute));
-                foreach (var b in t.br) foreach (var n in b.nodes) if (!run.tree.Contains(n.id)) { s.items.Add(NodeItem(n, $"{b.name} {b.han}", title, sub, fromRoute)); break; }
+                foreach (var b in t.br) foreach (var n in b.nodes) { if (run.tree.Contains(n.id)) continue; if (!Content.NodeReady(n)) { if (run.weapon == "hwando") break; continue; } s.items.Add(NodeItem(n, $"{b.name} {b.han}", title, sub, fromRoute)); break; }   // a gun: only its plain strengthenings (its arts are not ported yet)
             }
             s.items.Add(new Item { label = fromRoute && run.Arena ? "천고대로" : "넘어간다", tag = "", sub = fromRoute && run.Arena ? "우두머리 앞으로 나아간다." : "수련점은 남겨 둔다.", act = next }); s.back = next;
             Show(s);
@@ -148,7 +155,7 @@ namespace Cheongo
             music.StopSong(); meta.bestKills = Mathf.Max(meta.bestKills, run.kills); meta.SaveRun(null);
             var s = new Screen { title = "숨이 다했다", sub = $"{run.cycle + 1}번째 바퀴 {Content.STAGE[Mathf.Min(run.m, Run.LAST_M)]}에서 · {sim?.lastCause ?? "함정"}에게", dark = true,
                 note = $"벤 적 {run.kills} · 간파 {run.kanpa} (완벽 {run.perfectN}) · 벤 북 {run.cycle} · 얻은 혼 {earned}" };
-            s.items.Add(new Item { label = "다시 떠나다", act = () => { run = Run.Fresh(meta.diff); earned = 0; meta.runs++; LoadGate(); } });
+            s.items.Add(new Item { label = "다시 떠나다", act = ShowWeapons });
             s.items.Add(new Item { label = "처음으로", act = ShowTitle });
             Show(s);
         }
@@ -189,6 +196,7 @@ namespace Cheongo
             var s = new Screen { title = "사당", sub = $"혼 {meta.hon}", art = Sheet.Image("hubscene"), note = $"떠난 길 {meta.runs} · 벤 북 {meta.drums} · 가장 멀리 {meta.bestCycle}번째 북 · 한 길에 벤 적 {meta.bestKills}" };
             if (meta.sadang < Meta.SADANG_MAX) { int cost = Meta.SadangCost(meta.sadang); s.items.Add(new Item { label = "향을 올린다", sub = $"처음 숨 +1 (지금 +{meta.sadang}) · 혼 {cost}", enabled = meta.hon >= cost, act = () => { meta.hon -= cost; meta.sadang++; meta.Save(); music.Sfx("lantern"); ShowShrine(); } }); }
             if (!meta.well) s.items.Add(new Item { label = "약수를 긷는다", sub = $"숨을 여섯까지 담는다 · 혼 {Meta.WELL_COST}", enabled = meta.hon >= Meta.WELL_COST, act = () => { meta.hon -= Meta.WELL_COST; meta.well = true; meta.Save(); music.Sfx("lantern"); ShowShrine(); } });
+            foreach (var kv in Weapon.ALL) { var w = kv.Value; if (meta.weapons.Contains(w.key)) continue; s.items.Add(new Item { label = w.name, sub = $"{w.han} · 들고 떠날 수 있게 된다 · 혼 {w.cost}", enabled = meta.hon >= w.cost, act = () => { meta.hon -= w.cost; meta.weapons.Add(w.key); meta.Save(); music.Sfx("lantern"); ShowShrine(); } }); }
             s.items.Add(new Item { label = "돌아간다", act = ShowTitle }); s.back = ShowTitle; Show(s);
         }
 
@@ -304,6 +312,13 @@ namespace Cheongo
             int tier = sim.MomTier; bool tr = run.trance > 0;
             Txt(new Rect(22, 104, 40, 18), tier > 0 ? $"{tier}단" : "기세", tier > 0 ? 15 : 11, tr ? SEAL : new Color(ink.r, ink.g, ink.b, .85f), TextAnchor.MiddleLeft, tier > 0);
             for (int i = 0; i < 5; i++) { float fl = Mathf.Clamp01((run.mom - i * 100) / 100); var r = new Rect(54 + i * 22, 109, 20, 8); Fill(r, new Color(ink.r, ink.g, ink.b, .18f)); if (fl > 0) Fill(new Rect(r.x, r.y, r.width * fl, r.height), tr ? (Mathf.FloorToInt(Time.unscaledTime * 12) % 2 == 0 ? SEAL : GOLD) : i >= 3 ? SEAL : ink); }
+            if (sim.IsGun)   // 탄 · 열
+            {
+                Txt(new Rect(22, 124, 40, 16), sim.W.heat ? "열" : "탄", 11, new Color(ink.r, ink.g, ink.b, .8f), TextAnchor.MiddleLeft);
+                if (sim.W.heat) { Fill(new Rect(54, 128, 110, 8), new Color(ink.r, ink.g, ink.b, .2f)); Fill(new Rect(54, 128, 110 * Mathf.Clamp01(p.heat / 100), 8), p.overheat > 0 ? SEAL : p.heat > 70 ? GOLD : ink); }
+                else for (int i = 0; i < sim.GunMag; i++) { GUI.color = i < p.ammo ? ink : new Color(ink.r, ink.g, ink.b, .2f); GUI.DrawTexture(new Rect(54 + i * 16, 125, 12, 12), dot); }
+                GUI.color = Color.white;
+            }
             // 연속 처치
             if (p.chain >= 1) { float k = 1 + p.chainPop * 1.6f; Txt(new Rect(VW - 150, 56, 120, 44), "一二三四五"[Mathf.Min(5, p.chain) - 1].ToString(), 34 * k, ink, TextAnchor.MiddleCenter, true); Txt(new Rect(VW - 150, 96, 120, 18), $"{p.chain} 연속", 12, p.chain >= 5 ? SEAL : ink); }
 

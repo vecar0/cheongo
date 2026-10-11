@@ -145,6 +145,13 @@ namespace Cheongo
             {
                 var s = shotViews[i]; bool live = i < sim.shots.Count; s.tail.enabled = s.ball.enabled = s.core.enabled = live; if (!live) continue;
                 var b = sim.shots[i]; float sp = Mathf.Max(1, Mathf.Sqrt(b.vx * b.vx + b.vy * b.vy)), tl = b.sniper ? 34 : 18; s.ball.transform.localRotation = Quaternion.identity; s.ball.color = Color.white;
+                if (b.look == "rocket" || b.look == "cannon")   // your own: a rocket arrow, a cannon ball
+                {
+                    s.tail.enabled = false; var gfx = Sheet.Get("gfx");
+                    if (b.look == "rocket" && gfx != null) { Put(s.ball, gfx, 2, b.x, b.y, 20, .7f, .5f, false, 1, -.4f); s.ball.transform.localRotation = Quaternion.Euler(0, 0, -Mathf.Atan2(b.vy, b.vx) * Mathf.Rad2Deg); s.core.enabled = false; }
+                    else { s.ball.sprite = s.core.sprite = Fx.Dot(); s.ball.color = new Color(.09f, .086f, .1f, 1); s.ball.transform.localPosition = World.ToUnity(b.x, b.y, -.4f); s.ball.transform.localScale = new Vector3(14 / World.T, 14 / World.T, 1); s.core.color = new Color(.76f, .09f, .11f, 1); s.core.transform.localPosition = World.ToUnity(b.x - 2, b.y - 2, -.5f); s.core.transform.localScale = new Vector3(4 / World.T, 4 / World.T, 1); }
+                    continue;
+                }
                 if (b.look != null && !b.friendly)
                 {
                     s.tail.enabled = s.core.enabled = false;

@@ -20,7 +20,8 @@ namespace Cheongo
         public readonly HashSet<int> hitSet = new HashSet<int>(), dashHit = new HashSet<int>();
         public int edge = -1, chain; public float edgeIdle, edgeT, chainPop, landG;   // 날: notches left (-1 until first read)
         // being struck
-        public bool focus, focusGround, aimDash; public float focusT, ki = 1, aimedUntil = -9; public int aimChain;   // 무아경: time held still while the dash is aimed
+        public bool focus, focusGround, aimDash, Gun; public int ammo = -1; public float heat, overheat, fireT, reloadT, slowRe, lastShotAt = -9;   // a gun in hand: rounds or heat
+        public bool focusPad; public float focusT, ki = 1, aimedUntil = -9; public int aimChain;   // 무아경: time held still while the dash is aimed
         public float invT, offBal, counterT, kanLungeT, lastVy, safeT; public bool hasSafe; public Vector2 safe;   // 낙법 remembers firm ground
         readonly Level lv; readonly Tuning tu;
         public int AirJumps = 0, ExtraAir = 0;   // 허공답보: extra jumps in the air · 비연: extra air dashes
@@ -40,7 +41,7 @@ namespace Cheongo
             if (inp.jumpPressed && onGround && inp.y > .5f && lv.OnLedge(b)) { dropT = .25f; b.y += 3; onGround = false; inp.jumpPressed = false; }   // down + jump: drop through a ledge
             if (inp.jumpPressed) jumpBuf = .18f;
 
-            if (focus && (focusGround || Hover)) { vx = 0; vy = 0; }   // 무아경 entered from the ground: the body holds still while the aim is taken
+            if (focus && (Hover || (focusGround && !Gun))) { vx = 0; vy = 0; }   // 무아경 entered from the ground: the body holds still while the aim is taken
             if (dashT > 0)
             {
                 dashT -= dt; vx = dashDir.x * tu.DASHV; vy = dashDir.y * tu.DASHV;

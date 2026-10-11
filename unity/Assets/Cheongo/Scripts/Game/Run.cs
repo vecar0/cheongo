@@ -22,6 +22,10 @@ namespace Cheongo
         // the 비급 whose rules are ported so far; only these are offered
         public static readonly HashSet<string> READY = new HashSet<string> { "sum", "d_far", "d_sunbo", "d_sun", "d_jeong", "d_pajuk", "d_giseom", "d_dangong", "d_chain", "d_reflect", "d_gihyeol", "d_gise", "d_nakbeop", "d_ganggi", "d_janmyeong",
             "d_myeong", "d_beat", "d_zanshin", "d_tan", "d_freeze", "d_ward", "d_breathe", "d_breath", "d_calm", "d_air", "d_jump", "d_hover", "d_wall", "d_bisang", "d_jilbo", "d_cheonbo", "d_glide" };
+        public static readonly HashSet<string> TREE_READY = new HashSet<string> { "hw_a1", "hw_a2", "hw_a3", "hw_b1", "hw_b2", "hw_b3", "hw_c1", "hw_c2", "hw_c3" };
+        static readonly HashSet<string> STATS = new HashSet<string> { "edge", "kanWin", "gise", "spd", "mag", "reload", "heat", "blast", "ki", "qi", "edgeRate" };
+        // a step of 수련 whose rule is ported: one of the sword arts above, a 비급 it grants, or a plain strengthening
+        public static bool NodeReady(TreeNode n) { if (TREE_READY.Contains(n.id)) return true; if (!string.IsNullOrEmpty(n.grant)) return READY.Contains(n.grant); if (n.stat == null || n.stat.Length == 0) return false; foreach (var k in n.stat) if (!STATS.Contains(k.k)) return false; return true; }
         public static Chosik Find(string id) { foreach (var c in All) if (c.id == id) return c; return null; }
         public static readonly string[] STAGE = { "제1관문 第一關", "제2관문 第二關", "제3관문 第三關", "제4관문 第四關", "제5관문 第五關", "천고대 天鼓臺" };
     }
@@ -30,7 +34,7 @@ namespace Cheongo
     public class Run
     {
         public int seed = 7, cycle, m, breath = 4, sp, hon, honBonus, kills, kanpa, perfectN, deaths, slashes, aimK, maxTier, gateHits, diff = 1;
-        public float qi, mom, momAt, trance, time; public bool janUsed; public string node = "gate";   // gate · elite · rest
+        public float qi, mom, momAt, trance, time; public bool janUsed; public string node = "gate", weapon = "hwando";   // gate · elite · rest
         public List<string> perks = new List<string>(), tree = new List<string>(); public List<int> cp = new List<int>();
         [NonSerialized] HashSet<string> set; [NonSerialized] Dictionary<string, float> stats;
 
@@ -42,7 +46,7 @@ namespace Cheongo
 
         void Index()
         {
-            set = new HashSet<string>(perks); stats = new Dictionary<string, float>(); var t = Content.Tree("hwando"); if (t == null) return;
+            set = new HashSet<string>(perks); stats = new Dictionary<string, float>(); var t = Content.Tree(weapon); if (t == null) return;
             void Take(TreeNode n) { if (n == null || !tree.Contains(n.id)) return; set.Add(n.id); if (!string.IsNullOrEmpty(n.grant)) set.Add(n.grant); if (n.stat != null) foreach (var s in n.stat) { stats.TryGetValue(s.k, out var v); stats[s.k] = v + s.v; } }
             Take(t.root); foreach (var b in t.br) foreach (var n in b.nodes) Take(n);
         }
@@ -54,9 +58,9 @@ namespace Cheongo
         // 오의: a branch walked to its third step turns the plain 천고난무 into the weapon's own art
         public bool OugiOpen => Has("hw_a3") || Has("hw_b3") || Has("hw_c3");
 
-        public static Run Fresh(int diff)
+        public static Run Fresh(int diff, string weapon = "hwando")
         {
-            var r = new Run { seed = UnityEngine.Random.Range(1, 1 << 30), diff = diff, sp = DB.Tuning.START_SP };
+            var r = new Run { seed = UnityEngine.Random.Range(1, 1 << 30), diff = diff, sp = DB.Tuning.START_SP, weapon = weapon };
             r.breath = Mathf.Max(2, DB.Tuning.START_BREATH + r.Diff.breath) + Meta.I.sadang;
             return r;
         }
@@ -66,7 +70,8 @@ namespace Cheongo
     [Serializable]
     public class Meta
     {
-        public int hon, sadang, runs, bestCycle, bestKills, drums; public bool well; public List<string> seen = new List<string>();
+        public int hon, sadang, runs, bestCycle, bestKills, drums; public bool well; public List<string> seen = new List<string>(), weapons = new List<string> { "hwando", "jochong" };
+        public string lastWeapon = "hwando";
         // settings
         public float mus = .8f, sfx = 1; public bool fullscreen = true, shake = true, mouseAim = true; public int diff = 1, resW, resH;
         public string runJson = "";

@@ -16,7 +16,7 @@ namespace Cheongo
         // guardians
         public string kind, act, lastAct, prevAct; public Boss B; public System.Random rng; public float floor, hitAt, stagT, guardT, softAt = -9, recoverUntil, chargeT, cv, emergeT, walkT, landT, turnT, turnWait, invisT, mv, fvx, swoopT, svx, svy, danceT, farT, actFrom, wph; public int softN, mask, comboLeft; public bool raged, suck, awake, air, bounced;
     }
-    public class Shot { public float x, y, vx, vy, life, t, g, r, home, boom, seek, blast; public bool friendly, pierce, strike, red, noReflect, sniper, moon; public Enemy owner; public HashSet<int> hits; public string look; }
+    public class Shot { public float x, y, vx, vy, life, t, g, r, home, boom, seek, blast; public bool friendly, pierce, strike, red, noReflect, sniper, moon, core, blown; public Enemy owner; public HashSet<int> hits; public string look; }
     public class Hazard { public string kind; public float x, y, w, h, at, end, speed, max, t0; public bool done; }
 
     public partial class Sim
@@ -46,7 +46,7 @@ namespace Cheongo
             P = NewPlayer();
             SpawnEnemies();
         }
-        Player NewPlayer(System.Action<string, float, float, int> hook = null) => new Player(lv, lv.start.x, lv.start.y) { Fx = hook, AirJumps = run.Has("d_jump") ? 1 : 0, ExtraAir = run.Has("d_air") ? 1 : 0, SpeedMul = 1 + run.StatF("spd"), ClimbMul = run.Has("d_wall") ? 2 : 1, Glide = run.Has("d_glide"), Bisang = run.Has("d_bisang"), Hover = run.Has("d_hover"), SpeedNow = () => run.Has("d_jilbo") ? 1 + .08f * Mathf.Min(5, P != null ? P.chain : 0) : 1 };
+        Player NewPlayer(System.Action<string, float, float, int> hook = null) => new Player(lv, lv.start.x, lv.start.y) { Fx = hook, AirJumps = run.Has("d_jump") ? 1 : 0, ExtraAir = run.Has("d_air") ? 1 : 0, SpeedMul = 1 + run.StatF("spd"), ClimbMul = run.Has("d_wall") ? 2 : 1, Gun = IsGun, Glide = run.Has("d_glide"), Bisang = run.Has("d_bisang"), Hover = run.Has("d_hover"), SpeedNow = () => run.Has("d_jilbo") ? 1 + .08f * Mathf.Min(5, P != null ? P.chain : 0) : 1 };
 
         // ---------- one frame (the web game's frameBody) ----------
         public void Frame(float rdt, PlayerInput inp)
@@ -60,7 +60,7 @@ namespace Cheongo
             float ts = 1;
             if (state == "play" && bossIntro > 0) ts = .03f;
             else if (hitstop > 0) { hitstop -= rdt; ts = .06f; }
-            else if (state == "play" && P.focus) ts = run.Has("d_jeong") ? .07f : .12f;   // a sword stills the world
+            else if (state == "play" && P.focus) ts = IsGun && P.focusT > tu.TAP_T ? (run.Has("d_jeong") ? .35f : .5f) : run.Has("d_jeong") ? .07f : .12f;   // a gun aims on the move (half speed); a sword stills the world
             else if (state == "play" && killCam > 0) ts = .32f;
             if (state == "dead") ts = .3f;
             float wdt = rdt * ts; int n = Mathf.Max(1, Mathf.CeilToInt(wdt / (1f / 120))); float sdt = wdt / n;
@@ -69,7 +69,7 @@ namespace Cheongo
                 if (state == "play")
                 {
                     bool aimed = P.aimDash && !P.tapDash && P.dashT > 0;
-                    StepEdge(sdt); StepMom(sdt); P.Step(sdt, inp); inp.jumpPressed = false;
+                    StepEdge(sdt); StepGun(sdt); StepMom(sdt); P.Step(sdt, inp); inp.jumpPressed = false;
                     if (aimed && P.dashT <= 0) AimDashEnded();
                     P.b.x = Mathf.Clamp(P.b.x, 0, lv.w * World.T - P.b.w);
                     DashCuts(); P.slashT = Mathf.Max(0, P.slashT - sdt); SlashHits(); StepWorld(sdt); PlayerHazards();
@@ -101,17 +101,18 @@ namespace Cheongo
             if (bossIntro > 0) { inp.jumpPressed = inp.dashPressed = inp.slashPressed = inp.drumPressed = false; return; }   // the entrance card holds the hands
             if (inp.drumPressed && run.qi >= 100 && chungo == null) { if (!Chungo()) Toast("벨 적이 가까이 없다"); }
             if (inp.slashPressed) DoSlash(inp);
-            if (inp.dashPressed && !P.focus && P.dashCd <= 0 && (P.onGround || P.airDash > 0) && P.ki > .06f) { P.focus = true; P.focusT = 0; P.focusGround = P.onGround || P.wall != 0; mu?.Muffle(true); }
+            if (inp.dashPressed && !P.focus && (GunReady || (P.dashCd <= 0 && (P.onGround || P.airDash > 0) && P.ki > .06f))) { P.focus = true; P.focusT = 0; P.focusGround = P.onGround || P.wall != 0; mu?.Muffle(true); }
             if (!P.focus && P.onGround) P.ki = Mathf.Min(1, P.ki + rdt * .9f * (1 + run.StatF("ki")));   // 기력 comes back with the feet on the ground
             if (P.focus && P.focusT > tu.TAP_T) P.ki = Mathf.Max(0, P.ki - rdt / (run.Has("d_jeong") ? 2.4f : 1.6f) * (run.Has("hw_c3") ? 2 : 1));   // and drains while time is held
             if (!P.focus) return;
             P.focusT += rdt; bool grounded = P.onGround && !P.focusGround;
-            if (!inp.dashHeld || P.focusT > FOCUS_LEN || grounded || P.ki <= 0)
+            if (!inp.dashHeld || P.focusT > FOCUS_LEN * (IsGun ? 1.6f : 1) || grounded || P.ki <= 0)
             {
                 bool tap = P.focusT < tu.TAP_T;   // a tap is a plain quick dash: no slow, no 일섬
                 P.focus = false; P.focusGround = false; mu?.Muffle(false); P.tapDash = tap; if (!tap) P.aimedUntil = songPos + .45f;
                 if (!tap && !P.onGround) P.aimChain++;
                 var d = aimNow;
+                if (IsGun && GunShot(tap, d)) return;
                 if (KanLunge(d, true)) return;
                 if (!tap && run.Has("d_sunbo") && Sunbo(d)) return;
                 P.aimDash = true; if (!P.StartDash(d, true)) { P.aimDash = false; return; }
@@ -164,11 +165,11 @@ namespace Cheongo
         {
             if (P.slashCd > 0 || P.offBal > 0) return;
             if (P.edge < 0) P.edge = EdgeMax;
-            if (P.edge < 1) { P.slashCd = .45f; P.edgeIdle = 0; fx?.Add("hud", Fx.HUD_SPARK, P.b.cx + P.face * 22, P.b.cy, 26, life: .2f); mu?.Sfx("clang"); return; }   // 날이 무뎌졌다
-            P.edge--; P.edgeIdle = 0; P.edgeT = 0;
+            if (!IsGun && P.edge < 1) { P.slashCd = .45f; P.edgeIdle = 0; fx?.Add("hud", Fx.HUD_SPARK, P.b.cx + P.face * 22, P.b.cy, 26, life: .2f); mu?.Sfx("clang"); return; }   // 날이 무뎌졌다
+            if (!IsGun) { P.edge--; P.edgeIdle = 0; P.edgeT = 0; }
             Vector2 d; if (inp.hasAim && inp.aim.magnitude > .01f) { d = inp.aim; d.Normalize(); } else { d = new Vector2(inp.x, inp.y); float m = d.magnitude; d = m > .5f ? new Vector2(d.x / m, d.y / m) : new Vector2(P.face, 0); }
             // the drum no longer judges the hand: an 일격 comes from a read blow (간파), not from the beat
-            P.slashDir = d; P.slashT = P.slashDur = W_DUR; P.slashCd = W_CD; P.strike = false; P.hitSet.Clear(); P.clanged.Clear(); P.countered = false; run.slashes++;
+            P.slashDir = d; P.slashT = P.slashDur = W.dur; P.slashCd = W.cd; P.strike = false; P.hitSet.Clear(); P.clanged.Clear(); P.countered = false; run.slashes++;
             if (Mathf.Abs(d.x) > .2f) P.face = (int)Mathf.Sign(d.x);
             if (!P.onGround && P.vy > 60) P.vy = 60;
             mu?.Sfx("slash");
@@ -182,25 +183,26 @@ namespace Cheongo
         void SlashHits()
         {
             if (P.slashT <= 0) return;
-            float R = (P.strike ? 54 : 40) * W_R, reach = (P.strike ? 30 : 26) + W_REACH;
+            float R = (P.strike ? 54 : 40) * W.R, reach = (P.strike ? 30 : 26) + W.reach; bool sword = !IsGun;
             float cx = P.b.cx + P.slashDir.x * reach, cy = P.b.cy + P.slashDir.y * reach;
             foreach (var e in foes)
             {
                 if (!e.alive || Ghostly(e)) continue;
                 float ex = Mathf.Max(e.x, Mathf.Min(cx, e.x + e.w)), ey = Mathf.Max(e.y, Mathf.Min(cy, e.y + e.h));
                 if (Hyp(ex - cx, ey - cy) >= R) continue;
-                if (!P.strike && !IsFlashing(e) && ((e.type == 'h' && Sgn(P.b.cx - e.cx) == e.face) || e.type == 'k')) { if (P.clanged.Add(e.id)) Clang(e); continue; }   // the shield only covers his front
+                if (!P.strike && !IsFlashing(e) && ((e.type == 'h' && Sgn(P.b.cx - e.cx) == e.face) || (e.type == 'k' && sword))) { if (P.clanged.Add(e.id)) Clang(e); continue; }   // the shield only covers his front
                 if (!P.hitSet.Add(e.id)) continue;   // one hit per swing
                 fx?.Add("perkfx", P.strike ? Fx.PF_SPARK : Fx.PF_SPLASH, e.cx, e.cy, P.strike ? 46 : 34, life: .22f, rot: Random.value * 6.28f, grow: .5f);
                 bool kan0 = IsFlashing(e); HurtEnemy(e, P.strike);
-                if (kan0 && !P.countered) CounterCut(e);   // 받아치기
-                if (!P.onGround && !P.airCutUsed) { P.airCutUsed = true; P.RegainAir(); }   // 연격: once in each flight a plain cut in the air wins the air back
+                if (!sword) GunReload(1);   // a thrust that bites reloads a round
+                if (sword && kan0 && !P.countered) CounterCut(e);   // 받아치기
+                if (sword && !P.onGround && !P.airCutUsed) { P.airCutUsed = true; P.RegainAir(); }   // 연격: once in each flight a plain cut in the air wins the air back
             }
             foreach (var b in shots)
             {
                 if (b.friendly || b.noReflect || b.life <= 0 || Hyp(b.x - cx, b.y - cy) >= R + 8) continue;
                 float tti = Hyp(b.x - P.b.cx, b.y - P.b.cy) / Mathf.Max(1, Hyp(b.vx, b.vy));   // 정밀 튕기기: only a cut in the last instant turns it back
-                if (!(tti < .15f * (run.Has("d_reflect") ? 2 : 1) * 1.5f || P.strike)) { b.life = 0; fx?.Add("hud", Fx.HUD_SPARK, b.x, b.y, 18, life: .2f); continue; }
+                if (!(tti < .15f * (run.Has("d_reflect") ? 2 : 1) * (sword ? 1.5f : 1) || P.strike)) { b.life = 0; fx?.Add("hud", Fx.HUD_SPARK, b.x, b.y, 18, life: .2f); continue; }
                 fx?.Add("mech", Fx.MECH_DEFLECT, b.x, b.y, 54, life: .25f, grow: .3f); AddQi(4);
                 b.friendly = true; b.pierce = P.strike || run.Has("d_reflect"); if (run.Has("d_reflect")) b.strike = true; if (run.Has("hw_c1")) b.seek = 8; if (run.Has("hw_c2")) { b.blast = 52; b.pierce = false; } b.life = 3; b.g = 0; b.home = 0; b.boom = 0;
                 float sp = Mathf.Max(700, Hyp(b.vx, b.vy) * 1.1f); var o = b.owner;
@@ -344,7 +346,7 @@ namespace Cheongo
             {
                 strike = true; e.kanpa = true; e.kanMua = ViaMua; kanpaN++; run.kanpa++;
                 float x = e.cx, y = e.cy; bool big = e.type == 'b'; var bt = BlowAt(e); bool perfect = bt != null && songPos >= bt - .09f;   // 간파: the crossed cut, gold flakes, the world holds a beat
-                MomAdd(perfect ? tu.MOM_PERFECT : tu.MOM_KAN); mu?.Accent(perfect);
+                MomAdd(perfect || IsGun ? tu.MOM_PERFECT : tu.MOM_KAN); mu?.Accent(perfect); if (IsGun) { GunReload(99); P.heat = 0; P.overheat = 0; }   // a read shot: the gun is full again
                 if (perfect) { fx?.Pop(x, y - 46, "완벽 간파", SEAL); hitstop = Mathf.Max(hitstop, .16f); fx?.Seal(x, y - 10, (Random.value - .5f) * .3f, true); mu?.Sfx("strike"); mu?.Jing(); flashDim = .1f; perfectN++; run.perfectN++; }
                 fx?.Add("kfx", Fx.KF_XCUT, x, y, big ? 120 : 64, life: .4f, grow: .15f, rot: Random.value * .6f - .3f); fx?.Add("kfx", Fx.KF_FLAKES, x, y, big ? 130 : 80, life: .5f, grow: .5f);
                 hitstop = Mathf.Max(hitstop, .1f); shake = Mathf.Max(shake, 7);
@@ -428,8 +430,8 @@ namespace Cheongo
                             if (!e.alive || Ghostly(e) || b.x <= e.x - b.r || b.x >= e.x + e.w + b.r || b.y <= e.y - b.r || b.y >= e.y + e.h + b.r) continue;
                             if (b.hits != null && b.hits.Contains(e.id)) continue;
                             if (e.type == 'h' && Sgn(b.vx) == -e.face && !b.pierce) { b.life = 0; mu?.Sfx("clang"); break; }
+                            if (b.blast > 0) { b.life = 0; break; }   // rockets, balls and turned shots that carry powder burst on the first body
                             (b.hits ??= new HashSet<int>()).Add(e.id); HurtEnemy(e, b.strike || b.pierce); if (!b.pierce) b.life = 0;
-                            if (b.blast > 0) { b.life = 0; fx?.Ring(b.x, b.y, b.blast, new Color(.09f, .086f, .1f, .7f), .3f); foreach (var o in new List<Enemy>(foes)) if (o != e && o.alive && Hyp(o.cx - b.x, o.cy - b.y) < b.blast + Mathf.Max(o.w, o.h) / 2) HurtEnemy(o, false); }   // 폭섬
                             if (b.life <= 0) break;
                         }
                     }
@@ -446,6 +448,7 @@ namespace Cheongo
                 }
                 b.life -= dt;
             }
+            for (int k = 0; k < shots.Count; k++) { var b = shots[k]; if (b.friendly && b.blast > 0 && b.life <= 0 && !b.blown) { b.blown = true; Blast(b.x, b.y, b.blast, b.strike, b.core); } }
             shots.RemoveAll(b => b.life <= 0);
         }
 
