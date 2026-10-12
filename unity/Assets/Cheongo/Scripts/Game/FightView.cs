@@ -15,7 +15,7 @@ namespace Cheongo
 
         Sim sim; Sheet foes, foes2, foes3, kfx, props, bossfx, bossB, kring;
         readonly Dictionary<Enemy, FoeV> views = new Dictionary<Enemy, FoeV>(); readonly List<ShotV> shotViews = new List<ShotV>(); readonly List<HazV> hazViews = new List<HazV>();
-        readonly List<SpriteRenderer> targets = new List<SpriteRenderer>(), lanterns = new List<SpriteRenderer>(), cloneViews = new List<SpriteRenderer>(); SpriteRenderer drum, sealL, sealR; LineRenderer chungoLine;
+        readonly List<Transform> targetRoots = new List<Transform>(); readonly List<SpriteRenderer> targets = new List<SpriteRenderer>(), lanterns = new List<SpriteRenderer>(), cloneViews = new List<SpriteRenderer>(); SpriteRenderer drum, sealL, sealR; LineRenderer chungoLine;
         static Sprite box;
         public static Sprite Box() { if (box == null) box = UnityEngine.Sprite.Create(Texture2D.whiteTexture, new Rect(0, 0, 4, 4), new Vector2(0, 1), 4); return box; }   // one unit square, pivot top-left
 
@@ -40,8 +40,21 @@ namespace Cheongo
         void Scenery()
         {
             var lv = sim.lv; var solid = Sheet.Get("hudsolid");
-            foreach (var g in lv.targets) { var s = Sprite("Target", transform, 6); if (solid != null) Put(s, solid, 4, g.x, g.y, 34, .5f, .5f); targets.Add(s); }
-            foreach (var c in lv.cps) { var s = Sprite("Lantern", transform, 3); if (props != null) Put(s, props, 4, c.x, c.y + 2, 46); lanterns.Add(s); }
+            // 과녁: two brushed vermilion rings and a dot, hung on a thread
+            foreach (var g in lv.targets)
+            {
+                var root = new GameObject("Target").transform; root.SetParent(transform, false); root.localPosition = World.ToUnity(g.x, g.y);
+                var th = Line("Thread", root, 5); th.positionCount = 5; for (int i = 0; i < 5; i++) { float t = i / 4f; th.SetPosition(i, new Vector3(-3 * 4 * t * (1 - t) * .5f / World.T, (14 + 50 * t) / World.T, 0)); } th.startWidth = th.endWidth = 1 / World.T; th.startColor = th.endColor = DB.Hex(lv.pal.tile);
+                var r1 = Line("Ring", root, 6); Fx.Circle(r1, 0, 0, 13, 2.6f, new Color(.76f, .09f, .11f, 1), .3f, 6.1f); var r2 = Line("Ring2", root, 6); Fx.Circle(r2, 0, 0, 6.5f, 1.8f, new Color(.76f, .09f, .11f, 1), 1.2f, 7.1f);
+                var d = Sprite("Dot", root, 6); d.sprite = Fx.Dot(); d.color = new Color(.76f, .09f, .11f, 1); d.transform.localScale = new Vector3(5.2f / World.T, 5.2f / World.T, 1); targetRoots.Add(root); targets.Add(d);
+            }
+            // 청사초롱 (checkpoints): a lantern hung from a thin post, lit once passed
+            var objects = Sheet.Get("objects");
+            foreach (var c in lv.cps)
+            {
+                var post = Sprite("Post", transform, 3); Rect(post, c.x - 1, c.y - 44, 2, 44, DB.Hex(lv.pal.tile)); var arm = Sprite("Arm", transform, 3); Rect(arm, c.x - 1, c.y - 44, 10, 2, DB.Hex(lv.pal.tile));
+                var s = Sprite("Lantern", transform, 3); if (objects != null) Put(s, objects, 1, c.x + 8, c.y - 42, 38, .5f, 0); lanterns.Add(s);
+            }
             if (lv.hasDrum) { drum = Sprite("Cheongo", transform, 4); if (solid != null) Put(drum, solid, 0, lv.drum.x, lv.drum.y + 4, 92); }
             sealL = Sprite("SealL", transform, 5); sealR = Sprite("SealR", transform, 5); sealL.enabled = sealR.enabled = false;
             chungoLine = Line("Chungo", transform, 22); chungoLine.enabled = false;
@@ -192,8 +205,8 @@ namespace Cheongo
             }
 
             // 과녁 sway back after a moment; the lantern last passed glows; the drum waits for the guardian to fall; the barrier stands while it lives
-            for (int i = 0; i < targets.Count; i++) { var g = lv.targets[i]; targets[i].color = new Color(1, 1, 1, g.t > 0 ? .15f : 1); targets[i].transform.localRotation = Quaternion.Euler(0, 0, Mathf.Sin(Time.time * 1.6f + i) * 6); }
-            for (int i = 0; i < lanterns.Count; i++) lanterns[i].color = i == sim.cpIdx ? new Color(1, .86f, .6f, 1) : new Color(1, 1, 1, .85f);
+            for (int i = 0; i < targets.Count; i++) { var g = lv.targets[i]; bool up = g.t > 0; targets[i].enabled = !up; targetRoots[i].localPosition = World.ToUnity(g.x + Mathf.Sin(Time.time * 1.6f + i) * 2, g.y); foreach (var lr in targetRoots[i].GetComponentsInChildren<LineRenderer>()) { var c0 = lr.startColor; c0.a = up ? .22f : 1; lr.startColor = lr.endColor = c0; } }
+            var obj = Sheet.Get("objects"); if (obj != null) for (int i = 0; i < lanterns.Count; i++) lanterns[i].sprite = obj.Frame(i == sim.cpIdx ? 0 : 1, .5f, 0);
             if (drum != null) { var solid = Sheet.Get("hudsolid"); if (sim.drumCut && solid != null) drum.sprite = solid.Frame(1, .5f, 1f); drum.color = sim.BossAlive ? new Color(1, 1, 1, .45f) : Color.white; }
             sealL.enabled = sealR.enabled = lv.sealOn;
             if (lv.sealOn) { float hh = (lv.sealY1 + 1) * World.T, pulse = .55f + .15f * Mathf.Sin(Time.time * 4); Rect(sealL, lv.sealX0 * World.T + 10, 0, 12, hh, new Color(.76f, .09f, .11f, pulse)); Rect(sealR, lv.sealX1 * World.T + 10, 0, 12, hh, new Color(.76f, .09f, .11f, pulse)); }

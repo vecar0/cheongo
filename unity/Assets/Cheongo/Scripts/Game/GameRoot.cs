@@ -79,7 +79,7 @@ namespace Cheongo
             run.gateHits = 0; run.janUsed = false; run.cp.Clear();
             sim = new Sim(lv, run, fx, music); sim.P.Fx = fx.Hero;
             fight = FightView.Create(sim, worldRoot); view = PlayerView.Create(sim, worldRoot);
-            camX = sim.P.b.x; camY = sim.P.b.y; stageCardT = 0;
+            camX = sim.P.b.cx + 24; camY = sim.P.b.cy - 24; stageCardT = 0;
             meta.SaveRun(run);
         }
         string StageName => run.Arena ? $"천고대 天鼓臺 · {Boss.For(run.seed, run.cycle).name}" : (run.node == "elite" ? "험로 · " : "") + Content.STAGE[Mathf.Min(run.m, Run.LAST_M)];
@@ -262,9 +262,12 @@ namespace Cheongo
             float aspect = (float)UnityEngine.Screen.width / Mathf.Max(1, UnityEngine.Screen.height);
             cam.orthographicSize = Mathf.Max(11f / 2, 13f / 2 / aspect);
             float halfW = cam.orthographicSize * aspect * World.T, halfH = cam.orthographicSize * World.T;
-            float tx = p.b.x + p.b.w / 2 + p.face * 40, ty = p.b.y - 20;
-            camX += (tx - camX) * Mathf.Min(1, rdt * 6); camY += (ty - camY) * Mathf.Min(1, rdt * 4);
-            float cx = Mathf.Clamp(camX, halfW, Mathf.Max(halfW, lv.w * World.T - halfW)), cy = Mathf.Min(camY, lv.h * World.T - halfH), sh = meta.shake ? sim.shake : 0;
+            // it looks a little ahead of the run and the way he faces, and never shows below the floor of the gate (js/game.js render)
+            float tx = p.b.cx + Mathf.Clamp(p.vx * .22f, -110, 110) + p.face * 24, ty = p.b.cy - 24, f = Mathf.Min(1, rdt * 7);
+            camX += (tx - camX) * f; camY += (ty - camY) * f;
+            float lw = lv.w * World.T, lh = lv.h * World.T, vw = halfW * 2, vh = halfH * 2, maxY = lh - vh / 2 + 8;
+            camX = lw <= vw ? lw / 2 : Mathf.Clamp(camX, vw / 2, lw - vw / 2); camY = Mathf.Min(maxY, Mathf.Max(Mathf.Min(maxY, vh / 2 - 96), camY));
+            float cx = camX, cy = camY, sh = meta.shake ? sim.shake : 0;
             cam.transform.position = World.ToUnity(cx + (UnityEngine.Random.value - .5f) * sh, cy + (UnityEngine.Random.value - .5f) * sh, -10);   // a blow shakes the paper
             lview.Follow(cam); view.SyncAim(cam);
         }
@@ -298,38 +301,50 @@ namespace Cheongo
         void DrawHud(float sc)
         {
             var p = sim.P; Color ink = DB.Hex(lv.pal.text); bool hush = p.focus || screen != null; if (hush) ink = PAPER;
-            Txt(new Rect(22, 14, 500, 26), StageName, 19, ink, TextAnchor.MiddleLeft, true);
-            Txt(new Rect(22, 38, 500, 18), $"{run.cycle + 1}번째 바퀴 · {Music.JANGDAN[DB.Tables.MADANG[Run.MD(run.m)].jd].name}", 12, new Color(ink.r, ink.g, ink.b, .7f), TextAnchor.MiddleLeft);
-
-            // 숨: one drop for each breath
-            var dot = Fx.Dot().texture; int cap = Mathf.Max(run.BreathCap, run.breath);
-            for (int i = 0; i < cap; i++) { GUI.color = i < run.breath ? SEAL : new Color(ink.r, ink.g, ink.b, .2f); GUI.DrawTexture(new Rect(22 + i * 24, 62, 18, 18), dot); }
-            GUI.color = Color.white;
-            // 기력: what 무아경 spends
-            Txt(new Rect(22, 86, 40, 16), "기력", 11, new Color(ink.r, ink.g, ink.b, .8f), TextAnchor.MiddleLeft);
-            Fill(new Rect(54, 90, 110, 8), new Color(ink.r, ink.g, ink.b, .2f)); Fill(new Rect(54, 90, 110 * Mathf.Clamp01(p.ki), 8), p.ki < .25f && Mathf.Sin(Time.unscaledTime * 11) > 0 ? new Color(ink.r, ink.g, ink.b, .5f) : p.focus ? new Color(.37f, .53f, .71f) : ink);
+            // the top row, as the web lays it out: a washed plaque with the gate's name and its 장단, the 숨 as drops of ink, and at the right the dash pip, the time and the pause mark
+            var ui = Sheet.Get("ui"); string jd = Music.JANGDAN[DB.Tables.MADANG[Run.MD(run.m)].jd].name; Color plate = hush ? new Color(1, 1, 1, .35f) : new Color(1, 1, 1, .9f);
+            st.font = brush; st.fontSize = 15; float nw = st.CalcSize(new GUIContent(StageName)).x; st.font = body; st.fontSize = 11; float jw = st.CalcSize(new GUIContent(jd)).x;
+            Frame(ui, 5, new Rect(14, 8, nw + jw + 28, 30), plate.a); Txt(new Rect(24, 8, nw + 4, 30), StageName, 15, ink, TextAnchor.MiddleLeft, true); Txt(new Rect(32 + nw, 10, jw + 4, 30), jd, 11, new Color(ink.r, ink.g, ink.b, .7f), TextAnchor.MiddleLeft);
+            float bx0 = 14 + nw + jw + 28 + 12; int cap = Mathf.Max(run.BreathCap, run.breath); Frame(ui, 5, new Rect(bx0, 8, cap * 15 + 15, 30), plate.a);
+            for (int i = 0; i < cap; i++) { if (ui != null) { GUI.color = hush ? PAPER : Color.white; Frame(ui, i < run.breath ? 3 : 4, new Rect(bx0 + 10 + i * 15, 16, 10, 14), i < run.breath ? 1 : .55f); } }
+            GUI.color = Color.white; var dot = Fx.Dot().texture;
+            { int tm = Mathf.FloorToInt(run.time / 60); string ts = $"{tm}:{run.time - tm * 60:00.00}"; st.font = body; st.fontSize = 17; float tw = st.CalcSize(new GUIContent(ts)).x; float rx = VW - 12 - 40;
+              Frame(ui, 5, new Rect(rx, 8, 40, 30), plate.a); Fill(new Rect(rx + 14, 16, 4, 14), ink); Fill(new Rect(rx + 22, 16, 4, 14), ink);   // the pause mark (Esc)
+              rx -= tw + 32; Frame(ui, 5, new Rect(rx, 8, tw + 20, 30), plate.a); Txt(new Rect(rx + 10, 8, tw + 4, 30), ts, 17, ink, TextAnchor.MiddleLeft);
+              bool pip = (p.onGround || p.airDash > 0) && p.dashCd <= 0; var jj = new Color(.153f, .275f, .416f); var m0 = GUI.matrix; GUIUtility.RotateAroundPivot(45, new Vector2(rx - 16, 23) * sc);   // the dash, ready or not: a small indigo diamond
+              Fill(new Rect(rx - 21, 18, 10, 10), jj); if (!pip) Fill(new Rect(rx - 19, 20, 6, 6), hush ? new Color(.15f, .14f, .13f) : DB.Hex(lv.pal.bg)); GUI.matrix = m0; }
+            // 기력 under the 숨: what 무아경 spends
+            Txt(new Rect(18, 52, 40, 14), "기력", 11, new Color(ink.r, ink.g, ink.b, .8f), TextAnchor.MiddleLeft);
+            Fill(new Rect(48, 54, 104, 10), new Color(ink.r, ink.g, ink.b, .2f)); Fill(new Rect(48, 54, 104 * Mathf.Clamp01(p.ki), 10), p.ki < .25f && Mathf.Sin(Time.unscaledTime * 11) > 0 ? new Color(ink.r, ink.g, ink.b, .5f) : ink); if (p.focus) Fill(new Rect(48, 58, 104 * Mathf.Clamp01(p.ki), 2), new Color(.153f, .275f, .416f, .5f));
             // 기세: five brush cells, the tier's numeral beside them
             int tier = sim.MomTier; bool tr = run.trance > 0;
-            Txt(new Rect(22, 104, 40, 18), tier > 0 ? $"{tier}단" : "기세", tier > 0 ? 15 : 11, tr ? SEAL : new Color(ink.r, ink.g, ink.b, .85f), TextAnchor.MiddleLeft, tier > 0);
-            for (int i = 0; i < 5; i++) { float fl = Mathf.Clamp01((run.mom - i * 100) / 100); var r = new Rect(54 + i * 22, 109, 20, 8); Fill(r, new Color(ink.r, ink.g, ink.b, .18f)); if (fl > 0) Fill(new Rect(r.x, r.y, r.width * fl, r.height), tr ? (Mathf.FloorToInt(Time.unscaledTime * 12) % 2 == 0 ? SEAL : GOLD) : i >= 3 ? SEAL : ink); }
+            Txt(new Rect(18, 68, 40, 18), tier > 0 ? $"{tier}단" : "기세", tier > 0 ? 17 : 12, tr ? SEAL : new Color(ink.r, ink.g, ink.b, .85f), TextAnchor.MiddleLeft, true);
+            for (int i = 0; i < 5; i++) { float fl = Mathf.Clamp01((run.mom - i * 100) / 100); var r = new Rect(48 + i * 21, 72, 19, 8); Fill(r, new Color(ink.r, ink.g, ink.b, .18f)); if (fl > 0) Fill(new Rect(r.x, r.y, r.width * fl, r.height), tr ? (Mathf.FloorToInt(Time.unscaledTime * 12) % 2 == 0 ? SEAL : GOLD) : i >= 3 ? SEAL : ink); }
             if (sim.IsGun)   // 탄 · 열
             {
-                Txt(new Rect(22, 124, 40, 16), sim.W.heat ? "열" : "탄", 11, new Color(ink.r, ink.g, ink.b, .8f), TextAnchor.MiddleLeft);
-                if (sim.W.heat) { Fill(new Rect(54, 128, 110, 8), new Color(ink.r, ink.g, ink.b, .2f)); Fill(new Rect(54, 128, 110 * Mathf.Clamp01(p.heat / 100), 8), p.overheat > 0 ? SEAL : p.heat > 70 ? GOLD : ink); }
-                else for (int i = 0; i < sim.GunMag; i++) { GUI.color = i < p.ammo ? ink : new Color(ink.r, ink.g, ink.b, .2f); GUI.DrawTexture(new Rect(54 + i * 16, 125, 12, 12), dot); }
+                Txt(new Rect(18, 88, 40, 16), sim.W.heat ? "열" : "탄", 11, new Color(ink.r, ink.g, ink.b, .8f), TextAnchor.MiddleLeft);
+                if (sim.W.heat) { Fill(new Rect(48, 92, 104, 8), new Color(ink.r, ink.g, ink.b, .2f)); Fill(new Rect(48, 92, 104 * Mathf.Clamp01(p.heat / 100), 8), p.overheat > 0 ? SEAL : p.heat > 70 ? GOLD : ink); }
+                else for (int i = 0; i < sim.GunMag; i++) { GUI.color = i < p.ammo ? ink : new Color(ink.r, ink.g, ink.b, .2f); GUI.DrawTexture(new Rect(48 + i * 16, 90, 12, 12), dot); }
                 GUI.color = Color.white;
             }
             // 연속 처치
-            if (p.chain >= 1) { float k = 1 + p.chainPop * 1.6f; Txt(new Rect(VW - 150, 56, 120, 44), "一二三四五"[Mathf.Min(5, p.chain) - 1].ToString(), 34 * k, ink, TextAnchor.MiddleCenter, true); Txt(new Rect(VW - 150, 96, 120, 18), $"{p.chain} 연속", 12, p.chain >= 5 ? SEAL : ink); }
+            if (p.chain >= 1) { float k = 1 + p.chainPop * 1.6f; Txt(new Rect(VW - 114, 64, 120, 44), "一二三四五"[Mathf.Min(5, p.chain) - 1].ToString(), 34 * k, ink, TextAnchor.MiddleCenter, true); Txt(new Rect(VW - 114, 102, 120, 18), $"{p.chain} 연속", 12, p.chain >= 5 ? SEAL : ink); }
 
-            // 천고 기운: five drums fill as the fight is won well; all five lit, the great drum calls for 천고난무
-            var vis = Sheet.Get("vis"); float bl = music.BeatLen, ph = ((music.Pos / bl) % 1 + 1) % 1, beatK = Mathf.Max(0, .2f - Mathf.Min(ph, 1 - ph)) * 1.2f; bool full = run.qi >= 100;
-            for (int i = 0; i <= 4; i++)
+            // the 장단 board: drums on a lacquered board at the foot of the screen. They fill with 천고 기운 as the fight is won well and nod to the music; all five lit, the great drum calls for 천고난무
+            var vis = Sheet.Get("vis"); var props2 = Sheet.Get("props2"); float bl = music.BeatLen, ph = ((music.Pos / bl) % 1 + 1) % 1, beatK = Mathf.Max(0, .2f - Mathf.Min(ph, 1 - ph)) * 1.2f; bool full = run.qi >= 100;
+            const int ahead = 4; float gap = Mathf.Clamp((VW - 40 - 104) / ahead, 44, 64), mx = VW / 2 - 96, by0 = 720 - 30;
+            if (props2 != null)   // end caps keep their proportions, only the plain middle stretches
             {
-                bool big = i == 4; float lit = Mathf.Clamp01((run.qi - i * 20) / 20), sz = (big ? 46 : 32) * (1 + (lit >= 1 ? beatK : 0) + (full && big ? .12f + beatK : 0)), x = VW / 2 - 108 + i * 54, y = 720 - 46;
-                Frame(vis, big ? 4 : 3, new Rect(x - sz / 2, y - sz / 2, sz, sz), .22f + .78f * lit);
+                var bf = props2.Frames[2]; float bw = gap * ahead + 104, bh = 62, capS = bf.w * .16f, capW = capS * bh / bf.h, bx = mx - 52; var tex = props2.Tex;
+                Rect Src(float x, float w) => new Rect((bf.x + x) / tex.width, 1 - (float)(bf.y + bf.h) / tex.height, w / tex.width, (float)bf.h / tex.height);
+                GUI.DrawTextureWithTexCoords(new Rect(bx, by0 - 30, capW, bh), tex, Src(0, capS)); GUI.DrawTextureWithTexCoords(new Rect(bx + capW - .5f, by0 - 30, bw - capW * 2 + 1, bh), tex, Src(capS, bf.w - capS * 2)); GUI.DrawTextureWithTexCoords(new Rect(bx + bw - capW, by0 - 30, capW, bh), tex, Src(bf.w - capS, capS));
             }
-            if (full) Shadowed(new Rect(VW / 2 - 200, 720 - 100, 400, 22), "Q · 천고난무", 15, GOLD, new Color(0, 0, 0, .6f), TextAnchor.MiddleCenter, true);
+            for (int i = 0; i <= ahead; i++)
+            {
+                bool big = i == ahead; float lit = Mathf.Clamp01((run.qi - i * 20) / 20), sz = (big ? 42 : 30) * (1 + (lit >= 1 ? beatK : 0) + (full && big ? .12f + beatK : 0)), x = mx + i * gap;
+                Frame(vis, big ? 4 : 3, new Rect(x - sz / 2, by0 - sz / 2, sz, sz), .22f + .78f * lit);
+            }
+            if (full) Shadowed(new Rect(VW / 2 - 200, 720 - 92, 400, 22), "Q · 천고난무", 15, GOLD, new Color(0, 0, 0, .6f), TextAnchor.MiddleCenter, true);
 
             // the guardian: its name and what is left of it
             var boss = sim.TheBoss;
@@ -349,9 +364,11 @@ namespace Cheongo
             if (sim.toastT > 0) { float a = Mathf.Clamp01(sim.toastT * 2); Fill(new Rect(VW / 2 - 260, 118, 520, 34), new Color(.09f, .086f, .1f, .72f * a)); Txt(new Rect(VW / 2 - 260, 118, 520, 34), sim.toast, 16, new Color(PAPER.r, PAPER.g, PAPER.b, a)); }
 
             if (sim.flashDim > 0) Fill(new Rect(0, 0, VW, 720), new Color(.08f, .04f, .05f, Mathf.Min(.5f, sim.flashDim * 3)));   // the screen draws a breath as a glint opens
-            if (sim.flash > 0) Fill(new Rect(0, 0, VW, 720), new Color(1, 1, 1, Mathf.Min(.8f, sim.flash * 2)));
+            if (p.focus) Fill(new Rect(0, 0, VW, 720), new Color(.153f, .275f, .416f, .14f)); else if (sim.killCam > 0) Fill(new Rect(0, 0, VW, 720), new Color(.47f, .04f, .06f, .12f * Mathf.Min(1, sim.killCam * 3)));   // an indigo hush over 무아경, a faint red breath over the held moment
+            if (sim.flash > 0) { var fc = new Color(.76f, .09f, .11f, Mathf.Min(1, sim.flash * 3)); Fill(new Rect(0, 0, VW, 5), fc); Fill(new Rect(0, 715, VW, 5), fc); Fill(new Rect(0, 0, 5, 720), fc); Fill(new Rect(VW - 5, 0, 5, 720), fc); }   // a blow rings the screen in vermilion
             if (tier >= 4 || tr) { float a = tr ? .22f : .1f; Fill(new Rect(0, 0, VW, 14), new Color(SEAL.r, SEAL.g, SEAL.b, a)); Fill(new Rect(0, 706, VW, 14), new Color(SEAL.r, SEAL.g, SEAL.b, a)); }   // 四 and up: red ink at the edges
 
+            if (sim.state == "dead") { float a = Mathf.Max(0, 1 - sim.deathT / .75f); Fill(new Rect(0, 0, VW, 720), new Color(.08f, .07f, .08f, .55f * a)); Txt(new Rect(0, 300, VW, 90), "절명", 72, new Color(.76f, .09f, .11f, Mathf.Min(1, a * 2)), TextAnchor.MiddleCenter, true); Txt(new Rect(0, 628, VW, 24), run.breath > 0 ? $"남은 숨 {run.breath}" : "숨이 다했다", 13, new Color(.95f, .93f, .9f, Mathf.Min(1, a * 2))); }
             // a name brushed across the screen: the stage as you walk in, a guardian's entrance, an 오의
             if (stageCardT < 2.2f && screen == null) Banner(StageName, run.Arena ? Boss.For(run.seed, run.cycle).line : $"{run.cycle + 1}번째 바퀴", stageCardT, 2.2f, 200);
             if (sim.bossIntro > 0 && sim.introBoss != null) { Fill(new Rect(0, 0, VW, 720), new Color(.05f, .045f, .06f, .45f)); Banner($"{sim.introBoss.B.name}  {sim.introBoss.B.han}", sim.introBoss.B.line, 1.7f - sim.bossIntro, 1.7f, 300); }
