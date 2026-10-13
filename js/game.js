@@ -2492,19 +2492,25 @@ function addQi(n) { // 천고 기운: won by fighting well — 일섬, 간파, �
     else tipOnce("chungo", "천고난무", `북이 다 찼다 — 무기의 오의를 약하게 펼친다(우두머리에겐 통하지 않는다). 한 갈래를 3단까지 익히면 온전한 오의가 된다`, MOBILE ? "아래 태극 북을 누르기" : "태극 북 클릭 또는 Q"); Music.jing(); }
 }
 let chungoFx = null;
-const ougiOf = () => OUGI[wpn()] || OUGI[wrule()] || OUGI.hwando;
+// 천고난무-오의 follows the branch you walked to its end: its name, its painting (ogA/ogB hold three per weapon, one per branch) and its manner
+const ougiBr = () => { const c = run && run.ougiId && CHOSIK_BY[run.ougiId]; return c && c.br >= 0 && c.br <= 2 ? c.br : 0; };
+const OUGI_STYLE = { hwando: ["hwando", "baldo", "ssang"], ssang: ["ssang", "woldo", "hwando"], woldo: ["woldo", "hwando", "ssang"], baldo: ["baldo", "ssang", "woldo"],
+  jochong: ["jochong", "singi", "seungja"], seungja: ["seungja", "cheonja", "jochong"], singi: ["singi", "jochong", "cheonja"], cheonja: ["cheonja", "seungja", "singi"] };
+const ougiOf = () => { const base = OUGI[wpn()] || OUGI[wrule()] || OUGI.hwando; if (!ougiOpen()) return base; const br = ougiBr(), node = CHOSIK_BY[run.ougiId];
+  return { ...base, name: node ? node.name : base.name, art: [base.art[0], base.art[1] + br] }; };
+const ougiStyle = () => { const k = OUGI[wpn()] ? wpn() : wrule(), list = OUGI_STYLE[k] || OUGI_STYLE.hwando; return ougiOpen() ? list[ougiBr()] : list[0]; };
 const drumName = () => ougiOpen() ? `천고난무-오의 · ${ougiOf().name}` : "천고난무";
 function ougiArt(key, x, y, h, o = {}) { const [sh, i] = key; if (SPR[sh]) { addFx(sh, i, x, y, h, { life: .6, grow: .3, ...o }); return true; } return false; }
-function ougiCall(o, plain) { if (plain) return; flashDim = Math.max(flashDim, .14); bossBannerLite = { name: o.name, han: "", t: 0 }; }   // only the true 오의 darkens the world and writes its name   // the art speaks for itself: no name is written
+function ougiCall(o, plain) { if (plain) return; flashDim = Math.max(flashDim, .14); }   // only the true 오의 darkens the world; no name is written   // the art speaks for itself: no name is written
 let bossBannerLite = null;   // the 오의's name brushed large for a moment
 function chungo() { // the full drum: 천고난무 — plain and the same for every weapon until a branch's end turns it into the weapon's 오의
   const o = ougiOf(), w = wpn(), open = ougiOpen();
-  if (WEAPONS[w] && WEAPONS[w].gun) return gunOugi(w, o, !open);
+  if (WEAPONS[w] && WEAPONS[w].gun) return gunOugi(ougiStyle(), o, !open);
   const cx = P.x + P.w / 2, cy = P.y + P.h / 2, d = a => Math.hypot(a.x + a.w / 2 - cx, a.y + a.h / 2 - cy);
   const ts = enemies.filter(e => e.alive && !ghostly(e) && !e.hidden && d(e) < (!open ? TUNING.DRUM_PLAIN_R : run.ougiAwake ? 640 : 480)).sort((a, b) => d(a) - d(b)).slice(0, !open ? TUNING.DRUM_PLAIN_N : (has("d_giseom") ? 10 : 8) + (run.ougiAwake ? 4 : 0));
   if (!ts.length) return false;
   const pts = [{ x: cx, y: cy }, ...ts.map(e => ({ x: e.x + e.w / 2, y: e.y + e.h / 2 }))];
-  chungoFx = { pts, ts, t: 0, done: false, w: wrule(), plain: !open }; run.qi = run.ougiAwake ? 50 : 0; P.invT = Math.max(P.invT || 0, 1.2); P.vx = P.vy = 0;
+  chungoFx = { pts, ts, t: 0, done: false, w: ougiStyle(), plain: !open }; run.qi = run.ougiAwake ? 50 : 0; P.invT = Math.max(P.invT || 0, 1.2); P.vx = P.vy = 0;
   for (const e of ts) e.stunT = Math.max(e.stunT || 0, open ? 2 : .8); Music.sfx("dash"); if (open) flashDim = .12; ougiCall(o, !open); return true;
 }
 function gunOugi(w, o, plain) { // the four guns' 오의; plain (before a branch's end): the same move, smaller, and it does not wound a guardian
