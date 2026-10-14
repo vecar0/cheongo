@@ -270,28 +270,66 @@ body.padEdit #stickZone, body.padEdit #swipeZone { pointer-events: none; }
 #loading { position: fixed; inset: 0; z-index: 50; overflow: hidden; background: #e8e1d0; transition: opacity .42s ease; }
 #loading[hidden] { display: none; }
 #loading.out { opacity: 0; pointer-events: none; }
-#loading .ld-art { position: absolute; inset: -4%; background: url("assets/load-wide.webp") center / cover no-repeat; animation: ldDrift 26s ease-out both; }
-@media (orientation: portrait) { #loading .ld-art { background-image: url("assets/load-tall.webp"); } }
-@keyframes ldDrift { from { transform: scale(1.06) translate(1.2%, .8%); } to { transform: scale(1) translate(0, 0); } }
-#loading .ld-mist { position: absolute; inset: -20%; pointer-events: none; opacity: .55;
-  background: radial-gradient(40% 18% at 30% 70%, rgba(240,235,224,.9), transparent 70%), radial-gradient(35% 14% at 75% 82%, rgba(240,235,224,.8), transparent 70%), radial-gradient(30% 12% at 55% 58%, rgba(240,235,224,.6), transparent 70%);
+/* 로딩: 그림 여러 겹 — 먼 산(천천히 다가옴), 북 바위(북이 박마다 울려 붉은 테가 퍼짐), 안개 두 겹, 벼랑의 검객(바람에 흔들림), 떠오르는 먹 티끌,
+   붓으로 쓰이는 天鼓와 찍히는 낙관, 붓으로 그어지는 진행 줄. 먹 그림은 multiply로 종이에 스민다 */
+#loading .ld-bg { position: absolute; inset: -3%; background: url("assets/ld-bg-wide.webp") center 35% / cover no-repeat; animation: ldDrift 30s ease-out both; }
+@media (orientation: portrait) { #loading .ld-bg { background-image: url("assets/ld-bg-tall.webp"); background-position: center; } }
+@keyframes ldDrift { from { transform: scale(1.09) translate(1%, 1%); } to { transform: scale(1) translate(0, 0); } }
+#loading .ld-tower, #loading .ld-hero { position: absolute; mix-blend-mode: multiply; pointer-events: none; }
+#loading .ld-tower img, #loading .ld-hero img { display: block; height: 100%; width: auto; }
+#loading .ld-tower { right: 3%; bottom: -4%; height: 92vh; animation: ldIn 1.6s .1s cubic-bezier(.2,.7,.2,1) both, ldFloat 9s 1.7s ease-in-out infinite alternate; }
+#loading .ld-hero { left: 1%; bottom: -3%; height: 74vh; transform-origin: 40% 100%; animation: ldInL 1.6s .25s cubic-bezier(.2,.7,.2,1) both, ldSway 6s 1.9s ease-in-out infinite alternate; }
+@media (orientation: portrait) { #loading .ld-tower { right: -10%; bottom: auto; top: 1%; height: 46vh; } #loading .ld-hero { left: -12%; bottom: 0; height: 40vh; } }
+@keyframes ldIn { from { opacity: 0; transform: translateY(3%) scale(1.03); } to { opacity: 1; transform: none; } }
+@keyframes ldInL { from { opacity: 0; transform: translateX(-4%); } to { opacity: 1; transform: none; } }
+@keyframes ldFloat { from { transform: translateY(0); } to { transform: translateY(-1.2%); } }
+@keyframes ldSway { from { transform: rotate(-.35deg); } to { transform: rotate(.45deg); } }
+#loading .ld-ring, #loading .ld-glow { position: absolute; left: 57%; top: 7%; width: 30%; aspect-ratio: 1; margin: -15% 0 0 -15%; border-radius: 50%; pointer-events: none; }
+#loading .ld-ring { border: 3px solid rgba(195,22,28,.75); mix-blend-mode: normal; animation: ldRing 1.3s 1.2s ease-out infinite both; opacity: 0; }
+#loading .ld-ring.r2 { animation-delay: 1.85s; border-width: 2px; }
+#loading .ld-glow { background: radial-gradient(circle, rgba(195,22,28,.35), rgba(195,22,28,0) 65%); animation: ldGlow 1.3s 1.2s ease-out infinite both; }
+@keyframes ldRing { 0% { transform: scale(.55); opacity: .85; } 100% { transform: scale(2.3); opacity: 0; } }
+@keyframes ldGlow { 0%, 100% { transform: scale(.9); opacity: .25; } 12% { transform: scale(1.15); opacity: .9; } }
+#loading .ld-mist { position: absolute; inset: -20%; pointer-events: none; opacity: .6;
+  background: radial-gradient(40% 18% at 30% 72%, rgba(240,235,224,.9), transparent 70%), radial-gradient(35% 14% at 75% 84%, rgba(240,235,224,.85), transparent 70%), radial-gradient(30% 12% at 55% 60%, rgba(240,235,224,.6), transparent 70%);
   animation: ldMist 18s ease-in-out infinite alternate; }
-@keyframes ldMist { from { transform: translateX(-4%); } to { transform: translateX(5%); } }
-#loading .ld-in { position: absolute; left: 50%; top: 9%; transform: translateX(-50%); display: grid; justify-items: center; gap: 8px; width: min(340px, 78vw); text-align: center; }
-@media (orientation: portrait) { #loading .ld-in { top: 40%; } }
-#loading .ld-t { display: flex; gap: .08em; font-family: "Song Myung", var(--f-head, serif); font-weight: 400; font-size: clamp(64px, 14vmin, 128px); line-height: 1; color: #17161a; text-shadow: 0 0 24px rgba(236,230,216,.95), 0 0 6px rgba(236,230,216,.9); }
-#loading .ld-t span { display: inline-block; animation: ldBrush .9s cubic-bezier(.5,0,.25,1) both; }
-#loading .ld-t span:nth-child(2) { animation-delay: .45s; }
-@keyframes ldBrush { 0% { clip-path: inset(0 100% 0 0); filter: blur(4px); opacity: .2; transform: translateY(4px); } 60% { filter: blur(.6px); opacity: 1; } 100% { clip-path: inset(0 0 0 0); filter: none; transform: none; } }
-#loading .ld-bar { position: relative; width: 100%; height: 16px; margin-top: 18px; background: rgba(23,22,26,.16); overflow: hidden;
+#loading .ld-mist.m2 { opacity: .75; background: radial-gradient(45% 12% at 20% 98%, rgba(240,235,224,.95), transparent 70%), radial-gradient(40% 10% at 85% 96%, rgba(240,235,224,.9), transparent 70%); animation-duration: 13s; animation-direction: alternate-reverse; }
+@keyframes ldMist { from { transform: translateX(-5%); } to { transform: translateX(6%); } }
+#loading .ld-specks i { position: absolute; bottom: -4%; width: 4px; height: 4px; border-radius: 50%; background: rgba(23,22,26,.55); animation: ldSpeck 9s linear infinite; }
+#loading .ld-specks i:nth-child(3n) { background: rgba(168,20,27,.55); width: 3px; height: 3px; }
+#loading .ld-specks i:nth-child(1) { left: 12%; animation-delay: 0s; } #loading .ld-specks i:nth-child(2) { left: 24%; animation-delay: -2s; animation-duration: 11s; }
+#loading .ld-specks i:nth-child(3) { left: 36%; animation-delay: -5s; } #loading .ld-specks i:nth-child(4) { left: 47%; animation-delay: -1s; animation-duration: 12s; }
+#loading .ld-specks i:nth-child(5) { left: 58%; animation-delay: -7s; } #loading .ld-specks i:nth-child(6) { left: 66%; animation-delay: -3s; animation-duration: 10s; }
+#loading .ld-specks i:nth-child(7) { left: 74%; animation-delay: -6s; } #loading .ld-specks i:nth-child(8) { left: 83%; animation-delay: -4s; animation-duration: 13s; }
+#loading .ld-specks i:nth-child(9) { left: 90%; animation-delay: -8s; } #loading .ld-specks i:nth-child(10) { left: 6%; animation-delay: -9s; animation-duration: 14s; }
+@keyframes ldSpeck { 0% { transform: translate(0, 0); opacity: 0; } 10% { opacity: 1; } 100% { transform: translate(-6vw, -105vh); opacity: 0; } }
+#loading .ld-in { position: absolute; left: 50%; top: 5%; transform: translateX(-50%); display: grid; justify-items: center; gap: 8px; width: min(380px, 80vw); text-align: center; }
+@media (orientation: portrait) { #loading .ld-in { top: 36%; } }
+#loading .ld-title { position: relative; width: min(46vw, 440px); }
+@media (orientation: portrait) { #loading .ld-title { width: 78vw; } }
+#loading .ld-title img { display: block; width: 100%; height: auto;
+  -webkit-mask: linear-gradient(100deg, #000 45%, transparent 55%) 100% 0 / 260% 100% no-repeat; mask: linear-gradient(100deg, #000 45%, transparent 55%) 100% 0 / 260% 100% no-repeat;
+  animation: ldWrite 1.5s .35s cubic-bezier(.55,.1,.3,1) both; }
+@keyframes ldWrite { from { -webkit-mask-position: 100% 0; mask-position: 100% 0; filter: blur(2px); } 70% { filter: none; } to { -webkit-mask-position: 0 0; mask-position: 0 0; filter: none; } }
+#loading .ld-seal { position: absolute; right: -4%; bottom: 4%; display: grid; place-items: center; width: 13%; aspect-ratio: .8; padding: 2px; background: #b3141c; color: #f4ecdb; border-radius: 3px;
+  font-family: "Song Myung", var(--f-head, serif); font-weight: 400; font-size: clamp(15px, 3.4vmin, 28px); line-height: 1.02; box-shadow: inset 0 0 0 2px rgba(244,236,219,.55); transform: rotate(-6deg);
+  animation: ldStamp .38s 1.85s cubic-bezier(.3,1.6,.5,1) both; mix-blend-mode: multiply; }
+#loading .ld-seal span { display: block; }
+@keyframes ldStamp { from { opacity: 0; transform: rotate(-6deg) scale(2.2); } to { opacity: .95; transform: rotate(-6deg) scale(1); } }
+#loading .ld-read { font-family: var(--f-head, serif); font-size: 13px; letter-spacing: .14em; color: rgba(23,22,26,.7); text-shadow: 0 0 10px rgba(236,230,216,.95); animation: ldFade 1s 2s both; }
+@keyframes ldFade { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+#loading .ld-bar { position: relative; width: 100%; height: 16px; margin-top: 10px; background: rgba(23,22,26,.13); overflow: visible; animation: ldFade .8s 1.2s both;
   -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 300 16' preserveAspectRatio='none'%3E%3Cpath d='M2 9 C20 3 40 4 60 5 C110 4 160 3 210 5 C250 4 280 4 298 7 C296 11 280 13 250 12 C200 14 150 13 100 13 C60 14 30 13 8 14 C3 13 0 11 2 9Z'/%3E%3C/svg%3E") center / 100% 100% no-repeat;
           mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 300 16' preserveAspectRatio='none'%3E%3Cpath d='M2 9 C20 3 40 4 60 5 C110 4 160 3 210 5 C250 4 280 4 298 7 C296 11 280 13 250 12 C200 14 150 13 100 13 C60 14 30 13 8 14 C3 13 0 11 2 9Z'/%3E%3C/svg%3E") center / 100% 100% no-repeat; }
-#loading .ld-bar i { display: block; height: 100%; width: 0; background: linear-gradient(90deg, #17161a 0%, #2a2729 80%, #a8141b 100%); transition: width .25s ease-out; }
-#loading span#ldTxt { font-size: 12.5px; letter-spacing: .04em; color: rgba(23,22,26,.72); text-shadow: 0 0 8px rgba(236,230,216,.95); }
-#loading #ldTip { min-height: 2.8em; max-width: 100%; padding: 6px 12px; font-style: normal; font-size: 13px; line-height: 1.45; color: #2a2729; background: rgba(236,230,216,.72); border-radius: 4px; word-break: keep-all; transition: opacity .35s; }
-#loading #ldTip:empty { visibility: hidden; }
-#loading #ldTip.fade { opacity: 0; }
-@media (prefers-reduced-motion: reduce) { #loading .ld-art, #loading .ld-mist, #loading .ld-t span { animation: none; } }
+#loading .ld-bar i { position: relative; display: block; height: 100%; width: 0; background: linear-gradient(90deg, rgba(23,22,26,.75) 0%, #17161a 70%, #a8141b 100%); transition: width .3s ease-out; }
+#loading .ld-bar i::after { content: ""; position: absolute; right: -6px; top: -2px; width: 14px; height: 20px; border-radius: 50%; background: radial-gradient(circle at 40% 50%, #8e0f16, rgba(142,15,22,0) 70%); animation: ldTipPulse .65s ease-in-out infinite alternate; }
+@keyframes ldTipPulse { from { opacity: .5; } to { opacity: 1; } }
+#loading span#ldTxt { font-size: 12.5px; letter-spacing: .04em; color: rgba(23,22,26,.75); text-shadow: 0 0 8px rgba(236,230,216,.95); }
+#loading #ldTip { min-height: 2.8em; max-width: 100%; padding: 7px 14px; font-style: normal; font-size: 13px; line-height: 1.45; color: #2a2729; background: linear-gradient(90deg, rgba(236,230,216,0), rgba(236,230,216,.82) 12%, rgba(236,230,216,.82) 88%, rgba(236,230,216,0)); word-break: keep-all; transition: opacity .35s; }
+#loading.done .ld-ring { animation: ldRing .7s ease-out both; border-width: 6px; }
+#loading.done .ld-title img { filter: drop-shadow(0 0 8px rgba(195,22,28,.35)); }
+#loading.done .ld-bg { transform: scale(1.05); transition: transform .5s ease-in; animation: none; }
+@media (prefers-reduced-motion: reduce) { #loading *, #loading .ld-title img { animation: none !important; -webkit-mask: none !important; mask: none !important; } #loading .ld-ring, #loading .ld-specks { display: none; } }
 .card .tag.kind.ougi { background: #9a1424; }   /* 오의: the end of a branch */
 .ch-held span { white-space: nowrap; }
 /* 길 고르기: the road so far, a line of seals */
@@ -474,3 +512,31 @@ body.portrait #bDash { width: 72px; height: 72px; right: calc(env(safe-area-inse
 body.portrait #bHook { width: 56px; height: 56px; right: calc(env(safe-area-inset-right, 0px) + 36px); bottom: calc(env(safe-area-inset-bottom, 0px) + 184px); }
 body.portrait #tip { top: calc(env(safe-area-inset-top, 0px) + 150px); }
 body.portrait #hud .hl { font-size: 14px; }
+
+/* 9차: 읽기 쉬운 HUD — 숨 숫자, 벤 적 수, 크기 설정, 안내 카드는 전투를 가리지 않는 오른쪽 위로 */
+#hud { zoom: var(--hud-k, 1); }
+#hBreath { align-items: center; }
+#hBreath b { margin-right: 3px; font-family: var(--f-head); font-weight: 400; font-size: 17px; line-height: 1; color: var(--ink); }
+.night #hBreath b { color: #ece6d8; }
+#hCut { display: flex; align-items: baseline; gap: 3px; padding: 5px 10px; font-family: var(--f-head); font-size: 14px; color: var(--ink); white-space: nowrap; }
+#hCut[hidden] { display: none; }
+#hCut b { font-weight: 400; font-size: 18px; color: #c3161c; }
+#hCut small { margin-left: 6px; font-size: 11.5px; color: #c3161c; }
+#hCut.open b, #hCut.open small { color: var(--ink); }
+.night #hCut, .night #hCut.open b, .night #hCut.open small { color: #ece6d8; }
+.ui-ready #hCut { background: var(--ui-wash) center / 100% 100% no-repeat; border-radius: 0; padding-inline: 16px; }
+body:not(.portrait) #tip { left: auto; right: calc(env(safe-area-inset-right, 0px) + 12px); transform: none; top: calc(env(safe-area-inset-top, 0px) + 58px); max-width: min(330px, 40vw); padding: 8px 12px 7px; }
+#tip b { font-size: calc(15px * var(--hud-k, 1)); }
+#tip span { font-size: calc(12.5px * var(--hud-k, 1)); }
+/* 세로 화면: 위 줄은 관문 이름·과제, 아랫줄에 숨·벤 적·시간·멈춤 — 한 줄에 다 넣다 멈춤 버튼이 밀려나던 것 */
+body.portrait #hud { flex-wrap: wrap; row-gap: 6px; gap: 8px; }
+body.portrait #hud .hl { order: 0; max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
+body.portrait #hud .sp { order: 1; flex: 0 0 100%; height: 0; }
+body.portrait #hBreath { order: 2; } body.portrait #hSchool { order: 3; } body.portrait #hCut { order: 4; }
+body.portrait #hud .sp2 { order: 5; flex: 1; }
+body.portrait #pip { order: 6; } body.portrait #hTime { order: 7; } body.portrait #bPause { order: 8; }
+#hud .sp2 { background: none; display: none; } body.portrait #hud .sp2 { display: block; }
+body.portrait #hud .t { font-size: 14px; min-width: 0; padding: 4px 8px; }
+body.portrait.ui-ready #hud .t, body.portrait.ui-ready #hCut, body.portrait.ui-ready #hBreath { padding-inline: 9px; }
+body.portrait #hCut small { margin-left: 4px; }
+body.portrait #tip { top: calc(env(safe-area-inset-top, 0px) + 196px); }

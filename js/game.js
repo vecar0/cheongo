@@ -2,7 +2,7 @@
 (() => {
 "use strict";
 const T = 32;
-const ASSET_V = "137";   // bump when any picture changes: the service worker then fetches the new json and webp together
+const ASSET_V = "138";   // bump when any picture changes: the service worker then fetches the new json and webp together
 const $ = id => document.getElementById(id);
 const cv = $("cv"); let ctx = cv.getContext("2d", { alpha: false });   // let: the ground is baked by pointing ctx at an offscreen canvas for a moment   // opaque canvas: cheaper to composite on phones
 let W = 0, H = 0, DPR = 1, SCALE = 1;
@@ -40,7 +40,7 @@ const store = {
   set(k, v) { try { localStorage.setItem("chungo." + k, JSON.stringify(v)); } catch (e) {} },
   del(k) { try { localStorage.removeItem("chungo." + k); } catch (e) {} }
 };
-const settings = Object.assign({ sound: true, offset: 0, mus: .8, fx: 1, tempo: 1, calm: false, keys: {}, diff: 1 }, (() => { const v = store.get("settings", {}); return v && typeof v === "object" ? v : {}; })());
+const settings = Object.assign({ sound: true, offset: 0, mus: .8, fx: 1, tempo: 1, calm: false, keys: {}, diff: 1, assist: true, hudK: 1 }, (() => { const v = store.get("settings", {}); return v && typeof v === "object" ? v : {}; })());
 for (const [k, d, lo, hi] of [["mus", .8, 0, 1], ["fx", 1, 0, 1], ["tempo", 1, .7, 1], ["offset", 0, -200, 200]]) if (!Number.isFinite(settings[k])) settings[k] = d; else settings[k] = Math.max(lo, Math.min(hi, settings[k]));
 if (!settings.keys || typeof settings.keys !== "object" || Array.isArray(settings.keys)) settings.keys = {}; settings.calm = settings.calm === true; if (![0, 1, 2].includes(settings.diff)) settings.diff = 1;
 Music.setVolume(settings.sound ? 1 : 0); Music.setOffset(settings.offset); Music.setMix(settings.mus, settings.fx);
@@ -338,7 +338,8 @@ let ldTipT = null;
 function ldShow(el) { el.classList.remove("out"); el.hidden = false; const tip = $("ldTip"); if (!tip || ldTipT) return; let i = (Math.random() * LD_TIPS.length) | 0;
   const next = () => { tip.classList.add("fade"); setTimeout(() => { tip.textContent = LD_TIPS[i++ % LD_TIPS.length]; tip.classList.remove("fade"); }, 350); };
   tip.textContent = LD_TIPS[i++ % LD_TIPS.length]; ldTipT = setInterval(next, 3600); }
-function ldHide(el, then) { clearInterval(ldTipT); ldTipT = null; el.classList.add("out"); setTimeout(() => { el.hidden = true; el.classList.remove("out"); if (then) then(); }, 420); }
+function ldHide(el, then) { clearInterval(ldTipT); ldTipT = null; el.classList.add("done"); Music.sfx && Music.sfx("seal");   // the drum sounds once, the ring bursts, then the ink fades
+  setTimeout(() => { el.classList.add("out"); setTimeout(() => { el.hidden = true; el.classList.remove("out", "done"); if (then) then(); }, 420); }, 380); }
 function loadGate(sheets, imgs, then, label) {
   const el = $("loading"), bar = $("ldBar"), txt = $("ldTxt"), t0 = performance.now();
   const left = () => sheets.filter(n => !SPR[n]).length + imgs.filter(k => !IMG[k]).length, total = sheets.length + imgs.length;
@@ -367,7 +368,7 @@ function bootLoad() {
   const tick = () => { const dec = core.filter(n => SPR[n]).length + BASE_IMGS.filter(k => IMG[k]).length, decT = core.length + BASE_IMGS.length;
     const prog = (got + dec) / (urls.length + decT); bar.style.width = Math.round(prog * 100) + "%";
     const done = got >= urls.length && dec >= decT;
-    if (done) { setTimeout(() => ldHide(el), 400); return; }   // no time limit: the menu opens only once everything is here
+    if (done && performance.now() - t0 > 2600) { setTimeout(() => ldHide(el), 200); return; }   // long enough for 天鼓 to be written and stamped   // no time limit: the menu opens only once everything is here
     txt.textContent = performance.now() - t0 > 10000 ? `연결이 느리다 · 받는 중 ${Math.round(prog * 100)}%` : `먹을 가는 중 · ${Math.round(prog * 100)}%`;
     setTimeout(tick, 100); };
   tick();
@@ -1152,6 +1153,22 @@ function respawn() {
   P = newPlayer(s.x, s.y); clones = [];
   spawnEnemies(); spawnPet(); state = "play"; setHud();
 }
+function slashAssist(d) {
+  const cx = P.x + P.w / 2, cy = P.y + P.h / 2, a0 = Math.atan2(d.y, d.x); let best = null, bd = .62;
+  for (const e of enemies) { if (!e.alive || e.hidden) continue; const ex = e.x + e.w / 2 - cx, ey = e.y + e.h / 2 - cy, dist = Math.hypot(ex, ey); if (dist > 120 || dist < 8) continue;
+    let da = Math.abs(Math.atan2(ey, ex) - a0); if (da > Math.PI) da = 2 * Math.PI - da; if (da < bd) { bd = da; best = { x: ex / dist, y: ey / dist }; } }
+  if (!best) return d; const x = d.x * .3 + best.x * .7, y = d.y * .3 + best.y * .7, l = Math.hypot(x, y) || 1; return { x: x / l, y: y / l };
+}
+// a breath lost the same way twice: one line on how not to lose it again (once per run for each cause)
+const CAUSE_TIPS = [["붉은 탄", "붉은 탄", "가시 테두리 탄은 되받아칠 수 없다 — 대시로 뚫고 지나가거나, 쏘기 전에 베라"], ["탄", "날아드는 탄", "탄은 베면 되받아친다 · 총구가 번쩍이는 박을 보고 베라"],
+  ["낭떠러지", "낭떠러지", "떨어지는 중에도 점프 한 번이 남아 있다 · 벽에 붙어 점프하면 벽차기"], ["금줄", "금줄", "두 박 켜지고 두 박 꺼진다 · 깜빡이면 곧 켜진다"], ["먹물", "차오르는 먹", "멈추지 말 것 · 벽에 붙어 점프하면 더 빨리 오른다"],
+  ["매", "매", "내리꽂기 전에 잠깐 멈춘다 · 그때 위로 베라"], ["등패수", "등패수", "정면은 막힌다 · 뛰어넘어 등을 베거나 간파로 벤다"], ["자객", "자객", "무아경을 읽고 파고든다 · 그냥 베는 편이 낫다"],
+  ["순라", "순라", "칼을 치켜들면 원이 줄어든다 · 점이 될 때 베면 간파"], ["무당", "무당", "부적을 던지기 전에 다가가 베라"], ["북잡이", "북잡이", "북을 치면 모두 함께 친다 · 북잡이부터 베라"], ["함정", "가시", "가시는 밟기만 해도 숨을 잃는다"]];
+function causeTip(cause) {
+  if (!run || !cause || mode === "tutorial") return; const row = CAUSE_TIPS.find(r => cause.includes(r[0])) || (cause !== "적" ? [cause, cause, "몸이 번쩍이면 틈이다 · 그때 몰아 베라"] : null); if (!row) return;
+  run.causeN = run.causeN || {}; const k = row[0]; run.causeN[k] = (run.causeN[k] || 0) + 1; run.causeTold = run.causeTold || [];
+  if (run.causeN[k] >= 2 && !run.causeTold.includes(k)) { run.causeTold.push(k); setTimeout(() => tip(`${row[1]}에 또 당했다`, row[2]), 600); }
+}
 function hitCause(kind) { // what took the breath: a fall, a shot (and whose), the nearest blade, or the ground's own traps
   if (kind === "fall") return "낭떠러지"; const by = P.hitBy; P.hitBy = null;
   const nm0 = e => e.type === "b" ? (BOSSES[e.kind] || {}).name || "우두머리" : FOE_NAME[e.type] || "적";
@@ -1165,7 +1182,7 @@ function hitCause(kind) { // what took the breath: a fall, a shot (and whose), t
 }
 function die(kind, dmg = 1) {
   if (state !== "play" || (P.invT || 0) > 0) return;
-  if (run && mode !== "tutorial") run.lastCause = hitCause(kind);
+  if (run && mode !== "tutorial") { run.lastCause = hitCause(kind); causeTip(run.lastCause); }
   ;
   if (res("yeong", 6) && !run.shadeUsed && P.y < LV.h * T) { // 영 공명: the blow passes through a shadow left behind
     run.shadeUsed = true; P.invT = 1.3; clones.push({ x: P.x + P.w / 2, y: P.y + P.h, face: P.face, t: .25 }); shadeFx(P.x + P.w / 2, P.y + P.h / 2, 26); flash = .2; shake = 6; Music.sfx("clang"); toast("영 공명 · 그림자가 대신 베였다"); return; }
@@ -1792,6 +1809,7 @@ function shot(d, arrow) {
   }
   if (isGun() && P.bayoT > 0 && has("jc_c3") && P.shotDir) { P.bayoLunge = true; P.bayoT = 0; strike = true; startDash(P.shotDir, true); P.dashT = .18; ougiArt(["ogB", 2], P.x + P.w / 2 + P.shotDir.x * 50, P.y + P.h / 2 + P.shotDir.y * 50, 46, { life: .3, rot: Math.atan2(P.shotDir.y, Math.abs(P.shotDir.x)) * Math.sign(P.shotDir.x || 1), flip: P.shotDir.x < 0 }); }   // 총검술: in behind the shot
   run.slashes++; if (strike) run.strikes++;
+  if (!req.dash && !P.focus && settings.assist !== false) d = slashAssist(d);   // a cut thrown roughly at a foe close by bends onto it
   P.windBack = false; P.slashDir = d; P.slashT = P.slashDur = (req.dash ? 0.22 : WP.dur); P.slashCd = ((WP.cd)) * (oath("hyeon") ? .5 : 1) + (0); P.strike = strike; P.clanged = new Set(); P.hitSet = new Set(); P.countered = false;
   if (wrule() === "woldo" && has("wd_c3")) bullets.push({ x: P.x + P.w / 2 + d.x * 30, y: P.y + P.h / 2 + d.y * 20, vx: d.x * 560, vy: d.y * 560, ang: Math.atan2(d.y, d.x), friendly: true, moon: true, pierce: true, r: 22, life: .42, owner: null });   // 만월
   if (wrule() === "woldo" && !P.onGround && d.y > .5) { if (!P.slam) P.slamFrom = P.y; P.slam = true; P.vy = Math.max(P.vy, 760); }   // 낙월: the downward cut drives you down
@@ -3329,6 +3347,7 @@ function setHud() {
   if (mode !== "tutorial") { const lostNow = (hb.dataset.b != null && +hb.dataset.b > run.breath) ? +hb.dataset.b : -1;   // the 숨 just lost bursts red, and the row shakes
     for (let i = 0; i < Math.max(breathCap(), run.breath); i++) { const d = document.createElement("i"); if (i >= run.breath) d.className = "lost" + (i < lostNow ? " gone" : ""); hb.appendChild(d); }
     if (lostNow >= 0) { hb.classList.remove("hurt"); void hb.offsetWidth; hb.classList.add("hurt"); }
+    const nb = document.createElement("b"); nb.textContent = run.breath; hb.prepend(nb);   // the count beside the drops: read at a glance
     hb.dataset.b = run.breath; }
   const hs = $("hSchool"); if (hs) { hs.hidden = true; } ;
   hudCache = "";
@@ -3336,13 +3355,14 @@ function setHud() {
 let hudCache = "";
 function updateHud() {
   const t = fmt(run.time), pip = (P.onGround || P.airDash > 0) && P.dashCd <= 0, hk = !!hookCand, key = t + pip + hk;
+  { const c = cutCount(), el = $("hCut"), txt = c ? `벤 적 ${c.k}/${c.n}` : ""; if (el && el.dataset.t !== txt) { el.dataset.t = txt; el.hidden = !c; if (c) { el.innerHTML = `<b>${c.k}</b>/${c.n}<small>${c.k < c.need ? `결계 ${c.need - c.k}` : c.k >= c.n ? "일소" : "열림"}</small>`; el.classList.toggle("open", c.k >= c.need); } } }
   { const gt = gateGoalText(); if (gt !== (P.goalShown ?? null)) { P.goalShown = gt; $("hJang").classList.toggle("goal", !!gt); if (gt) $("hJang").textContent = gt; else setHud(); } }
   if (key === hudCache) return; hudCache = key;
   $("hTime").textContent = t + (showFps ? ` · ${fpsNow}fps ${workMs.toFixed(0)}ms ${Math.round(1000 / vsyncMs)}Hz ${DPR}x${GPU_SOFT ? " SW" : ""}` : ""); $("pip").classList.toggle("on", pip); $("bHook").classList.toggle("ready", hk);
 }
 let tipT = 0;
 function tip(title, desc, keys) { // 첫 사용 안내: shown once per thing, for a few seconds
-  $("tipT").textContent = title; $("tipD").textContent = desc; $("tipK").textContent = keys || ""; const el = $("tip"); el.hidden = false; requestAnimationFrame(() => el.classList.add("on")); tipT = 6.5; }
+  $("tipT").textContent = title; $("tipD").textContent = desc; $("tipK").textContent = keys || ""; const el = $("tip"); el.hidden = false; requestAnimationFrame(() => el.classList.add("on")); tipT = 4.5; }
 function tipOnce(id, title, desc, keys) { META.tips = META.tips || {}; if (META.tips[id]) return; META.tips[id] = 1; saveMeta(); tip(title, desc, keys); }
 const WTIP = {   // how each weapon's own move is done, by the rules it plays by
   jochong: ["대시를 짧게 = 허리 사격(가까이 한 발) · 길게 누르면 걸으며 겨누고, 떼면 조준 사격 — 오래 겨눌수록 관통 일격. 탄 셋, 총검으로 찌르거나 번쩍이는 적을 쏘면 장전", MOBILE ? "대시 짧게 · 길게 누른 채 겨누고 떼기 · 화면을 그어 찌르기" : "K 짧게 · K를 누른 채 겨누고 떼기 · J로 찌르기"],
@@ -4284,21 +4304,25 @@ function drawCombatHud(pal) { // 기력 under the 숨, the chain's numeral at th
   if (chungoFx && !chungoFx.done) { ctx.fillStyle = "rgba(14,10,12,.38)"; ctx.fillRect(0, 0, W, H); }   // 오의: the world goes dark while the strokes are laid
   if (flashDim > 0) { ctx.fillStyle = `rgba(20,10,12,${flashDim * (settings.calm ? 1 : 3)})`; ctx.fillRect(0, 0, W, H); flashDim = Math.max(0, flashDim - 1 / 60); }   // the screen draws a breath as a glint opens
   drawOugiName(1 / 60);
-  if (momOn()) { const v = run.mom || 0, t = momTier(), bx = 48, by = Math.max(72, hudBottom() + 26), sw = 19, tr = (run.trance || 0) > 0;   // 기세: five brush cells, the tier's numeral beside them
-    ctx.font = `400 ${t ? 17 : 12}px "Song Myung", serif`; ctx.textAlign = "left"; ctx.textBaseline = "middle"; ctx.fillStyle = tr ? SEAL : pal.text; ctx.globalAlpha = .85; ctx.fillText(t ? `${t}단` : "기세", 18, by + 5);
-    for (let i = 0; i < 5; i++) { const fill = Math.max(0, Math.min(1, (v - i * 100) / 100)); ctx.globalAlpha = .18; ctx.fillStyle = pal.text; ctx.fillRect(bx + i * (sw + 2), by, sw, 8);
-      if (fill > 0) { ctx.globalAlpha = .9; ctx.fillStyle = tr ? (Math.floor(performance.now() / 80) % 2 ? SEAL : "#f3c35a") : i >= 3 ? SEAL : pal.text; ctx.fillRect(bx + i * (sw + 2), by, sw * fill, 8); } }
+  const hk = settings.hudK || 1; ctx.setTransform(DPR * hk, 0, 0, DPR * hk, 0, 0);   // 글자·HUD 크기
+  if (mode !== "tutorial") { const top = Math.max(50, hudBottom() + 4) / hk, hh = momOn() ? 46 : 24;   // a wash of paper (or night) behind 기력 and 기세, so they read on any ground
+    ctx.fillStyle = pal.night ? "rgba(23,22,26,.55)" : "rgba(230,226,215,.8)"; ctx.beginPath(); if (ctx.roundRect) ctx.roundRect(8, top, 150, hh, 8); else ctx.rect(8, top, 150, hh); ctx.fill(); }
+  if (momOn()) { const v = run.mom || 0, t = momTier(), bx = 52, by = Math.max(72, hudBottom() + 30) / hk, sw = 19, tr = (run.trance || 0) > 0;   // 기세: five brush cells, the tier's numeral beside them
+    ctx.font = `400 ${t ? 17 : 14}px "Song Myung", serif`; ctx.textAlign = "left"; ctx.textBaseline = "middle"; ctx.fillStyle = tr ? SEAL : pal.text; ctx.globalAlpha = .85; ctx.fillText(t ? `${t}단` : "기세", 18, by + 5);
+    for (let i = 0; i < 5; i++) { const fill = Math.max(0, Math.min(1, (v - i * 100) / 100)); ctx.globalAlpha = .18; ctx.fillStyle = pal.text; ctx.fillRect(bx + i * (sw + 2), by, sw, 10);
+      if (fill > 0) { ctx.globalAlpha = .9; ctx.fillStyle = tr ? (Math.floor(performance.now() / 80) % 2 ? SEAL : "#f3c35a") : i >= 3 ? SEAL : pal.text; ctx.fillRect(bx + i * (sw + 2), by, sw * fill, 10); } }
     ctx.globalAlpha = 1;
     if (t >= 4 || tr) { const g = ctx.createRadialGradient(W / 2, H / 2, Math.min(W, H) * .45, W / 2, H / 2, Math.max(W, H) * .7); g.addColorStop(0, "rgba(195,22,28,0)"); g.addColorStop(1, `rgba(195,22,28,${tr ? .32 : .16})`); ctx.fillStyle = g; ctx.fillRect(0, 0, W, H); } }   // 四 and up: red ink at the edges
-  if (mode !== "tutorial") { const ki = Math.max(0, Math.min(1, P.ki ?? 1)), bx = 18, by = Math.max(54, hudBottom() + 8), bw = 104, bh = 10, f = SPR.mech && SPR.mech.f[MECH.bar];
+  if (mode !== "tutorial") { const ki = Math.max(0, Math.min(1, P.ki ?? 1)), bx = 18, by = Math.max(54, hudBottom() + 10) / hk, bw = 100, bh = 12, f = SPR.mech && SPR.mech.f[MECH.bar];
     const low = ki < .25 && Math.sin(performance.now() / 90) > 0;
-    ctx.font = `400 11px "Song Myung", serif`; ctx.fillStyle = pal.text; ctx.globalAlpha = .8; ctx.fillText("기력", bx, by + bh - 1);
+    ctx.font = `400 13px "Song Myung", serif`; ctx.fillStyle = pal.text; ctx.globalAlpha = .8; ctx.fillText("기력", bx, by + bh - 1);
     const x0 = bx + 30;
     if (f) { ctx.globalAlpha = .2; ctx.drawImage(SPR.mech.img, f.x, f.y, f.w, f.h, x0, by, bw, bh);
       ctx.globalAlpha = low ? .5 : 1; ctx.save(); ctx.beginPath(); ctx.rect(x0, by - 4, bw * ki, bh + 8); ctx.clip(); ctx.drawImage(SPR.mech.img, f.x, f.y, f.w, f.h, x0, by, bw, bh); ctx.restore();
       if (P.focus) { ctx.globalAlpha = .5; ctx.fillStyle = JJOK; ctx.fillRect(x0, by + bh / 2 - 1, bw * ki, 2); } }
     else { ctx.globalAlpha = .25; ctx.fillStyle = pal.text; ctx.fillRect(x0, by, bw, bh); ctx.globalAlpha = 1; ctx.fillRect(x0, by, bw * ki, bh); }
     ctx.globalAlpha = 1; }
+  ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
   const n = P.chain || 0;
   if (n >= 1) { P.chainPop = Math.max(0, (P.chainPop || 0) - 1 / 60); const g = Math.min(5, n), k = 1 + P.chainPop * 1.6, x = W - 54, y = Math.max(86, hudBottom() + 40);
     const nf = SPR.mech && SPR.mech.f[MECH.n1 + g - 1];
@@ -5059,7 +5083,7 @@ function showScreen(id) {
 }
 let settingsBack = "menu";
 function openSettings(back) { settingsBack = back; showScreen("settings"); refreshSettings(); }
-function refreshSettings() { $("bDiff").textContent = diff().name; $("diffDesc").textContent = diff().desc; $("bCalm").textContent = settings.calm ? "켜짐" : "꺼짐"; $("keyRow").hidden = MOBILE; $("musVal").textContent = Math.round(settings.mus * 100) + "%"; $("fxVal").textContent = Math.round(settings.fx * 100) + "%"; $("tempoVal").textContent = Math.round(settings.tempo * 100) + "%"; $("bSound").textContent = settings.sound ? "켜짐" : "꺼짐"; $("offVal").textContent = (settings.offset > 0 ? "+" : "") + settings.offset + "ms"; }
+function refreshSettings() { $("bDiff").textContent = diff().name; $("diffDesc").textContent = diff().desc; $("bCalm").textContent = settings.calm ? "켜짐" : "꺼짐"; $("bAssist").textContent = settings.assist === false ? "꺼짐" : "켜짐"; $("bHudK").textContent = { 1: "보통", 1.15: "크게", 1.3: "아주 크게" }[settings.hudK || 1]; $("keyRow").hidden = MOBILE; $("musVal").textContent = Math.round(settings.mus * 100) + "%"; $("fxVal").textContent = Math.round(settings.fx * 100) + "%"; $("tempoVal").textContent = Math.round(settings.tempo * 100) + "%"; $("bSound").textContent = settings.sound ? "켜짐" : "꺼짐"; $("offVal").textContent = (settings.offset > 0 ? "+" : "") + settings.offset + "ms"; }
 function saveSettings() { store.set("settings", settings); Music.setVolume(settings.sound ? 1 : 0); Music.setOffset(settings.offset); Music.setMix(settings.mus, settings.fx); refreshSettings(); }
 function buildMenu() {
   const s = store.get("run", null);
@@ -5155,6 +5179,10 @@ $("bDiff").addEventListener("click", () => { settings.diff = (settings.diff + 1)
     try { if (!t.trim().startsWith("CHEONGO1:")) throw 0; const o = dec(t.trim().slice(9)); if (!o || typeof o.meta !== "object") throw 0; store.set("meta", o.meta); if (o.settings) store.set("settings", o.settings); store.del("run"); toast("기록을 가져왔다 · 다시 연다"); setTimeout(() => location.reload(), 700); }
     catch (e) { toast("글자 묶음을 읽지 못했다"); } }); }
 $("bCalm").addEventListener("click", () => { settings.calm = !settings.calm; saveSettings(); });
+$("bAssist").addEventListener("click", () => { settings.assist = settings.assist === false; saveSettings(); });
+$("bHudK").addEventListener("click", () => { const L = [1, 1.15, 1.3]; settings.hudK = L[(L.indexOf(settings.hudK || 1) + 1) % L.length]; saveSettings(); applyHudK(); });
+function applyHudK() { document.documentElement.style.setProperty("--hud-k", settings.hudK || 1); hudBotAt = 0; }
+applyHudK();
 $("bKeys").addEventListener("click", () => keyScreen());
 $("bSound").addEventListener("click", () => { settings.sound = !settings.sound; saveSettings(); });
 { const st = (k, d, lo, hi) => () => { settings[k] = Math.round(Math.max(lo, Math.min(hi, settings[k] + d)) * 100) / 100; saveSettings(); Music.sfx("hook"); };
