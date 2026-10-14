@@ -226,6 +226,18 @@ cheonja: { r: G("cj_r", "천자 단련", "天字鍛鍊", "폭발 범위 +15%", {
   c: [G("cj_c3x", "활공", "滑空", "떨어질 때 점프를 누르면 천천히 내려온다", { g: "d_glide" }), G("cj_c3y", "부동", "不動", "공중 무아경 동안 그 자리에 멈춘다", { g: "d_hover" }), G("cj_c4", "비연", "飛燕", "공중 대시 +1", { g: "d_air" })],
   m: [G("cj_m1", "잔명", "殘命", "합류(포격·거치) — 죽을 일격을 관문마다 한 번 버틴다", { g: "d_janmyeong" }), G("cj_m2", "간섬", "看閃", "합류(거치·비행) — 간파하면 공중 대시 +1, 기운 두 배", { g: "d_beat" })] } };
 
+// 수련 후보: the 2단 and 4단 of a branch may come as another node each run — one drawn at random from those opened at the 대장간 with 혼.
+// They change how the branch plays rather than adding numbers. (환도 first; others follow)
+const TREE_ALT = {
+hwando: {
+  hw_a2: [G("hw_a2b", "반격일섬", "反擊一閃", "받아치고 0.5초 안의 베기는 모두 일격이 된다", { icon: 875 }), G("hw_a2c", "피의 반격", "血反擊", "연쇄 넷에 이르면 숨 하나 (관문마다 한 번)", { icon: 208 })],
+  hw_a4: [G("hw_a4b", "끊는 연쇄", "斷連", "연쇄 셋 이상에서 맞으면 숨 대신 연쇄가 깨진다", { icon: 868 }), G("hw_a4c", "천격", "千擊", "연쇄 셋마다 둘레 적을 모두 받아치며 벤다", { icon: 870 })],
+  hw_b2: [G("hw_b2b", "잔영폭", "殘影爆", "잔상이 사라질 때 크게 터져 둘레 적과 탄을 쓸어 낸다", { icon: 863 }), G("hw_b2c", "쌍잔영", "雙殘影", "받아치기마다 잔상이 앞뒤로 둘 남는다", { icon: 860 })],
+  hw_b4: [G("hw_b4b", "대역", "代役", "맞을 때 잔상이 있으면 잔상이 대신 베인다", { icon: 850 }), G("hw_b4c", "잔영일격", "殘影一擊", "잔상의 베기가 일격이 된다", { icon: 872 })],
+  hw_c2: [G("hw_c2b", "관통섬", "貫通閃", "튕긴 탄이 더 빠르게 적을 꿰뚫고 지나간다", { icon: 864 }), G("hw_c2c", "분열섬", "分裂閃", "튕긴 탄이 셋으로 갈라진다", { icon: 507 })],
+  hw_c4: [G("hw_c4b", "탄고", "彈鼓", "탄을 튕길 때마다 천고 기운이 크게 찬다", { icon: 208 }), G("hw_c4c", "박자섬", "拍子閃", "박에 맞춰 튕긴 탄은 두 배 빠른 일격이 된다", { icon: 875 })] } };
+const ALT_HON = 80;   // 혼 to open one 수련 후보
+
 // shared 비급 come in three grades; pairs held together reveal a 조합
 const RARITY = { d_janmyeong: 3, d_freeze: 3, d_breath: 3, d_cheonbo: 3, d_myeong: 2, d_beat: 2, d_zanshin: 2, d_tan: 2, d_ward: 2, d_breathe: 2, d_ganggi: 2, d_gihyeol: 2, d_jump: 2, d_bisang: 2, d_jilbo: 2, d_calm: 2 };
 

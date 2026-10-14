@@ -173,6 +173,8 @@ for (const [wk2, T] of Object.entries(TREES)) { const X = TREE_EXT[wk2], L = ["a
     if (x) CHOSIK.push({ ...x[0], kind: "수련", tree: wk2, br: bi, tier: 3, fork: 0, brName: b.name, lock: 1 }, { ...x[1], kind: "수련", tree: wk2, br: bi, tier: 3, fork: 1, brName: b.name, lock: 1 }, { ...x[2], kind: "수련", tree: wk2, br: bi, tier: 4, brName: b.name, lock: 2 });
     CHOSIK.push({ ...n[2], kind: "수련", tree: wk2, br: bi, tier: 5, brName: b.name, ougi: true }); });
   if (X) X.m.forEach((m, k) => CHOSIK.push({ ...m, kind: "수련", tree: wk2, br: -2, merge: [k, k + 1], tier: 6, brName: "합류", lock: 2 })); }
+for (const [wk2, A] of Object.entries(typeof TREE_ALT !== "undefined" ? TREE_ALT : {})) for (const [base, alts] of Object.entries(A)) { const b = CHOSIK.find(c => c.id === base); if (!b) continue; b.group = base;
+  for (const a of alts) CHOSIK.push({ ...a, kind: "수련", tree: wk2, br: b.br, tier: b.tier, brName: b.brName, lock: b.lock, group: base, alt: true }); }
 for (const c of COMBOS) CHOSIK.push({ ...c, kind: "조합", combo: COMBO_NEED[c.id] });
 CHOSIK_BY = Object.fromEntries(CHOSIK.map(c => [c.id, c]));
 const nodeOf = id => CHOSIK.find(c => c.id === id && c.tree);
@@ -184,11 +186,15 @@ const treeOpen = () => 3;   // every step of every tree is open from the first r
 const ougiOpen = () => !!(run && run.ougiId);
 function branchEnd(c) { if (!c || !c.tree || c.tier !== 4 || run.ougiId) return; const o = CHOSIK.find(x => x.tree === c.tree && x.ougi && x.br === c.br);   // only the branch's last step (4단) opens the 오의
   run.ougiId = o ? o.id : "open"; if (o && !run.perks.includes(o.id)) run.perks.push(o.id); Music.jing(); toast(`갈래 끝에 닿았다 · 천고난무가 오의로 바뀐다 — ${ougiOf().name}`); }
+function groupPick(g) { if (!run) return g; run.gPick = run.gPick || {}; if (run.gPick[g]) return run.gPick[g];
+  const cs = CHOSIK.filter(c => c.group === g && (!c.alt || (META.alts || []).includes(c.id))), held = cs.find(c => (run.perks || []).includes(c.id));
+  const r = mulberry(((run.seed || 1) ^ hashStr(g) ^ ((run.cycle || 0) * 131)) >>> 0); return (run.gPick[g] = held ? held.id : cs[(r() * cs.length) | 0].id); }
+const nodeShown = c => !c.group || groupPick(c.group) === c.id;
 const lockLv = c => c.merge ? 3 : c.ougi ? 1 : c.lock || 0;   // 오의 too stays sealed until the 서고 opens the deeper steps
 function treeOffer() { // the nodes you could take now: the root, then step by step along a branch; 오의 never (깨달음 gives it)
   const T = treeKey(), held = new Set(run.perks || []), out = [], hasRoot = CHOSIK.some(o => o.tree === T && o.tier === 0);
   const got = (br, tier) => CHOSIK.some(o => o.tree === T && o.br === br && o.tier === tier && held.has(o.id));
-  for (const c of CHOSIK) { if (c.tree !== T || held.has(c.id) || c.ougi || lockLv(c) > treeOpen()) continue;
+  for (const c of CHOSIK) { if (c.tree !== T || held.has(c.id) || c.ougi || lockLv(c) > treeOpen() || !nodeShown(c)) continue;
     const ok = c.tier === 0 ? true : c.tier === 1 ? (!hasRoot || got(-1, 0)) : c.tier === 3 ? got(c.br, 2) && !got(c.br, 3) : c.merge ? c.merge.every(b => got(b, 2)) : got(c.br, c.tier - 1);
     if (ok) out.push(c); }
   return out;
@@ -250,9 +256,10 @@ const frenzy = () => !!(P && has("ss_a1") && (P.frenzyUntil || 0) > songPos);
 function counterCut(e) { // 환도 받아치기: a read blow answered by stepping through to the foe's back
   P.countered = true; P.counterT = .28; const x0 = P.x + P.w / 2, y0 = P.y + P.h / 2, ex = e.x + e.w / 2, side = Math.sign(ex - x0) || P.face;
   const far = has("hw_a2") && (P.ctrN || 0) >= 3 ? 2 : 1;   // 연환반격: farther, and the landing cuts
+  if (has("hw_a2b")) P.ctrStrikeUntil = songPos + .5;   // 반격일섬: the cuts right after a counter land as 일격
   moveX(P, ex + side * (e.w / 2 + 20) * far + (far > 1 ? side * 30 : 0) - P.w / 2 - P.x); P.face = -side; P.vx = 0; P.invT = Math.max(P.invT || 0, .45); regainAir();
   if (far > 1) for (const o of enemies) if (o !== e && o.alive && Math.hypot(o.x + o.w / 2 - P.x, o.y + o.h / 2 - P.y) < 80) hurtEnemy(o, false);
-  if (has("hw_b1")) clones.push({ x: x0, y: P.y + P.h, face: side, t: .4, ward: has("hw_b2") ? 1.5 : 0 });   // 잔영 (· 잔영진)
+  if (has("hw_b1")) { clones.push({ x: x0, y: P.y + P.h, face: side, t: .4, ward: has("hw_b2") ? 1.5 : 0 }); if (has("hw_b2c")) clones.push({ x: P.x + P.w / 2 + side * 40, y: P.y + P.h, face: -side, t: .55, ward: 0 }); }   // 잔영 (· 잔영진 · 쌍잔영)
   trailFx(x0, y0, P.x + P.w / 2, P.y + P.h / 2, 6, .4, WF2.smear); addFx("wfx", WF2.xcut, ex, e.y + e.h / 2, e.type === "b" ? 120 : 70, { life: .35, grow: .2, rot: side * .3 });
   hitstop = Math.max(hitstop, .07); shake = Math.max(shake, 6); Music.sfx("strike");
 }
@@ -1208,6 +1215,8 @@ function die(kind, dmg = 1) {
   if (res("yeong", 6) && !run.shadeUsed && P.y < LV.h * T) { // 영 공명: the blow passes through a shadow left behind
     run.shadeUsed = true; P.invT = 1.3; clones.push({ x: P.x + P.w / 2, y: P.y + P.h, face: P.face, t: .25 }); shadeFx(P.x + P.w / 2, P.y + P.h / 2, 26); flash = .2; shake = 6; Music.sfx("clang"); toast("영 공명 · 그림자가 대신 베였다"); return; }
   if (mode !== "tutorial" && guardBlow(kind)) return;
+  if (kind !== "fall" && has("hw_b4b") && clones.length) { const c = clones.shift(); P.invT = .8; shadeFx(c.x, c.y - 20, 26); Music.sfx("clang"); popText(c.x, c.y - 50, "대역"); return; }   // 대역: a shadow takes the blow
+  if (kind !== "fall" && has("hw_a4b") && (P.ctrN || 0) >= 3 && songPos < (P.ctrUntil || 0) + 1.5) { P.ctrN = 0; P.invT = .8; Music.sfx("clang"); popText(P.x + P.w / 2, P.y - 30, "연쇄가 대신 깨졌다"); return; }   // 끊는 연쇄
   if (kind !== "fall" && mode !== "tutorial") { momHit(); run.gHits = (run.gHits || 0) + 1; }
   if (kind !== "fall") { const loss = dmg + (oath("gonggung") && P.onGround ? 1 : 0);
     if (has("d_janmyeong") && mode !== "tutorial" && run.breath - loss <= 0 && !run.janUsed) { run.janUsed = true; run.breath = loss + 1; toast("잔명 · 끊길 숨을 붙들었다"); }   // 잔명
@@ -1332,11 +1341,11 @@ function showChoice(kind) {   // kind: "madang" after a cleared gate, "cycle" af
   const detail = c => { sel = c; graph.querySelectorAll(".tr-n").forEach(n => n.classList.toggle("sel", n.dataset.id === c.id)); side.querySelectorAll(".tr-sh").forEach(n => n.classList.toggle("sel", n.dataset.id === c.id));
     const v = pv(c), mine = owned(c.id), can = c.tree ? canTake.has(c.id) : true, cost = c.tree ? spCost(c) : 1;
     const lk = c.tree && lockLv(c) > treeOpen(), r = !c.tree && RARITY[c.id] || 1, otherFork = c.fork != null && CHOSIK.some(o => o.tree === tk && o.br === c.br && o.tier === 3 && o.id !== c.id && owned(o.id));
-    const d = side.querySelector(".tr-det"); d.innerHTML = `<em class="tag kind${c.ougi ? " ougi" : ""}">${c.tree ? `${T.name} · ${c.brName} ${c.ougi ? "오의" : c.tier ? c.tier + "단" : ""}` : `${c.kind || "숨"}${c.kind ? " · " + RAR_NAME[r] : ""}`}</em><b>${v.name}</b><p>${v.desc}</p>`;
+    const d = side.querySelector(".tr-det"); d.innerHTML = `<em class="tag kind${c.ougi ? " ougi" : ""}">${c.tree ? `${T.name} · ${c.brName} ${c.ougi ? "오의" : c.tier ? c.tier + "단" : ""}${c.group && CHOSIK.some(o => o.group === c.group && o.alt && (META.alts || []).includes(o.id)) ? " · 이번 판의 후보" : ""}` : `${c.kind || "숨"}${c.kind ? " · " + RAR_NAME[r] : ""}`}</em><b>${v.name}</b><p>${v.desc}</p>`;
     const b = document.createElement("button"); b.className = "btn pri"; b.textContent = mine ? "익혔다" : c.ougi ? "이 갈래 4단을 익히면 열린다" : lk ? "아직 열리지 않았다" : otherFork ? "다른 갈래를 골랐다" : !can ? "앞 단계를 먼저" : `익히기 · ${cost}점`; b.disabled = mine || !can || (run.sp || 0) < cost; b.addEventListener("click", () => learn(c)); d.appendChild(b); };
   if (T) { // the graph: root on the left, three branches → 1단 · 2단 · a fork of two · 4단 · 오의, two 합류 on the far right
     const ys = [14, 50, 86], X = { 0: 5, 1: 18, 2: 31, 3: 46, 4: 61, 5: 76 }, mx = 91, at = c => c.tier === 0 ? [X[0], 50] : c.merge ? [mx, (ys[c.merge[0]] + ys[c.merge[1]]) / 2] : [X[c.tier], ys[c.br] + (c.fork != null ? (c.fork ? 11 : -11) : 0)];
-    const nodes = CHOSIK.filter(c => c.tree === tk), on = c => owned(c.id), line = (p, q, lit) => `<path d="M${p[0]} ${p[1]} C ${(p[0] + q[0]) / 2} ${p[1]}, ${(p[0] + q[0]) / 2} ${q[1]}, ${q[0]} ${q[1]}" class="${lit ? "on" : ""}"/>`;
+    const nodes = CHOSIK.filter(c => c.tree === tk && nodeShown(c)), on = c => owned(c.id), line = (p, q, lit) => `<path d="M${p[0]} ${p[1]} C ${(p[0] + q[0]) / 2} ${p[1]}, ${(p[0] + q[0]) / 2} ${q[1]}, ${q[0]} ${q[1]}" class="${lit ? "on" : ""}"/>`;
     const root = nodes.find(c => c.tier === 0); let svg = `<svg viewBox="0 0 100 100" preserveAspectRatio="none">`;
     T.br.forEach((b, bi) => { const st = t => nodes.filter(c => c.br === bi && c.tier === t);
       let prev = root ? [root] : [];
@@ -1447,7 +1456,7 @@ function treeStrip(offer = []) {
   const d = document.createElement("div"); d.className = "ch-held"; const tk = treeKey(), T = TREES[tk], mine = new Set(run.perks || []), off = new Set(offer.map(c => c.id));
   let h = "";
   if (T) { h += `<div class="ts-tree"><b class="ts-w">${T.name}</b>`;
-    T.br.forEach((b, bi) => { h += `<span class="ts-br"><em>${b.name}</em>`; for (let t = 1; t <= 5; t++) { const cs = CHOSIK.filter(o => o.tree === tk && o.br === bi && o.tier === t); if (!cs.length) continue;
+    T.br.forEach((b, bi) => { h += `<span class="ts-br"><em>${b.name}</em>`; for (let t = 1; t <= 5; t++) { const cs = CHOSIK.filter(o => o.tree === tk && o.br === bi && o.tier === t && nodeShown(o)); if (!cs.length) continue;
       const c = cs.find(o => mine.has(o.id)) || cs.find(o => off.has(o.id)) || cs[0];
       h += `<i class="ts-n${c.ougi ? " og" : ""}${mine.has(c.id) ? " on" : ""}${off.has(c.id) ? " next" : ""}" title="${c.name} — ${c.desc}">${c.ougi ? "오" : ""}</i>`; } h += `</span>`; });
     h += `</div>`; }
@@ -1500,6 +1509,7 @@ function nextGoal() { // the cheapest thing still locked in the 거점, and how 
   const c = [];
   for (const B of BUILDINGS) { const nx = B.lv[META.bld[B.id] || 0]; if (nx && nx.hon && !nx.shard) c.push([nx.hon, `${B.name} · ${nx.desc}`]); }
   for (const w of WELL) if (!well(w.id) && (!w.need || well(w.need))) c.push([w.hon, `약수 · ${w.name}`]);
+  { const t = TREE_ALT[treeKey && run ? treeKey() : "hwando"] || TREE_ALT.hwando, nx = Object.values(t).flat().find(o => !(META.alts || []).includes(o.id)); if (nx) c.push([ALT_HON, `수련 후보 · ${nx.name}`]); }
   for (const [id, w] of Object.entries(WEAPONS)) if (w.cost && !w.ch && !META.weapons.includes(id)) c.push([w.cost, `무기 · ${w.name}`]);
   const t = TREE_OPEN[treeOpen()]; if (t) c.push([t.hon, `수련 · ${t.name}`]);
   c.sort((a, b) => a[0] - b[0]); const g = c[0]; if (!g) return null;
@@ -1818,6 +1828,7 @@ function shot(d, arrow) {
     addFx("gfx", onBeat ? 8 : 6, P.x + P.w / 2, P.y + P.h + 2, onBeat ? 84 : 56, { life: .35, grow: .3, ay: 1 }); if (onBeat) { addFx("wfx", WF2.burst, P.x + P.w / 2, P.y + P.h / 2, 70, { life: .3, grow: .3 }); shake = Math.max(shake, 6); }   // the draw: the ink at the feet bursts
   }
   if (isGun() && P.bayoT > 0 && has("jc_c3") && P.shotDir) { P.bayoLunge = true; P.bayoT = 0; strike = true; startDash(P.shotDir, true); P.dashT = .18; ougiArt(["ogB", 2], P.x + P.w / 2 + P.shotDir.x * 50, P.y + P.h / 2 + P.shotDir.y * 50, 46, { life: .3, rot: Math.atan2(P.shotDir.y, Math.abs(P.shotDir.x)) * Math.sign(P.shotDir.x || 1), flip: P.shotDir.x < 0 }); }   // 총검술: in behind the shot
+  if (songPos < (P.ctrStrikeUntil || 0)) strike = true;   // 반격일섬
   run.slashes++; if (strike) run.strikes++;
   if (!req.dash && !P.focus && settings.assist !== false) d = slashAssist(d);   // a cut thrown roughly at a foe close by bends onto it
   P.windBack = false; P.slashDir = d; P.slashT = P.slashDur = (req.dash ? 0.22 : WP.dur); P.slashCd = ((WP.cd)) * (oath("hyeon") ? .5 : 1) + (0); P.strike = strike; P.clanged = new Set(); P.hitSet = new Set(); P.countered = false;
@@ -2722,6 +2733,7 @@ function stepFoe3(e, dt, pcx, pcy, dist, live, bl) { // 순라 · 자객 · 북�
 function dashThrough(e) { if (state === "play" && P.dashT > 0 && overlap(e, P) && !P.dashHit.has(e.id)) { P.dashHit.add(e.id); dashHurt(e); } }
 let inChain = false;
 const FLASH_BASE = TUNING.FLASH_BASE; let FLASH = FLASH_BASE;   // the glint before a blow lands: long enough to answer by hand, longer still in 무아경 (the music slows)
+let splitAdd = [];   // 분열섬: the extra shots, added once the deflect loop is done
 function flashSync() { FLASH = Math.min(TUNING.FLASH_MAX + Math.max(0, diff().kan), FLASH_BASE + (mode === "tutorial" ? 0 : diff().kan) + (simb("noe") ? .1 : 0) + (has("d_myeong") ? .15 : 0) + treeStat("kanWin") + (has("bd_b2") && P && (P.iaiHold || (P.focus && wk() === "baldo")) ? .1 : 0)) * (has("d_calm") && run && run.breath <= 1 && mode !== "tutorial" ? 2 : 1); }
 function kanPerks(e) { // what the held 간파 비급 gives back for one read blow
   if (!P || state !== "play") return; const x = e.x + e.w / 2, y = e.y + e.h / 2, px = P.x + P.w / 2, py = P.y + P.h / 2;
@@ -2729,7 +2741,9 @@ function kanPerks(e) { // what the held 간파 비급 gives back for one read bl
   if (has("d_beat")) P.airDash++;
   if (isGun()) gunReload(9);   // 맞불: a read blow fills the gun
   if (has("hw_a1")) { P.ctrN = songPos < (P.ctrUntil || 0) ? (P.ctrN || 0) + 1 : 1; P.ctrUntil = songPos + .8; addQi(4 * P.ctrN); if (P.ctrN >= 2) { popText(x, e.y - 16, `연쇄 ${P.ctrN}`); Music.sfx(P.ctrN >= 4 ? "strike" : "reflect"); }   // 역습
-    if (P.ctrN === 5 && has("hw_a3")) ilseomCheon(); }   // 일섬천격
+    if (P.ctrN === 5 && has("hw_a3")) ilseomCheon();   // 일섬천격
+    if (P.ctrN === 4 && has("hw_a2c") && !LV.a2c && run.breath < breathCap()) { LV.a2c = true; run.breath++; setHud(); popText(px, py - 40, "숨 +1", SEAL); }   // 피의 반격
+    if (P.ctrN % 3 === 0 && has("hw_a4c")) { const r = 260; flash = .12; shake = Math.max(shake, 8); for (const o of enemies) if (o.alive && !ghostly(o) && o !== e && Math.hypot(o.x + o.w / 2 - px, o.y + o.h / 2 - py) < r) { trailFx(px, py, o.x + o.w / 2, o.y + o.h / 2, 5, .35); hurtEnemy(o, o.type !== "b"); } } }   // 천격
   if (has("m_float") && P.floatT > 0) addQi(12);   // 강신: read while hanging in the air
   if (has("p_quick")) P.reloadAt = 0;   // 속사: a read blow reloads
   if (has("d_breathe")) { P.ki = 1; chainAdd(2); }
@@ -3217,11 +3231,12 @@ function slashHits() {
       if (!(tti < (chr("munyeo") ? .3 : .15) * (has("d_reflect") ? 2 : 1) * (wrule() === "hwando" ? 1.5 : 1) || P.strike)) { b.life = 0; addFx("hud", HUD.spark, b.x, b.y, 18, { life: .2 }); continue; }
       addFx("mech", MECH.deflect, b.x, b.y, 54, { life: .25, grow: .3 }); addQi(4); }
     if (wrule() === "woldo" && !P.onGround && P.slashDir.y > .5) pogo();
-    b.friendly = true; b.pierce = P.strike || has("d_reflect"); if (has("d_reflect")) b.strike = true; if (has("hw_c1")) b.seek = 8; if (has("hw_c2")) { b.blast = 52; b.pierce = false; } b.life = 3; b.g = 0; b.home = 0; b.boom = 0;
-    const sp = Math.max(700, Math.hypot(b.vx, b.vy) * (1.1)) * (chr("munyeo") ? 2 : 1), o = b.owner; if (chr("munyeo")) { b.pierce = true; b.strike = P.strike; } ;
+    b.friendly = true; b.pierce = P.strike || has("d_reflect"); if (has("d_reflect")) b.strike = true; if (has("hw_c1")) b.seek = 8; if (has("hw_c2")) { b.blast = 52; b.pierce = false; }
+    if (has("hw_c2b")) { b.pierce = true; b.fast = 1.5; } if (has("hw_c4b")) addQi(8); if (has("hw_c4c") && P.strike) { b.strike = true; b.pierce = true; b.fast = 2; }   // 관통섬 · 탄고 · 박자섬 b.life = 3; b.g = 0; b.home = 0; b.boom = 0;
+    const sp = Math.max(700, Math.hypot(b.vx, b.vy) * (1.1)) * (chr("munyeo") ? 2 : 1) * (b.fast || 1), o = b.owner; if (chr("munyeo")) { b.pierce = true; b.strike = P.strike; } ;
     if (o && o.alive) { const dx = o.x + o.w / 2 - b.x, dy = o.y + o.h / 2 - b.y, d = Math.hypot(dx, dy) || 1; b.vx = dx / d * sp; b.vy = dy / d * sp; }
     else { b.vx = P.slashDir.x * sp; b.vy = P.slashDir.y * sp; }
-    ;
+    if (has("hw_c2c") && !b.split) for (const da of [-.28, .28]) { const c = Math.cos(da), sn = Math.sin(da); splitAdd.push({ ...b, hits: null, split: true, vx: b.vx * c - b.vy * sn, vy: b.vx * sn + b.vy * c }); }   // 분열섬
     Music.sfx("reflect"); hitstop = Math.max(hitstop, 0.04);
     for (let i = 0; i < 6; i++) parts.push({ x: b.x, y: b.y, vx: (Math.random() - .5) * 300, vy: (Math.random() - .5) * 300, life: .25, max: .25, c: JJOK, s: 2 });
   }
@@ -3322,7 +3337,7 @@ function frameBody(now) {
     if (state === "dead") ts = 0.3;
     const wdt = rdt * ts, n = Math.max(1, Math.ceil(wdt / (1 / 120))), sdt = wdt / n;
     for (let i = 0; i < n; i++) {
-      if (state === "play") { stepPlayer(sdt); if (LV) P.x = Math.max(0, Math.min(LV.w * T - P.w, P.x)); stepPet(sdt); P.slashT = Math.max(0, P.slashT - sdt); slashHits(); stepTerrain(sdt); if (state === "play") playerHazards(); }
+      if (state === "play") { stepPlayer(sdt); if (LV) P.x = Math.max(0, Math.min(LV.w * T - P.w, P.x)); stepPet(sdt); P.slashT = Math.max(0, P.slashT - sdt); slashHits(); if (splitAdd.length) { bullets.push(...splitAdd); splitAdd = []; } stepTerrain(sdt); if (state === "play") playerHazards(); }
       if (state === "play" && i === 0) stepChase(wdt);
       if (state === "play" || state === "dead") { stepEnemies(sdt); stepBullets(sdt); if (state === "play") stepHazards(); }
       if (state !== "play" && state !== "dead") break;
@@ -3340,7 +3355,8 @@ function frameBody(now) {
   for (const b of beams) b.t += rdt; beams = beams.filter(b => b.t < b.life); for (const b of bolts) b.t += rdt; bolts = bolts.filter(b => b.t < b.life); for (const t of trails) t.t += rdt; trails = trails.filter(t => t.t < t.life); for (const q of pops) q.t += rdt; pops = pops.filter(q => q.t < .9); for (const r of rings) r.t += rdt; rings = rings.filter(r => r.t < r.life); for (const c of cutLines) c.t += rdt; cutLines = cutLines.filter(c => c.t < c.life); killCam = Math.max(0, killCam - rdt);
   if (state === "play") for (const c of clones) if (c.ward > 0) { c.ward -= rdt; for (const b of bullets) if (!b.friendly && b.life > 0 && Math.hypot(b.x - c.x, b.y - (c.y - 20)) < 70) { b.life = 0; addFx("hud", HUD.spark, b.x, b.y, 18, { life: .2 }); } }   // 잔영진
   if (state === "play") for (const c of clones) { c.t -= rdt; if (c.t <= 0) { // 분광: the shadow strikes once, then is gone
-    const r = 85; for (const e of enemies) if (e.alive && Math.hypot(e.x + e.w / 2 - c.x, e.y + e.h / 2 - (c.y - 20)) < r) hurtEnemy(e, false);
+    const big = has("hw_b2b"), r = big ? 150 : 85; for (const e of enemies) if (e.alive && Math.hypot(e.x + e.w / 2 - c.x, e.y + e.h / 2 - (c.y - 20)) < r) hurtEnemy(e, has("hw_b4c") && e.type !== "b");   // 잔영폭 · 잔영일격
+    if (big) { for (const b of bullets) if (!b.friendly && Math.hypot(b.x - c.x, b.y - (c.y - 20)) < r) b.life = 0; inkFx("ring", c.x, c.y - 20, r * 1.6, { life: .45, grow: .5 }); shake = Math.max(shake, 5); }
     if (chr("munyeo") && SPR.mfx) addFx("mfx", 0, c.x + c.face * 26, c.y - 22, 70, { life: .28, flip: c.face < 0, ay: .5 }); else if (chr("posu") && SPR.pfx) addFx("pfx", 0, c.x + c.face * 40, c.y - 22, 30, { life: .25, flip: c.face < 0, ay: .5 }); else addFx("slashfx", SF.arc, c.x + c.face * 20, c.y - 22, 70, { life: .25, flip: c.face < 0 }); } }
   clones = clones.filter(c => c.t > 0 || c.ward > 0);
   shake = Math.max(0, shake - rdt * 40); flash = Math.max(0, flash - rdt);
@@ -4971,7 +4987,7 @@ function hubAct() {
   if (id === "gate") return menu("산문 山門", "어디로 갈 것인가", [["길 떠나기", "천고를 향한 한 바퀴", gateScreen], ["천고탑", "층마다 우두머리 · 무한", () => towerScreen(), cut ? null : "천고를 한 번 베면 열린다"], ["수련터", "조작을 다시 익힌다", () => { leaveHub(); Music.unlock(); loadGate(playSheets(), BASE_IMGS, startTutorial, "수련터를 그리는 중"); }]]);
   if (id === "well") return menu("약수터 藥水", "숨을 다스리고 영물을 키운다", [["약수", "혼으로 숨을 다스린다", wellScreen], ["둥지", "혼으로 영물을 키운다", petScreen, lockAt(2)]]);
   if (id === "hall") return menu("본당 本堂", "산중 암자의 중심", [["서약", "판에 거는 서약을 연다 — 걸수록 혼이 더 모인다", () => hermitScreen("seogo"), lockAt(3)], ...(META.books.length || META.firsts.cut ? [["비급각", "봉인한 수련 빌드", sealShelf]] : [])]);
-  if (id === "forge") return menu("대장간 鍛冶間", "벼리고 물들인다", [["무기", "새 무기를 벼린다", () => hermitScreen("daejang"), lockAt(1)], ["의방", "띠의 빛깔", () => hermitScreen("uibang"), lockAt(3)]]);
+  if (id === "forge") return menu("대장간 鍛冶間", "벼리고 물들인다", [["무기", "새 무기를 벼린다", () => hermitScreen("daejang"), lockAt(1)], ["수련 후보", "혼으로 갈래의 2·4단 후보를 연다 — 판마다 그중 하나가 나온다", altScreen, lockAt(1)], ["의방", "띠의 빛깔", () => hermitScreen("uibang"), lockAt(3)]]);
   if (id === "drum") return menu("큰북 大鼓", "북 곁의 기록", [["수행", "오늘의 수행", questScreen, lockAt(1)], ["도감", "우두머리 · 수련 · 기억 · 호", () => codexScreen(), met ? null : "우두머리를 한 번 만나면 열린다"], ["플레이 기록", "최근 판·관문 시간·자주 쓰러진 곳·기기 성능", logScreen]]);
   if (id === "gate") return gateScreen();
   if (id === "dummy") { leaveHub(); Music.unlock(); loadGate(playSheets(), BASE_IMGS, startTutorial, "수련터를 그리는 중"); return; }
@@ -5006,6 +5022,16 @@ function decoScreen(slot) {
     rows.push(bdRow(d.name + (cur === d.id ? " · 놓여 있음" : ""), own ? "이미 들였다" : `혼 ${d.hon}`, null, cur === d.id ? null : own ? "놓기" : "들이기", () => {
       if (!own) { META.hon -= d.hon; dk.own.push(d.id); } dk.slots[slot] = d.id; saveMeta(); enterHub(); toast(`${d.name}을(를) 놓았다`); }, !own && META.hon < d.hon)); }
   board("거점 꾸미기", "들인 것은 어느 터에든 다시 놓을 수 있다", rows, [["돌아가기", resumeHub]]);
+}
+function altScreen() { // 수련 후보: open other nodes for a branch's 2단 and 4단; each run draws one of those opened
+  const rows = [curLine()]; META.alts = META.alts || [];
+  for (const [wk2, A] of Object.entries(TREE_ALT)) { const T = TREES[wk2], h = document.createElement("h2"); h.textContent = `${T.name} 수련 후보`; h.style.fontSize = "20px"; rows.push(h);
+    for (const [base, alts] of Object.entries(A)) { const b = CHOSIK_BY[base];
+      rows.push(bdRow(`${b.brName} ${b.tier}단 · ${b.name} (기본)`, b.desc, `var(--chosik-${b.icon})`));
+      for (const a of alts) { const got = META.alts.includes(a.id);
+        rows.push(bdRow(`　└ ${a.name} ${a.han}`, a.desc + (got ? " · 열림" : ` — 혼 ${ALT_HON}`), `var(--chosik-${a.icon})`, got ? null : "열기", () => {
+          META.hon -= ALT_HON; META.alts.push(a.id); saveMeta(); hubHud(); Music.sfx("lantern"); toast(`${a.name} · 이제 판에 나올 수 있다`); altScreen(); }, !got && META.hon < ALT_HON)); } } }
+  board("수련 후보", "연 후보가 많을수록 판마다 트리가 달라진다 · 강해지는 것이 아니라 갈래가 넓어진다", rows, [["돌아가기", resumeHub]]);
 }
 function questScreen() {
   questsToday(); const rows = [curLine()];
@@ -5236,7 +5262,7 @@ $("bInstall").addEventListener("click", async () => { if (!installEvt) return; i
 const standalone = matchMedia("(display-mode: standalone)").matches || matchMedia("(display-mode: fullscreen)").matches || navigator.standalone;
 
 
-if (location.hash === "#debug" && /^(localhost|127\.0\.0\.1)$/.test(location.hostname)) window.__dbg = { get missing() { return ALL_SHEETS.filter(n => !LAZY_SHEETS.has(n) && !SPR[n]).concat(BASE_IMGS.filter(k => !IMG[k])); }, tp(tx, ty) { P.x = tx * T + 7; P.y = (ty + 1) * T - 30; P.vx = P.vy = 0; }, get state() { return state; }, get P() { return P; }, get LV() { return LV; }, get state2() { return state; }, get SC() { return LV.scenery; }, get E() { return enemies; }, get run() { return run; }, set hs(v) { hitstop = v; }, kill(e) { killEnemy(e); }, hurt(e, s, k) { hurtEnemy(e, s, k); }, die(k, d) { die(k, d); }, banner(a, b, c) { banner(a, b === "red" ? SEAL : JJOK, c); }, chungo() { chungo(); }, clear() { madangClear(); }, hubAct() { hubAct(); }, get hub() { return { hubOn, hubNear }; }, get songPos() { return songPos; }, get FLASH() { return FLASH; }, get hold() { return bulletHold; }, get bolts() { return bolts; }, get rings() { return rings; }, get B() { return bullets; }, get beams() { return beams; }, flashing: e => isFlashing(e), wipe: () => inkWipe(), branchEnd: id => branchEnd(CHOSIK_BY[id]), get chosik() { return CHOSIK; }, kickFx: (k, a, b, c) => k === "air" ? airKickFx(a, b, c) : wallKickFx(a, b, c), enlighten: f => enlighten(f), syncCombos: () => syncCombos(), has: id => has(id), get FL() { flashSync(); return FLASH; }, gen: (seed, m, len = 5) => buildMadangMap(seed, m, 0, null, false, 1, 0, len), loadGen(seed, m, len = 5) { loadMap(buildMadangMap(seed, m, 0, null, false, 1, 0, len), PAL[m]); spawnEnemies(); P.x = LV.start.x; P.y = LV.start.y; P.vx = P.vy = 0; }, get songPos() { return songPos; }, slashAt(dx, dy) { P.slashDir = { x: dx, y: dy }; P.slashT = .2; }, tileAt: (x, y) => tileAt(x, y), omenScreen: () => showOmen(), oathN: () => oathN(), petScreen: () => petScreen() };
+if (location.hash === "#debug" && /^(localhost|127\.0\.0\.1)$/.test(location.hostname)) window.__dbg = { get missing() { return ALL_SHEETS.filter(n => !LAZY_SHEETS.has(n) && !SPR[n]).concat(BASE_IMGS.filter(k => !IMG[k])); }, tp(tx, ty) { P.x = tx * T + 7; P.y = (ty + 1) * T - 30; P.vx = P.vy = 0; }, get state() { return state; }, get P() { return P; }, get LV() { return LV; }, get state2() { return state; }, get SC() { return LV.scenery; }, get E() { return enemies; }, get run() { return run; }, set hs(v) { hitstop = v; }, kill(e) { killEnemy(e); }, hurt(e, s, k) { hurtEnemy(e, s, k); }, die(k, d) { die(k, d); }, banner(a, b, c) { banner(a, b === "red" ? SEAL : JJOK, c); }, chungo() { chungo(); }, clear() { madangClear(); }, hubAct() { hubAct(); }, get hub() { return { hubOn, hubNear }; }, get songPos() { return songPos; }, get FLASH() { return FLASH; }, get hold() { return bulletHold; }, get bolts() { return bolts; }, get rings() { return rings; }, get B() { return bullets; }, get beams() { return beams; }, flashing: e => isFlashing(e), wipe: () => inkWipe(), branchEnd: id => branchEnd(CHOSIK_BY[id]), get chosik() { return CHOSIK; }, kickFx: (k, a, b, c) => k === "air" ? airKickFx(a, b, c) : wallKickFx(a, b, c), enlighten: f => enlighten(f), syncCombos: () => syncCombos(), has: id => has(id), get FL() { flashSync(); return FLASH; }, gen: (seed, m, len = 5) => buildMadangMap(seed, m, 0, null, false, 1, 0, len), loadGen(seed, m, len = 5) { loadMap(buildMadangMap(seed, m, 0, null, false, 1, 0, len), PAL[m]); spawnEnemies(); P.x = LV.start.x; P.y = LV.start.y; P.vx = P.vy = 0; }, get songPos() { return songPos; }, slashAt(dx, dy) { P.slashDir = { x: dx, y: dy }; P.slashT = .2; }, tileAt: (x, y) => tileAt(x, y), omenScreen: () => showOmen(), get META() { return META; }, groupPick: g => groupPick(g), get clones() { return clones; }, set clones(v) { clones = v; }, oathN: () => oathN(), petScreen: () => petScreen() };
 window.addEventListener("pointerdown", () => Music.unlock(), { once: true, capture: true });   // first tap anywhere starts the sound
 resize();
 toMenu();
