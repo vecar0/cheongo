@@ -1,0 +1,6 @@
+const { open, RUN } = require('./lib');
+(async () => { let stuck = 0, frames = 0; for (const seed of [8, 6, 2]) { const { b, p, errs } = await open({ vp: { width: 1000, height: 462 }, run: RUN('hwando', { m: 5, seed }) });
+  const bx = await p.evaluate(() => { const bs = __dbg.E.find(e => e.type === 'b'); return Math.round(bs.x / 32); }); await p.evaluate(([x]) => __dbg.tp(x - 8, 11), [bx]); await p.waitForTimeout(2500);
+  for (let i = 0; i < 40; i++) { await p.waitForTimeout(250); const r = await p.evaluate(() => { const P = __dbg.P; P.invT = 99; const bs = __dbg.E.find(e => e.type === 'b'); const L = __dbg.LV; const T = 32; let solid = false; for (let ty = Math.floor(bs.y / T); ty <= Math.floor((bs.y + bs.h - 1) / T); ty++) for (let tx = Math.floor(bs.x / T); tx <= Math.floor((bs.x + bs.w - 1) / T); tx++) if (__dbg.tileAt(tx, ty) === 1) solid = true; const s = L.seal; return { solid, out: s ? bs.x < s.x0 * T || bs.x + bs.w > (s.x1 + 1) * T : false, kind: bs.kind, hidden: bs.hidden }; });
+    frames++; if ((r.solid && !r.hidden) || r.out) stuck++; if (i === 0) console.log(seed, r.kind); }
+  console.log('errs', errs.length); await b.close(); } console.log('stuck frames', stuck, '/', frames); })();

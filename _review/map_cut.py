@@ -24,9 +24,10 @@ def cut(name, maxh=240):
   safe = np.maximum(cta, 1e-3)[..., None]
   col = np.clip((a - 255 * (1 - safe)) / safe, 0, 255)
   # ink-wash grade: most of the colour drained to warm grey ink, a little kept, contrast eased so they sit in the painted world
-  lum = col.mean(2, keepdims=True); ink = lum * np.array([1.0, .97, .9]) * .92 + 8
-  col = col * .32 + ink * .68
-  col = 128 + (col - 128) * .9
+  # ink-wash grade, like the painted pines and rocks of the stage: almost all colour drained to warm grey ink,
+  # values pressed into the mid range so nothing glares white against the paper or the dark rock
+  lum = col.mean(2, keepdims=True); L2 = 58 + lum * .56; ink = L2 * np.array([1.0, .965, .9])
+  col = col * .12 * (L2 / np.maximum(lum, 1)) + ink * .88
   big = ndimage.binary_dilation(alpha > .05, iterations=5); lab, n = ndimage.label(big)
   objs = ndimage.find_objects(lab); areas = ndimage.sum(alpha > .05, lab, range(1, n + 1))
   keep = sorted([i for i in range(n) if areas[i] > 1500], key=lambda i: objs[i][1].start)
@@ -45,4 +46,4 @@ def cut(name, maxh=240):
   json.dump({"f": fr} if False else fr, open(f'/home/user/akane/assets/sprites/{name}.json', 'w'), separators=(',', ':'))
   pap = Image.new('RGBA', sheet.size, (200, 190, 170, 255)); pap.alpha_composite(sheet); pap.convert('RGB').save(f'{sys.argv[1]}/c_{name}.jpg')
   print(name, len(fr), [(f['w'], f['h']) for f in fr])
-for n in ['mapobj', 'md0', 'md1', 'md2', 'md3', 'md4']: cut(n)
+for n in ['md0', 'md1', 'md2', 'md3', 'md4']: cut(n)

@@ -553,7 +553,7 @@ body.portrait #tip { top: calc(env(safe-area-inset-top, 0px) + 196px); }
 body.portrait #hCoin { order: 4; } body.portrait.ui-ready #hCoin { padding-inline: 9px; }
 #hCoin { color: #17161a; } #hCoin b { color: #7a5508; font-size: 18px; } #hCoin small { color: rgba(23,22,26,.78); font-size: 12px; }
 /* 봉인 지도 */
-.seal-map { position: relative; width: 100%; aspect-ratio: 16 / 9; max-height: 52vh; margin: 4px auto 6px; background: #e6dcc6 url("assets/sealmap.webp") center / 100% 100% no-repeat; border-radius: 6px; box-shadow: inset 0 0 0 1px rgba(23,22,26,.25), inset 0 0 40px rgba(60,48,30,.25); }
+.seal-map { position: relative; width: min(100%, calc(52vh * 16 / 9)); aspect-ratio: 16 / 9; margin: 4px auto 6px; background: #e6dcc6 url("assets/sealmap.webp") center / 100% 100% no-repeat; border-radius: 6px; box-shadow: inset 0 0 0 1px rgba(23,22,26,.25), inset 0 0 40px rgba(60,48,30,.25); }
 .seal-pt { position: absolute; transform: translate(-50%, -50%); display: grid; justify-items: center; gap: 2px; background: none; border: 0; padding: 0; cursor: pointer; font-family: var(--f-head); color: #17161a; }
 .seal-pt i { display: grid; place-items: center; width: clamp(26px, 5vmin, 40px); aspect-ratio: 1; border-radius: 4px; font-style: normal; font-size: clamp(11px, 2.2vmin, 16px); line-height: 1; border: 1.5px dashed rgba(23,22,26,.5); background: rgba(236,230,216,.7); color: rgba(23,22,26,.55); }
 .seal-pt.on i { border: 0; background: #b3141c; color: #f4ecdb; box-shadow: inset 0 0 0 2px rgba(244,236,219,.5); transform: rotate(-5deg); }

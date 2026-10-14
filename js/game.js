@@ -2,7 +2,7 @@
 (() => {
 "use strict";
 const T = 32;
-const ASSET_V = "141";   // bump when any picture changes: the service worker then fetches the new json and webp together
+const ASSET_V = "142";   // bump when any picture changes: the service worker then fetches the new json and webp together
 const $ = id => document.getElementById(id);
 const cv = $("cv"); let ctx = cv.getContext("2d", { alpha: false });   // let: the ground is baked by pointing ctx at an offscreen canvas for a moment   // opaque canvas: cheaper to composite on phones
 let W = 0, H = 0, DPR = 1, SCALE = 1;
@@ -952,17 +952,17 @@ function loadMap(map, pal, hints) {
       const set = MD_PROPS[lv.md], sh = "md" + lv.md, big = set.filter(o => o[2] === "b"), small = set.filter(o => o[2] !== "b");
       const busy = [[lv.start && lv.start.x, 4], [lv.exit && lv.exit.x, 4], ...lv.cps.map(c => [c.x, 2]), ...lv.defs.map(d => [d.tx * T + 16, 2]), ...lv.chests.map(c => [c.x, 3]), ...lv.lamps.map(l => [l.x, 2])].filter(v => v[0] != null);
       const freeAt = x => !busy.some(([b, r]) => Math.abs(b - (x * T + 16)) < r * T);
-      for (let x = 4, last = -99; x < w - 6; x++) {
+      let scenes = 0; for (let x = 4, last = -99; x < w - 6; x++) {
         const y = surf(x, 1); if (y < 0) continue; let n = 0; while (x + n < w && surf(x + n, 1) === y && tile(x + n, y - 1) === 0 && tile(x + n, y - 2) === 0) n++;
-        if (n < 5 || x - last < 9 || rnd() > .8) { x += Math.max(0, n - 1); continue; }
+        if (n < 6 || x - last < 24 || scenes >= 3 || rnd() > .55) { x += Math.max(0, n - 1); continue; }   // a few quiet scenes per gate, never a clutter
         const wallR = tile(x + n, y - 1) === 1, wallL = tile(x - 1, y - 1) === 1, toR = wallR || (!wallL && rnd() < .5);   // lean the scene against the rock if one side rises
         const cand = []; for (let k = 1; k < n - 1; k++) cand.push(toR ? x + n - 1 - k : x + k);
-        const pick = [big.length && rnd() < .8 ? big[(rnd() * big.length) | 0] : null, small[(rnd() * small.length) | 0], rnd() < .45 ? small[(rnd() * small.length) | 0] : null].filter(Boolean);
+        const pick = [big.length && rnd() < .7 ? big[(rnd() * big.length) | 0] : small[(rnd() * small.length) | 0], rnd() < .35 ? small[(rnd() * small.length) | 0] : null].filter(Boolean);
         let placed = 0, ci = 0;
         for (const [i, hh] of pick) { const H = Math.round(hh * (1.1 + rnd() * .25)), wt = Math.max(1, Math.round((SPR[sh] && SPR[sh].f[i] ? SPR[sh].f[i].w * H / SPR[sh].f[i].h : H * .8) / T * .55));
           while (ci < cand.length && !freeAt(cand[ci])) ci++; if (ci >= cand.length) break;
           if (put(sh, i, cand[ci], y, H, { flip: rnd() < .5 })) placed++; ci += wt + 1; }
-        if (placed) last = x + n; x += n - 1; } }
+        if (placed) { last = x + n; scenes++; } x += n - 1; } }
     for (let y = 2; y < h - 4; y++) for (let x = 2; x < w - 6; x++) { // paper lanterns strung under roofs
       let n = 0; while (x + n < w && tile(x + n, y) === 1 && tile(x + n, y + 1) === 0 && tile(x + n, y + 2) === 0 && tile(x + n, y + 3) === 0) n++;
       ;
@@ -1121,10 +1121,10 @@ function saveRun() { if (run && mode !== "tutorial") store.set("run", run); }
 function showInterlude() {
   state = "interlude"; hubNear = null; $("bAct").hidden = true;
   const md = MADANG[MD(run.m)], jd = Music.JANGDAN[md.jd];
-  const sg = stageOf(run.m), road = !run.tower && (run.node === "rest" || run.node === "event"); $("iOrd").textContent = road ? (run.node === "rest" ? "쉼터 · 주막" : "기연") : (run.node === "elite" && !isFinal() ? "험로 · " : "") + sg.ko; $("iOrd").dataset.han = sg.han;   // the reading large in the brush face, the hanja small beneath
+  const sg = stageOf(run.m), road = !run.tower && (run.node === "rest" || run.node === "event"); $("iOrd").textContent = road ? (run.node === "rest" ? "쉼터 · 장터" : "기연") : (run.node === "elite" && !isFinal() ? "험로 · " : "") + sg.ko; $("iOrd").dataset.han = sg.han;   // the reading large in the brush face, the hanja small beneath
   const om = OMENS.find(o => o.id === run.omen);
   const bk = isFinal() && BOSSES[bossKindOf(run)];
-  $("iLine").textContent = road ? (run.node === "rest" ? "주막 불빛이 보인다. 잠시 숨을 고르고 가자." : "길가에 누군가 서 있다.") : run.m === 0 && run.cycle ? SEASON[season()].line : bk ? `${bk.line} ${josa(bk.name, "을", "를")} 베면 그 뒤에 천고가 있다.` : md.line;
+  $("iLine").textContent = road ? (run.node === "rest" ? "보부상이 짐을 풀었다. 엽전으로 숨을 사 가자." : "길가에 누군가 서 있다.") : run.m === 0 && run.cycle ? SEASON[season()].line : bk ? `${bk.line} ${josa(bk.name, "을", "를")} 베면 그 뒤에 천고가 있다.` : md.line;
   $("iMeta").textContent = ((run.cycle || 0) ? `${run.cycle + 1}번째 판 · ${SEASON[season()].name} · ` : "") + `${sg.ko} (${ORD[run.m]} 관문) · ` + jd.name + " · " + "●".repeat(Math.max(0, Math.min(20, run.breath | 0))) + "○".repeat(Math.max(0, 3 - (run.breath | 0))) + (om && !om.calm ? " · 징조 " + om.name : "");
   $("interlude").classList.remove("night");
   if (run.tower) { // 천고탑: every floor is a guardian's stage, crowded, with all the omens gathered so far
@@ -1312,7 +1312,7 @@ function madangClear() {
 // 수련: a real skill tree. Each cleared gate gives 수련점; spend them on the weapon's tree (a node opens the next along its branch),
 // or on a shared 비급 for the 방어·간파·이동 slots. Unspent points are kept.
 const SP_GAIN = TUNING.SP_GAIN;
-const spCost = c => c.merge || c.tier >= 4 ? 2 : 1;   // a step a point; the branch's last step and a 합류 take two
+const spCost = c => c.merge ? 3 : [1, 1, 2, 2, 3][c.tier] || 1;   // deeper steps cost more: a branch to its end is 8 points, the whole tree 31 — a run walks one branch out and a little more
 function showChoice(kind) {   // kind: "madang" after a cleared gate, "cycle" after cutting 천고, "bonus", "tower", or "pause" (spending from the pause menu)
   const done = () => {
     run.choosing = null; $("choice").classList.remove("tree");
@@ -1339,7 +1339,7 @@ function showChoice(kind) {   // kind: "madang" after a cleared gate, "cycle" af
   $("chTitle").textContent = "수련"; $("choice").classList.remove("route", "wpick"); $("choice").classList.add("tree"); document.querySelectorAll(".route-trail,.ch-held").forEach(o => o.remove());
   $("chMadang").textContent = kind === "pause" ? "멈춤 · 수련" : kind === "tower" ? `천고탑 ${run.floor - 1}층을 넘었다` : kind === "cycle" ? `천고를 베었다 · ${(run.cycle || 0) + 1}번째` : kind === "bonus" ? "징조의 대가" : run.cleared === "rest" ? "쉼터 · 수련" : run.cleared === "event" ? "기연" : `${josa(stageOf(run.m - 1).ko, "을", "를")} 넘었다`;
   const box = $("cards"); box.innerHTML = "";
-  const sp = document.createElement("div"); sp.className = "tr-sp"; sp.innerHTML = `수련점 <b>${"●".repeat(run.sp || 0) || "－"}</b><small>1·2·3단 1점 · 4단·합류 2점 · 갈래 끝(4단)을 익히면 천고난무가 오의로</small>`; box.appendChild(sp);
+  const sp = document.createElement("div"); sp.className = "tr-sp"; sp.innerHTML = `수련점 <b>${"●".repeat(run.sp || 0) || "－"}</b><small>뿌리·1단 1점 · 2·3단 2점 · 4단·합류 3점 · 갈래 끝(4단)을 익히면 천고난무가 오의로</small>`; box.appendChild(sp);
   const wrap = document.createElement("div"); wrap.className = "tr-wrap"; box.appendChild(wrap);
   const graph = document.createElement("div"); graph.className = "tr-graph"; const side = document.createElement("div"); side.className = "tr-side"; wrap.append(graph, side);
   let sel = null;
@@ -1391,7 +1391,7 @@ function showChoice(kind) {   // kind: "madang" after a cleared gate, "cycle" af
 const ROUTE = {
   gate: { name: "관문", han: "關", desc: "짧은 관문 하나 · 넘으면 수련점" },
   elite: { name: "험로", han: "險", desc: "정예가 몰린 더 짧은 길 · 수련점 하나 더, 혼 +20, 천고 기운" },
-  rest: { name: "쉼터", han: "息", desc: "싸우지 않고 숨을 고른다 · 수련점 없음\n쉬는 사이 다음 관문에 적이 모인다" },
+  rest: { name: "쉼터", han: "息", desc: "보부상에게 엽전으로 숨·부적·수련서를 산다 · 수련점 없음" },
   event: { name: "기연", han: "緣", desc: "무엇을 만날지 모른다 · 수련점 없음\n얻는 만큼 대가가 따른다" } };
 function nextStep() {
   if (run.tower || run.m <= 0) { showInterlude(); return; }
@@ -1436,10 +1436,11 @@ function buildRoadMap() { const rows = []; for (let y = 0; y < 16; y++) rows.pus
 function setupRoad() { // the small road stage: set dressing, one person to talk to, a gate out on the right
   const put = (sheet, i, tx, h, flip) => LV.dress.push({ sheet, i, x: tx * T + 16, y: 12 * T + 2, h, flip: !!flip, ay: 1 });
   let who;
-  if (run.node === "rest") { put("npc", 6, 9, 112); put("npc", 5, 15, 58); put("npc", 7, 26, 52); put("props2", P2.brazier, 5, 34); who = "jumo"; }
+  if (run.node === "rest") { put("npc", 6, 9, 112); put("npc", 7, 26, 52); put("props2", P2.brazier, 5, 34); put("props2", P2.sacks, 17, 34); put("props2", P2.rack, 21, 44);   // 쉼터: no free rest now — the 보부상 sells breath for 엽전
+    LV.stations = [{ id: "shop", tx: 19, h: 48, name: "보부상", act: "장터" }]; return; }
   else { const ev = run.eventId || "well"; who = EVENT_NPC[ev]; put("npc", 8, 11, 100); put("props", PROP.stoneLantern, 25, 44); if (who !== "spring") put("props", PROP.jars, 6, 30); }
   const n = NPC[who]; put("npc", n.i, 19, who === "spring" ? 54 : 64, n.flip); LV.stations = [{ id: "npc", who, tx: 19, h: 64, name: n.name, act: run.talked ? "인사" : "이야기" }];
-  if (run.node === "rest") { put("props2", P2.sacks, 27, 34); put("props2", P2.rack, 29, 44); LV.stations.push({ id: "shop", tx: 28, h: 48, name: "보부상", act: "장터" }); }   // 장터: spend the run's 엽전
+
 }
 function resumeStage() { state = "play"; showScreen(null); Music.resume(); hubNear = null; if (LV && LV.stations) for (const s of LV.stations) s.act = "인사"; hubPrompt(); }
 function stageAct(st) {
@@ -1473,9 +1474,9 @@ function addCoin(n, x, y) { if (!run || mode === "tutorial" || run.hub || !n) re
 const treasure = id => !!(run && run.treasure === id);
 // wares: consumables act at once; one 보물 is carried for the rest of the run (a new one replaces it). `hon` = opened at the 대장간 first
 const WARES = [
-  { id: "pill", name: "환약", han: "丸藥", desc: "숨 하나를 되찾는다", price: 30, ok: () => run.breath < breathCap(), go: () => { run.breath++; setHud(); } },
+  { id: "pill", name: "환약", han: "丸藥", desc: "숨 하나를 되찾는다 (살 때마다 비싸진다)", price: () => 25 + 15 * (run.pillN || 0), ok: () => run.breath < breathCap(), go: () => { run.breath++; run.pillN = (run.pillN || 0) + 1; setHud(); } },
   { id: "charm", name: "부적", han: "符", desc: "다음 한 대를 막는다 (둘까지 지닌다)", price: 22, ok: () => (run.charm || 0) < 2, go: () => { run.charm = (run.charm || 0) + 1; } },
-  { id: "sp", name: "수련서", han: "修鍊書", desc: "수련점 하나 (살 때마다 비싸진다)", price: () => 45 + 20 * (run.spBought || 0), ok: () => true, go: () => { run.sp = (run.sp || 0) + 1; run.spBought = (run.spBought || 0) + 1; } },
+  { id: "sp", name: "수련서", han: "修鍊書", desc: "수련점 하나 (살 때마다 비싸진다)", price: () => 60 + 30 * (run.spBought || 0), ok: () => true, go: () => { run.sp = (run.sp || 0) + 1; run.spBought = (run.spBought || 0) + 1; } },
   { id: "powder", name: "화약통", han: "火藥", desc: "다음 관문을 천고 기운 가득 차서 시작한다", price: 25, hon: 60, ok: () => !run.qiStart, go: () => { run.qiStart = 100; } },
   { id: "bok", name: "복주머니", han: "福囊", desc: "보물 · 엽전을 절반 더 얻는다", price: 40, treasure: true },
   { id: "drumstick", name: "북채", han: "鼓棒", desc: "보물 · 천고 기운이 25% 빨리 찬다", price: 55, treasure: true, hon: 90 },
@@ -3220,6 +3221,8 @@ function stepBoss(e, dt, pcx, pcy, dist, live) {
         else { e.nextAt = e.hitAt + (gap + 1) * bl; e.recoverUntil = e.nextAt; const rg = e.raged || e.hp <= e.maxHp / 2; e.comboLeft = rg ? (e.rng() < .35 ? 3 : e.rng() < .7 ? 2 : 1) : (e.rng() < .3 ? 2 : e.rng() < .65 ? 1 : 0); } }
     }
   }
+  if (LV.seal) { const lo = (LV.seal.x0 + 1) * T + 2, hi = LV.seal.x1 * T - e.w - 2; if (e.x < lo) { e.x = lo; if (e.vx < 0) e.vx = 0; if (e.svx < 0) e.svx = 0; } if (e.x > hi) { e.x = hi; if (e.vx > 0) e.vx = 0; if (e.svx > 0) e.svx = 0; } }   // never into the barrier
+  if (!B.fly && !e.hidden && rectSolid(e.x, e.y, e.w, e.h)) unstick(e);   // a leap or a charge that ends in rock is set back in the open
   ecx = e.x + e.w / 2;
   if (live && !e.hidden && !e.air && !(e.chargeT > 0) && !(e.swoopT > 0) && !(e.danceT > 0) && overlap(e, P) && P.dashT <= 0) { P.vx = Math.sign(pcx - ecx || 1) * 320; if (!P.onGround) P.vy = Math.min(P.vy, -120); }   // bulk shoves you back
   if (!e.hidden) dashThrough(e);
@@ -3437,7 +3440,7 @@ function fmt(t) { const m = Math.floor(t / 60), s = t - m * 60; return m + ":" +
 function setHud() {
   document.body.classList.toggle("night", !!(LV && LV.pal.night));
   if (mode === "tutorial") { $("hMadang").textContent = "수련터"; $("hJang").textContent = Music.JANGDAN[TUTORIAL.jd].name; }
-  else { const om = OMENS.find(o => o.id === run.omen); $("hMadang").textContent = !run.tower && run.node === "rest" ? "쉼터 · 주막" : !run.tower && run.node === "event" ? "기연" : (run.node === "elite" && !isFinal() ? "험로 · " : "") + stageName(run.m); $("hJang").textContent = Music.JANGDAN[MADANG[MD(run.m)].jd].name + (om ? " · " + om.name : ""); }
+  else { const om = OMENS.find(o => o.id === run.omen); $("hMadang").textContent = !run.tower && run.node === "rest" ? "쉼터 · 장터" : !run.tower && run.node === "event" ? "기연" : (run.node === "elite" && !isFinal() ? "험로 · " : "") + stageName(run.m); $("hJang").textContent = Music.JANGDAN[MADANG[MD(run.m)].jd].name + (om ? " · " + om.name : ""); }
   const hb = $("hBreath"); hb.innerHTML = ""; hb.classList.toggle("inf", mode === "tutorial");
   if (mode !== "tutorial") { const lostNow = (hb.dataset.b != null && +hb.dataset.b > run.breath) ? +hb.dataset.b : -1;   // the 숨 just lost bursts red, and the row shakes
     for (let i = 0; i < Math.max(breathCap(), run.breath); i++) { const d = document.createElement("i"); if (i >= run.breath) d.className = "lost" + (i < lostNow ? " gone" : ""); hb.appendChild(d); }
@@ -4596,24 +4599,21 @@ function sealScreen(after, title, sub) {   // after: where to go once sealed or 
   const name = document.createElement("input"); name.className = "bd-name"; name.maxLength = 12; name.value = `제${(META.firsts.bookN || 0) + 1}첩`;
   const chips = document.createElement("div"); chips.className = "chips";
   const info = document.createElement("small");
-  const draw = () => { chips.innerHTML = "";
-    for (const id of rest) { const c = document.createElement("button"); c.className = "chip" + (pick.has(id) ? " on" : ""); c.textContent = `${kindOf(id)} · ${perkName(id)}`;
-      c.addEventListener("click", () => {
-        if (pick.has(id)) pick.delete(id);
-        else if (nK(kindOf(id)) < SLOT[kindOf(id)]) pick.add(id); else toast(`${kindOf(id)} 비급은 ${SLOT[kindOf(id)]}개까지`); draw(); }); chips.appendChild(c); }
-    info.textContent = `${SLOT_ORDER.map(k => `${k} ${nK(k)}/${SLOT[k]}`).join(" · ")} · ${WEAPONS[r.weapon || "hwando"].name}${r.oath ? " · " + OATHS.find(o => o.id === r.oath).name : ""}`; };
+  const draw = () => { chips.innerHTML = "";   // the whole tree walked this run goes in as it is: nothing to pick, nothing to count
+    for (const id of rest) { const c = document.createElement("span"); c.className = "chip on"; c.textContent = perkName(id); chips.appendChild(c); }
+    const F = r.form && FORMS[r.weapon]; info.textContent = `${WEAPONS[r.weapon || "hwando"].name}${F && F.id === r.form ? " · " + F.name : ""} · 수련 ${rest.length}개${r.oath ? " · " + OATHS.find(o => o.id === r.oath).name : ""}`; };
   draw();
   const save = (replace) => {
-    const bk = { id: Date.now().toString(36), name: name.value.trim() || "이름 없는 첩", weapon: r.weapon || "hwando", oath: r.oath || null, char: r.char || "mumyeong", simbeop: r.simbeop || null, perks: [...pick], best: 0, made: todayKey() };
+    const bk = { id: Date.now().toString(36), name: name.value.trim() || "이름 없는 첩", weapon: r.weapon || "hwando", form: r.form || null, oath: r.oath || null, char: r.char || "mumyeong", simbeop: r.simbeop || null, perks: [...pick], best: 0, made: todayKey() };
     if (replace != null) META.books.splice(replace, 1, bk); else META.books.push(bk);
-    META.firsts.bookN = (META.firsts.bookN || 0) + 1; saveMeta(); sealable = null; $("bSeal").hidden = true; toast(`「${bk.name}」를 봉인했다`);
+    META.firsts.bookN = (META.firsts.bookN || 0) + 1; saveMeta(); sealable = null; $("bSeal").hidden = true; toast(`「${bk.name}」에 담았다`);
     if (typeof gainStroke === "function") gainStroke("seal"); if (after) after(); else toMenu();
   };
   const rows = [name, chips, info];
   if (META.books.length >= shelfCap()) { const t = document.createElement("small"); t.textContent = "비급첩을 둘 자리가 없다. 하나를 골라 덮어쓴다."; rows.push(t);
     META.books.forEach((bk, i) => rows.push(bdRow(bk.name, bookLine(bk), null, "덮어쓰기", () => save(i)))); }
   const skip = () => { if (after) { sealable = null; after(); } else showScreen("result"); };
-  board(title || "비급첩에 봉인", sub || "이 판의 빌드에서 핵심만 골라 담는다", rows, META.books.length >= shelfCap() ? [[after ? "담지 않고 다시 시작" : "그만두기", skip]] : [["봉인", () => save(null), true], [after ? "담지 않고 다시 시작" : "그만두기", skip]]);
+  board(title || "비급첩에 담기", sub || "이 판에 익힌 수련을 그대로 담아, 천고탑에서 처음부터 이 빌드로 오른다", rows, META.books.length >= shelfCap() ? [[after ? "담지 않고 다시 시작" : "그만두기", skip]] : [["봉인", () => save(null), true], [after ? "담지 않고 다시 시작" : "그만두기", skip]]);
 }
 // 천고탑: pick a 비급첩, then climb until the breath runs out
 function towerScreen() {
@@ -4626,7 +4626,7 @@ function towerScreen() {
 function startTower(bk) {
   if (hubOn) leaveHub();
   run = { tower: true, book: bk.id, seed: (Math.random() * 2 ** 32) >>> 0, dateKey: todayKey(), m: LAST_M, floor: 1, cycle: 0, cp: -1, dead: [],
-    breath: Math.min(oath2cap(bk.oath), 3), time: 0, deaths: 0, kills: 0, strikes: 0, slashes: 0, perks: fitPerks(bk.perks), weapon: bk.weapon, oath: bk.oath, char: bk.char || "mumyeong", simbeop: bk.simbeop || null, omens: [], cutDrums: [] };
+    breath: Math.min(oath2cap(bk.oath), 3), time: 0, deaths: 0, kills: 0, strikes: 0, slashes: 0, perks: fitPerks(bk.perks), weapon: bk.weapon, form: bk.form || null, oath: bk.oath, char: bk.char || "mumyeong", simbeop: bk.simbeop || null, omens: [], cutDrums: [] };
   mode = "tower"; saveRun();
   if (META.ended && typeof upPicks === "function") upPicks(() => { saveRun(); showInterlude(); }); else showInterlude();
 }
@@ -5098,7 +5098,7 @@ function sealMap() { // 봉인 지도: the ten guardians on the painted land, a 
     m.className = "seal-pt" + (ok ? " on" : ""); m.style.left = x + "%"; m.style.top = y + "%"; m.innerHTML = `<i>${ok ? B.han.slice(0, 2) : "？"}</i><span>${ok ? B.name : "？？？"}</span>`;
     m.addEventListener("click", () => { Music.sfx("hook"); lore.textContent = ok ? `${B.name} ${B.han} — ${BOSS_LORE[k] || B.line}` : "아직 봉인하지 못한 수문장 · 산문에서 고르면 천고대에서 만난다"; }); map.appendChild(m); }
   rows.push(map, lore);
-  const nx = SEAL_MILESTONE.find(m => m.n > sealedN()); rows.push(bdRow(`봉인 ${sealedN()} / ${SEAL_KINDS.length}`, nx ? `${nx.n}을 봉인하면 · ${nx.text}` : "모든 수문장을 봉인했다"));
+  const nx = SEAL_MILESTONE.find(m => m.n > sealedN()); rows.push(bdRow(`봉인 ${sealedN()} / ${SEAL_KINDS.length}`, nx ? `봉인 ${nx.n}에 이르면 · ${nx.text}` : "모든 수문장을 봉인했다"));
   board("봉인 지도", "천고를 멈춘 땅의 열 수문장", rows, [["돌아가기", resumeHub]]);
 }
 function formScreen() { // 무기 형: one more way to hold each weapon you own

@@ -1,6 +1,6 @@
 const { open, RUN } = require('./lib');
 (async () => { const { b, p, errs } = await open({ vp: { width: 1000, height: 462 }, run: RUN('hwando', { m: 1, seed: 7, node: 'rest', coin: 120, breath: 2 }) });
-  await p.evaluate(() => __dbg.tp(28, 11)); await p.waitForTimeout(600);
+  await p.evaluate(() => __dbg.tp(19, 11)); await p.waitForTimeout(600);
   const near = await p.evaluate(() => __dbg.hub.hubNear && __dbg.hub.hubNear.st && __dbg.hub.hubNear.st.id);
   await p.evaluate(() => __dbg.hubAct()); await p.waitForTimeout(400);
   const rows = await p.evaluate(() => [...document.querySelectorAll('#bdBody .bd-row')].map(r => r.textContent.slice(0, 40)));
