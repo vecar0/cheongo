@@ -2486,8 +2486,9 @@ function drawKanFlash(e, tt) { // 간파: one brush ring shrinks onto the weak p
 }
 const viaMua = () => !!(P && P.aimDash && !P.tapDash);   // the cut came out of 무아경
 function chainAdd(n) { if (!P) return; const g0 = Math.min(5, P.chain || 0); P.chain = (P.chain || 0) + n; P.chainPop = .25; if (Math.min(5, P.chain) > g0) Music.sfx("lantern"); }
+let qiLockUntil = 0;   // while 천고난무 is still cutting (and a breath after), what it fells gives no 기운 back
 function addQi(n) { // 천고 기운: won by fighting well — 일섬, 간파, 과녁
-  if (mode === "tutorial" || !run) return; const before = run.qi || 0; run.qi = Math.min(100, before + n * .6 * (1 + treeStat("qi")) * (oath("jangdan") ? 2 : 1) * (1 + .15 * Math.min(8, (P && P.chain) || 0)));
+  if (mode === "tutorial" || !run || chungoFx || performance.now() < qiLockUntil) return; const before = run.qi || 0; run.qi = Math.min(100, before + n * .6 * (1 + treeStat("qi")) * (oath("jangdan") ? 2 : 1) * (1 + .15 * Math.min(8, (P && P.chain) || 0)));
   if (before < 100 && run.qi >= 100) { if (META.tips && META.tips.chungo) toast(`천고 기운이 찼다 · ${MOBILE ? "태극 북" : "북 또는 Q"} → ${drumName()}`);
     else tipOnce("chungo", "천고난무", `북이 다 찼다 — 무기의 오의를 약하게 펼친다(우두머리에겐 통하지 않는다). 한 갈래를 3단까지 익히면 온전한 오의가 된다`, MOBILE ? "아래 태극 북을 누르기" : "태극 북 클릭 또는 Q"); Music.jing(); }
 }
@@ -2505,12 +2506,12 @@ function ougiCall(o, plain) { if (plain) return; flashDim = Math.max(flashDim, .
 let bossBannerLite = null;   // the 오의's name brushed large for a moment
 function chungo() { // the full drum: 천고난무 — plain and the same for every weapon until a branch's end turns it into the weapon's 오의
   const o = ougiOf(), w = wpn(), open = ougiOpen();
-  if (WEAPONS[w] && WEAPONS[w].gun) return gunOugi(ougiStyle(), o, !open);
+  if (WEAPONS[w] && WEAPONS[w].gun) { qiLockUntil = performance.now() + 3200; return gunOugi(ougiStyle(), o, !open); }   // the rockets and shells keep landing for a while
   const cx = P.x + P.w / 2, cy = P.y + P.h / 2, d = a => Math.hypot(a.x + a.w / 2 - cx, a.y + a.h / 2 - cy);
   const ts = enemies.filter(e => e.alive && !ghostly(e) && !e.hidden && d(e) < (!open ? TUNING.DRUM_PLAIN_R : run.ougiAwake ? 640 : 480)).sort((a, b) => d(a) - d(b)).slice(0, !open ? TUNING.DRUM_PLAIN_N : (has("d_giseom") ? 10 : 8) + (run.ougiAwake ? 4 : 0));
   if (!ts.length) return false;
   const pts = [{ x: cx, y: cy }, ...ts.map(e => ({ x: e.x + e.w / 2, y: e.y + e.h / 2 }))];
-  chungoFx = { pts, ts, t: 0, done: false, w: ougiStyle(), plain: !open }; run.qi = run.ougiAwake ? 50 : 0; P.invT = Math.max(P.invT || 0, 1.2); P.vx = P.vy = 0;
+  chungoFx = { pts, ts, t: 0, done: false, w: ougiStyle(), plain: !open }; qiLockUntil = performance.now() + 2500; run.qi = run.ougiAwake ? 50 : 0; P.invT = Math.max(P.invT || 0, 1.2); P.vx = P.vy = 0;
   for (const e of ts) e.stunT = Math.max(e.stunT || 0, open ? 2 : .8); Music.sfx("dash"); if (open) flashDim = .12; ougiCall(o, !open); return true;
 }
 function gunOugi(w, o, plain) { // the four guns' 오의; plain (before a branch's end): the same move, smaller, and it does not wound a guardian
