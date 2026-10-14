@@ -2,7 +2,7 @@
 (() => {
 "use strict";
 const T = 32;
-const ASSET_V = "140";   // bump when any picture changes: the service worker then fetches the new json and webp together
+const ASSET_V = "141";   // bump when any picture changes: the service worker then fetches the new json and webp together
 const $ = id => document.getElementById(id);
 const cv = $("cv"); let ctx = cv.getContext("2d", { alpha: false });   // let: the ground is baked by pointing ctx at an offscreen canvas for a moment   // opaque canvas: cheaper to composite on phones
 let W = 0, H = 0, DPR = 1, SCALE = 1;
@@ -931,12 +931,21 @@ function loadMap(map, pal, hints) {
       if (!edge && y <= 7 && rnd() < .18) put("props2", P2.brazier, x, y, 34);
     }
     if (lv.md != null) needSheets(["md" + lv.md]);
-    if (lv.md != null && MD_PROPS[lv.md]) { const set = MD_PROPS[lv.md], sh = "md" + lv.md;   // the 마당's own things along its ground: bamboo and wells, kites and straw, stalls and carts, pagodas, drums and railings
-      for (let x = 6, last = -99; x < w - 6; x++) { if (x - last < 6 + ((rnd() * 7) | 0)) continue; const y = surf(x, 1); if (y < 0) continue;
-        let flat = true; for (let k = -2; k <= 2; k++) if (tile(x + k, y) !== 1 || tile(x + k, y - 1) !== 0) flat = false; if (!flat) continue;
-        const [i, hh, air] = set[(rnd() * set.length) | 0];
-        if (air) { if (y > 6 && put(sh, i, x, y - 5 - ((rnd() * 3) | 0), hh, { hang: true })) last = x; continue; }
-        if (put(sh, i, x, y, hh, { flip: rnd() < .5 })) last = x; } }
+    if (lv.md != null && MD_PROPS[lv.md]) {   // the 마당's own things, set as small scenes on wide flat ground — one tall piece with a low one or two beside it, backed against rock where there is some
+      const set = MD_PROPS[lv.md], sh = "md" + lv.md, big = set.filter(o => o[2] === "b"), small = set.filter(o => o[2] !== "b");
+      const busy = [[lv.start && lv.start.x, 4], [lv.exit && lv.exit.x, 4], ...lv.cps.map(c => [c.x, 2]), ...lv.defs.map(d => [d.tx * T + 16, 2]), ...lv.chests.map(c => [c.x, 3]), ...lv.lamps.map(l => [l.x, 2])].filter(v => v[0] != null);
+      const freeAt = x => !busy.some(([b, r]) => Math.abs(b - (x * T + 16)) < r * T);
+      for (let x = 4, last = -99; x < w - 6; x++) {
+        const y = surf(x, 1); if (y < 0) continue; let n = 0; while (x + n < w && surf(x + n, 1) === y && tile(x + n, y - 1) === 0 && tile(x + n, y - 2) === 0) n++;
+        if (n < 5 || x - last < 9 || rnd() > .8) { x += Math.max(0, n - 1); continue; }
+        const wallR = tile(x + n, y - 1) === 1, wallL = tile(x - 1, y - 1) === 1, toR = wallR || (!wallL && rnd() < .5);   // lean the scene against the rock if one side rises
+        const cand = []; for (let k = 1; k < n - 1; k++) cand.push(toR ? x + n - 1 - k : x + k);
+        const pick = [big.length && rnd() < .8 ? big[(rnd() * big.length) | 0] : null, small[(rnd() * small.length) | 0], rnd() < .45 ? small[(rnd() * small.length) | 0] : null].filter(Boolean);
+        let placed = 0, ci = 0;
+        for (const [i, hh] of pick) { const H = Math.round(hh * (1.1 + rnd() * .25)), wt = Math.max(1, Math.round((SPR[sh] && SPR[sh].f[i] ? SPR[sh].f[i].w * H / SPR[sh].f[i].h : H * .8) / T * .55));
+          while (ci < cand.length && !freeAt(cand[ci])) ci++; if (ci >= cand.length) break;
+          if (put(sh, i, cand[ci], y, H, { flip: rnd() < .5 })) placed++; ci += wt + 1; }
+        if (placed) last = x + n; x += n - 1; } }
     for (let y = 2; y < h - 4; y++) for (let x = 2; x < w - 6; x++) { // paper lanterns strung under roofs
       let n = 0; while (x + n < w && tile(x + n, y) === 1 && tile(x + n, y + 1) === 0 && tile(x + n, y + 2) === 0 && tile(x + n, y + 3) === 0) n++;
       ;
@@ -2355,8 +2364,8 @@ function playerHazards() {
 
 // ---------- the 마당's own ground: 기와 that gives way, 장단 발판, wind, mist and lamps, rising ink, 결진 gates, cracked rock, chests ----------
 // per 마당 prop set: [frame, height, floats in the sky]
-const MD_PROPS = [[[0, 150], [1, 64], [3, 46], [4, 52], [5, 74], [6, 74]], [[1, 48], [2, 72], [3, 92], [4, 94], [5, 124]], [[0, 98], [1, 52], [2, 62], [3, 58], [4, 66], [5, 94]],
-  [[0, 124], [1, 72], [3, 134], [4, 112], [5, 98], [6, 98]], [[0, 58], [1, 54], [2, 84], [3, 150], [4, 72], [5, 62, 1]]];
+const MD_PROPS = [[[0, 150, "b"], [1, 64], [3, 46], [4, 52], [5, 74, "b"], [6, 74]], [[1, 48], [2, 72], [3, 92, "b"], [4, 94, "b"], [5, 124, "b"]], [[0, 98, "b"], [1, 52], [2, 62], [3, 58], [4, 66], [5, 94, "b"]],
+  [[0, 124, "b"], [1, 72], [3, 134, "b"], [4, 112, "b"], [5, 98], [6, 98]], [[0, 58], [1, 54], [2, 84, "b"], [3, 150, "b"], [4, 72]]];   // [frame, height, "b" = a tall piece a scene is built around]
 const MO = { plank: 0, giwa: 1, crack: 2, chest: 3, chestOpen: 4, pole: 5, lamp: 6, gate: 7 };
 function windDir(z) { const b = Math.floor(songPos / Music.beatLen), bar = Math.floor(b / 4) + z.ph; if (((b % 4) + 4) % 4 === 3) return 0; return bar % 2 ? 1 : -1; }   // the last beat of each bar is a lull, then it turns
 function crumbleRun(r, tx) { let a = tx, b = tx; while (LV.grid[r * LV.w + a - 1] === 6) a--; while (LV.grid[r * LV.w + b + 1] === 6) b++;

@@ -19,11 +19,14 @@ def cut(name, maxh=240):
     sizes = ndimage.sum(bgish & fg, l3, range(1, n3 + 1)); fg &= ~np.isin(l3, [i + 1 for i, s in enumerate(sizes) if s > 700])
   shape = np.clip((ndimage.gaussian_filter(fg.astype(np.float32), .7) - .15) / .7, 0, 1)
   # colour-to-alpha against the white paper: light paint lets the game's paper through, ink stays solid — no white rims or white pockets left
-  d = (255 - a.min(2)) / 255; cta = np.clip(d / .38, 0, 1)
+  d = (255 - a.min(2)) / 255; cta = np.clip(d / .12, 0, 1)   # only paper-white goes clear: painted greys stay solid, like the game's own pines and rocks
   alpha = shape * cta
   safe = np.maximum(cta, 1e-3)[..., None]
   col = np.clip((a - 255 * (1 - safe)) / safe, 0, 255)
-  lum = col.mean(2, keepdims=True); col = col * .86 + lum * .14; col = col * .97
+  # ink-wash grade: most of the colour drained to warm grey ink, a little kept, contrast eased so they sit in the painted world
+  lum = col.mean(2, keepdims=True); ink = lum * np.array([1.0, .97, .9]) * .92 + 8
+  col = col * .32 + ink * .68
+  col = 128 + (col - 128) * .9
   big = ndimage.binary_dilation(alpha > .05, iterations=5); lab, n = ndimage.label(big)
   objs = ndimage.find_objects(lab); areas = ndimage.sum(alpha > .05, lab, range(1, n + 1))
   keep = sorted([i for i in range(n) if areas[i] > 1500], key=lambda i: objs[i][1].start)
