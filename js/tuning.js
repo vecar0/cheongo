@@ -12,7 +12,7 @@ const TUNING = Object.freeze({
   START_BREATH: 4, GATE_HEAL_TO: 4,
   GATE_CUT_RATIO: .6,   // the exit's 결계 opens once this share of the gate's guards is cut
   CHASE_GAP: 18, CHASE_EVERY: 3,   // guards left this many tiles behind seep after you through the ink, one at a time   // a cleared gate gives one back while below this
-  REST_BREATH: 2,                     // 쉼터 · 숨 고르기
+  REST_BREATH: 1,                     // 쉼터 · 숨 고르기
   // walking in: foes near the start wait for your first move
   START_SLEEP_R: 520, START_SLEEP_T: 8, ENTRY_FIRE_DELAY: 3,
   // 적
@@ -27,7 +27,7 @@ const TUNING = Object.freeze({
   SP_GAIN: { madang: 1, cycle: 2, bonus: 1, tower: 1, stage: 1 },
   TREE_OPEN_HON: [40, 90, 130],
   DRUM_PLAIN_N: 3, DRUM_PLAIN_R: 300,   // plain 천고난무 (before a branch's end): how many foes, how near
-  START_SP: 1,            // 수련점 a run starts with
+  START_SP: 0,            // 수련점 a run starts with
   FREE_FALLS: 1,          // falls per gate that only send you back to where you stood
   // 매: how long it shows the dive (s), how fast it dives, beats it rests after
   HAWK_TELL: 0.7, HAWK_DIVE_V: 470, HAWK_REST_BEATS: 4,

@@ -305,15 +305,19 @@ body.padEdit #stickZone, body.padEdit #swipeZone { pointer-events: none; }
 @keyframes ldSpeck { 0% { transform: translate(0, 0); opacity: 0; } 10% { opacity: 1; } 100% { transform: translate(-6vw, -105vh); opacity: 0; } }
 #loading .ld-in { position: absolute; left: 50%; top: 5%; transform: translateX(-50%); display: grid; justify-items: center; gap: 8px; width: min(380px, 80vw); text-align: center; }
 @media (orientation: portrait) { #loading .ld-in { top: 36%; } }
-#loading .ld-title { position: relative; width: min(46vw, 440px); }
-@media (orientation: portrait) { #loading .ld-title { width: 78vw; } }
-#loading .ld-title img { display: block; width: 100%; height: auto;
-  -webkit-mask: linear-gradient(100deg, #000 45%, transparent 55%) 100% 0 / 260% 100% no-repeat; mask: linear-gradient(100deg, #000 45%, transparent 55%) 100% 0 / 260% 100% no-repeat;
-  animation: ldWrite 1.5s .35s cubic-bezier(.55,.1,.3,1) both; }
-@keyframes ldWrite { from { -webkit-mask-position: 100% 0; mask-position: 100% 0; filter: blur(2px); } 70% { filter: none; } to { -webkit-mask-position: 0 0; mask-position: 0 0; filter: none; } }
-#loading .ld-seal { position: absolute; right: -4%; bottom: 4%; display: grid; place-items: center; width: 13%; aspect-ratio: .8; padding: 2px; background: #b3141c; color: #f4ecdb; border-radius: 3px;
-  font-family: "Song Myung", var(--f-head, serif); font-weight: 400; font-size: clamp(15px, 3.4vmin, 28px); line-height: 1.02; box-shadow: inset 0 0 0 2px rgba(244,236,219,.55); transform: rotate(-6deg);
-  animation: ldStamp .38s 1.85s cubic-bezier(.3,1.6,.5,1) both; mix-blend-mode: multiply; }
+#loading .ld-title { position: relative; display: grid; justify-items: center; padding: 0 1.2em; }
+/* 천고: the game's own face (Song Myung), set wide and quiet — each syllable rises out of the mist, a thin stroke is drawn beneath, the seal is pressed last */
+#loading .ld-name { margin: 0; display: flex; gap: .42em; padding-left: .42em; font-family: var(--f-head); font-weight: 400; font-size: clamp(46px, 9.5vmin, 80px); line-height: 1.1; color: #17161a;
+  text-shadow: 0 0 22px rgba(236,230,216,.95), 0 0 4px rgba(236,230,216,.9); }
+#loading .ld-name span { display: inline-block; animation: ldRise 1.1s cubic-bezier(.2,.7,.2,1) both; }
+#loading .ld-name span:nth-child(1) { animation-delay: .3s; } #loading .ld-name span:nth-child(2) { animation-delay: .62s; }
+@keyframes ldRise { from { opacity: 0; transform: translateY(14px); filter: blur(6px); letter-spacing: .3em; } 60% { filter: blur(.5px); } to { opacity: 1; transform: none; filter: none; } }
+#loading .ld-line { display: block; width: 72%; height: 3px; margin-top: 6px; border-radius: 2px; background: linear-gradient(90deg, rgba(23,22,26,0), #17161a 18%, #17161a 70%, #a8141b 92%, rgba(168,20,27,0));
+  transform-origin: left center; animation: ldLine .9s 1.15s cubic-bezier(.6,0,.2,1) both; }
+@keyframes ldLine { from { transform: scaleX(0); opacity: .3; } to { transform: scaleX(1); opacity: .85; } }
+#loading .ld-seal { position: absolute; right: -.2em; top: .1em; display: grid; place-items: center; width: clamp(22px, 4.2vmin, 34px); aspect-ratio: 1; padding: 2px; background: #b3141c; color: #f4ecdb; border-radius: 3px;
+  font-family: var(--f-head); font-weight: 400; font-size: clamp(13px, 2.6vmin, 21px); line-height: 1; box-shadow: inset 0 0 0 1.5px rgba(244,236,219,.55); transform: rotate(-6deg);
+  animation: ldStamp .38s 1.9s cubic-bezier(.3,1.6,.5,1) both; mix-blend-mode: multiply; }
 #loading .ld-seal span { display: block; }
 @keyframes ldStamp { from { opacity: 0; transform: rotate(-6deg) scale(2.2); } to { opacity: .95; transform: rotate(-6deg) scale(1); } }
 #loading .ld-read { font-family: var(--f-head, serif); font-size: 13px; letter-spacing: .14em; color: rgba(23,22,26,.7); text-shadow: 0 0 10px rgba(236,230,216,.95); animation: ldFade 1s 2s both; }
@@ -327,9 +331,9 @@ body.padEdit #stickZone, body.padEdit #swipeZone { pointer-events: none; }
 #loading span#ldTxt { font-size: 12.5px; letter-spacing: .04em; color: rgba(23,22,26,.75); text-shadow: 0 0 8px rgba(236,230,216,.95); }
 #loading #ldTip { min-height: 2.8em; max-width: 100%; padding: 7px 14px; font-style: normal; font-size: 13px; line-height: 1.45; color: #2a2729; background: linear-gradient(90deg, rgba(236,230,216,0), rgba(236,230,216,.82) 12%, rgba(236,230,216,.82) 88%, rgba(236,230,216,0)); word-break: keep-all; transition: opacity .35s; }
 #loading.done .ld-ring { animation: ldRing .7s ease-out both; border-width: 6px; }
-#loading.done .ld-title img { filter: drop-shadow(0 0 8px rgba(195,22,28,.35)); }
+#loading.done .ld-name { text-shadow: 0 0 22px rgba(236,230,216,.95), 0 0 10px rgba(195,22,28,.35); }
 #loading.done .ld-bg { transform: scale(1.05); transition: transform .5s ease-in; animation: none; }
-@media (prefers-reduced-motion: reduce) { #loading *, #loading .ld-title img { animation: none !important; -webkit-mask: none !important; mask: none !important; } #loading .ld-ring, #loading .ld-specks { display: none; } }
+@media (prefers-reduced-motion: reduce) { #loading * { animation: none !important; } #loading .ld-ring, #loading .ld-specks { display: none; } }
 .card .tag.kind.ougi { background: #9a1424; }   /* 오의: the end of a branch */
 .ch-held span { white-space: nowrap; }
 /* 길 고르기: the road so far, a line of seals */
