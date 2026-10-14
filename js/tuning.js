@@ -17,7 +17,7 @@ const TUNING = Object.freeze({
   START_SLEEP_R: 520, START_SLEEP_T: 8, ENTRY_FIRE_DELAY: 3,
   // 적
   TYPE_HP: { d: 1, g: 1, s: 1, a: 1, p: 2, m: 2, r: 2, h: 3, k: 3 },
-  BOSS_HP_MUL: 1.9, BOSS_HP_PER_CYCLE: 3, BOSS_GUARD_HITS: 3, BOSS_GUARD_T: 1.2,
+  BOSS_HP_MUL: 1.9, BOSS_HP_PER_CYCLE: 5, BOSS_GUARD_HITS: 3, BOSS_GUARD_T: 1.2,
   // 날: [notches, seconds per notch]
   EDGE: { hwando: [4, .55], ssang: [5, .45], woldo: [3, .75], baldo: [3, .7] },
   // 기세
