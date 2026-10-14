@@ -1215,6 +1215,7 @@ function die(kind, dmg = 1) {
   if (res("yeong", 6) && !run.shadeUsed && P.y < LV.h * T) { // 영 공명: the blow passes through a shadow left behind
     run.shadeUsed = true; P.invT = 1.3; clones.push({ x: P.x + P.w / 2, y: P.y + P.h, face: P.face, t: .25 }); shadeFx(P.x + P.w / 2, P.y + P.h / 2, 26); flash = .2; shake = 6; Music.sfx("clang"); toast("영 공명 · 그림자가 대신 베였다"); return; }
   if (mode !== "tutorial" && guardBlow(kind)) return;
+  if (kind !== "fall" && mode !== "tutorial" && (run.charm || 0) > 0) { run.charm--; P.invT = .9; Music.sfx("clang"); popText(P.x + P.w / 2, P.y - 30, "부적이 막았다"); addFx("slashfx", SF.guard, P.x + P.w / 2, P.y + P.h / 2, 70, { life: .35, grow: .6 }); saveRun(); return; }   // 부적
   if (kind !== "fall" && has("hw_b4b") && clones.length) { const c = clones.shift(); P.invT = .8; shadeFx(c.x, c.y - 20, 26); Music.sfx("clang"); popText(c.x, c.y - 50, "대역"); return; }   // 대역: a shadow takes the blow
   if (kind !== "fall" && has("hw_a4b") && (P.ctrN || 0) >= 3 && songPos < (P.ctrUntil || 0) + 1.5) { P.ctrN = 0; P.invT = .8; Music.sfx("clang"); popText(P.x + P.w / 2, P.y - 30, "연쇄가 대신 깨졌다"); return; }   // 끊는 연쇄
   if (kind !== "fall" && mode !== "tutorial") { momHit(); run.gHits = (run.gHits || 0) + 1; }
@@ -1234,7 +1235,7 @@ function die(kind, dmg = 1) {
 }
 function guardBlow(kind) { // 방어 비급: what takes the blow instead of a 숨
   const cx = P.x + P.w / 2, cy = P.y + P.h / 2, ward = (t, msg) => { P.invT = t; P.focus = false; Music.muffle(false); P.dashT = 0; shake = Math.max(shake, 7); flash = .15; hitstop = Math.max(hitstop, .06); Music.sfx("clang"); ringFx(cx, cy, 110, "rgba(195,22,28,.6)", .35); toast(msg); lastHitDir = null; return true; };
-  if (kind === "fall") { if ((run.nakN || 0) < (has("d_nakbeop") ? 2 : 1) + TUNING.FREE_FALLS - 1 && P.safe) { run.nakN = (run.nakN || 0) + 1; P.x = P.safe.x; P.y = P.safe.y; P.vx = P.vy = 0; P.hook = null; return ward(1.2, `낙법 · 딛던 땅으로 (${2 - run.nakN}번 남음)`); } return false; }
+  if (kind === "fall") { if ((run.nakN || 0) < (has("d_nakbeop") ? 2 : 1) + TUNING.FREE_FALLS - 1 + (treasure("straw") ? 1 : 0) && P.safe) { run.nakN = (run.nakN || 0) + 1; P.x = P.safe.x; P.y = P.safe.y; P.vx = P.vy = 0; P.hook = null; return ward(1.2, `낙법 · 딛던 땅으로 (${2 - run.nakN}번 남음)`); } return false; }
   if (has("bd_b3") && (P.iaiHold || (P.focus && wk() === "baldo")) && (run.fudoN || 0) < 3) { run.fudoN = (run.fudoN || 0) + 1; const t = nearestFoes(cx, cy, 1, 400)[0];   // 부동명왕
     P.iaiHold = false; P.focus = false; Music.muffle(false); if (t) { const dx = t.x + t.w / 2 - cx, dy = t.y + t.h / 2 - cy, L = Math.hypot(dx, dy) || 1; P.iaiCut = true; startDash({ x: dx / L, y: 0 }, true); P.dashT = .22; hurtEnemy(t, t.type !== "b" ? true : 2); }
     ougiArt(["ogA", 10], cx, P.y + P.h, 150, { life: .7, ay: 1 }); return ward(.8, `부동명왕 · ${3 - run.fudoN}번 남음`); }
@@ -1289,9 +1290,9 @@ function madangClear() {
   if (run.gate && !run.tower) { const gr = gateGrade(); run.lastGrade = gr.ch; run.grades = (run.grades || "") + gr.ch;
     seals.push({ x: P.x + P.w / 2, y: P.y - 10, t: 0, rot: -.12, ch: gr.ch, big: true }); popText(P.x + P.w / 2, P.y - 58, `${gradeKo(gr.ch)} 등급`, gr.ch === "甲" ? SEAL : "#17161a"); toast(`관문 등급 ${gradeKo(gr.ch)}${gr.goal ? " · 과제를 이뤘다" : ""}${gr.ch === "甲" ? " · 혼 +20" : gr.ch === "乙" ? " · 혼 +10" : ""}`);
     if (gr.ch === "乙") run.honBonus = (run.honBonus || 0) + 10; if (gr.ch === "甲") run.honBonus = (run.honBonus || 0) + 20; if (gr.ch === "甲") petJeong(3); run.gate = null; }
-  { const c = cutCount(); if (c && c.k >= c.n && c.n >= 3) { run.honBonus = (run.honBonus || 0) + 10; addQi(20); popText(P.x + P.w / 2, P.y - 84, "일소 · 혼 +10", SEAL); } }   // every guard cut: a little more 혼 and 기운
+  { const c = cutCount(); if (c && c.k >= c.n && c.n >= 3) { run.honBonus = (run.honBonus || 0) + 10; addQi(20); addCoin(COIN.sweep); popText(P.x + P.w / 2, P.y - 84, "일소 · 혼 +10 · 엽전", SEAL); } }   // every guard cut: a little more 혼 and 기운
   if (!run.tower && !oath("godok") && !upOn("noheal") && run.breath < TUNING.GATE_HEAL_TO) { run.breath++; toast(`숨을 골랐다 · 숨 ${run.breath}`); }   // each gate passed lets you catch one breath back (up to three)
-  run.cleared = run.node || "gate"; if (run.cleared === "elite") { run.honBonus = (run.honBonus || 0) + 20; addQi(40); }
+  run.cleared = run.node || "gate"; if (run.cleared === "elite") { run.honBonus = (run.honBonus || 0) + 20; addQi(40); addCoin(COIN.elite); }
   run.m++; run.node = null; run.nakN = 0; run.janUsed = false; run.senN = 0; run.fudoN = 0; run.cp = -1; run.dead = []; run.cutDrums = []; if (!upOn("noheal") && !oath("godok") && (false)) run.breath = Math.min(breathCap(), (run.breath + 1));   // breath no longer refills by itself: rest on the road, or before 천고대
   run.choosing = "madang"; saveRun();   // every cleared 마당 grants a 초식
   state = "result";
@@ -1418,7 +1419,7 @@ function stepOn() { run.m++; run.choosing = null; saveRun(); nextStep(); }
 const NPC = { jumo: { i: 0, name: "주모", flip: true, line: "어서 오시오. 먼 길 오셨구려, 쉬었다 가시오." }, monk: { i: 1, name: "노승", line: "검이 무겁구나. 시험 하나 받아 보겠느냐." },
   dok: { i: 2, name: "도깨비", line: "히히, 한 판 걸어 보련? 숨 내기다!" }, mudang: { i: 3, name: "무당", line: "저 무덤에 칼 한 자루가 잠들어 있소. 주인을 기다리지." },
   seonbi: { i: 4, name: "떠돌이 선비", line: "피로 쓴 글이오. 숨 하나면 이 비결을 다 읽을 수 있지." }, spring: { i: 7, name: "약수", line: "맑은 물이 솟는다." } };
-const EVENT_NPC = { blood: "seonbi", dok: "dok", grave: "mudang", monk: "monk", well: "spring" };
+const EVENT_NPC = { blood: "seonbi", dok: "dok", grave: "mudang", monk: "monk", well: "spring", market: "dok" };
 function stepOn() { run.m++; run.choosing = null; saveRun(); nextStep(); }
 function buildRoadMap() { const rows = []; for (let y = 0; y < 16; y++) rows.push(Array.from({ length: 36 }, (_, x) => y >= 12 || x === 0 ? "#" : " ")); rows[11][2] = "P"; rows[11][33] = "E"; return rows.map(r => r.join("")); }
 function setupRoad() { // the small road stage: set dressing, one person to talk to, a gate out on the right
@@ -1427,9 +1428,11 @@ function setupRoad() { // the small road stage: set dressing, one person to talk
   if (run.node === "rest") { put("npc", 6, 9, 112); put("npc", 5, 15, 58); put("npc", 7, 26, 52); put("props2", P2.brazier, 5, 34); who = "jumo"; }
   else { const ev = run.eventId || "well"; who = EVENT_NPC[ev]; put("npc", 8, 11, 100); put("props", PROP.stoneLantern, 25, 44); if (who !== "spring") put("props", PROP.jars, 6, 30); }
   const n = NPC[who]; put("npc", n.i, 19, who === "spring" ? 54 : 64, n.flip); LV.stations = [{ id: "npc", who, tx: 19, h: 64, name: n.name, act: run.talked ? "인사" : "이야기" }];
+  if (run.node === "rest") { put("props2", P2.sacks, 27, 34); put("props2", P2.rack, 29, 44); LV.stations.push({ id: "shop", tx: 28, h: 48, name: "보부상", act: "장터" }); }   // 장터: spend the run's 엽전
 }
 function resumeStage() { state = "play"; showScreen(null); Music.resume(); hubNear = null; if (LV && LV.stations) for (const s of LV.stations) s.act = "인사"; hubPrompt(); }
 function stageAct(st) {
+  if (st.id === "shop") return shopScreen("보부상 장터", "엽전은 이 판에서만 쓴다", 1, resumeStage);
   const n = NPC[st.who];
   if (run.talked) { toast(`${n.name} · ${run.node === "rest" ? "또 오시오." : "갈 길 가시오."}`); return; }
   run.talked = true; saveRun();
@@ -1450,7 +1453,37 @@ const EVENTS = [
   { id: "dok", name: "도깨비 내기", han: "賭", desc: "반반 — 숨 둘을 얻거나, 숨 하나를 잃는다", ok: () => run.breath > 1, go: () => { const win = Math.random() < .5; run.breath = Math.max(1, Math.min(breathCap(), run.breath + (win ? 2 : -1))); toast(win ? "도깨비가 졌다 · 숨 +2" : "도깨비가 웃는다 · 숨 −1"); saveRun(); setHud(); resumeStage(); } },
   { id: "grave", name: "무덤의 칼", han: "墓", desc: "혼 +40 · 대신 원혼이 따라와 다음 관문에 적이 모인다", ok: () => true, go: () => { run.honBonus = (run.honBonus || 0) + 40; run.gather = 1; toast("혼 +40 · 원혼이 따라온다"); saveRun(); resumeStage(); } },
   { id: "monk", name: "노승의 시험", han: "僧", desc: "다음 관문은 정예가 몰리지만, 넘으면 수련점 하나 더", ok: () => true, go: () => { run.forceNode = "elite"; toast("다음 관문은 험로"); saveRun(); resumeStage(); } },
+  { id: "market", name: "도깨비 장터", han: "鬼市", desc: "도깨비가 물건을 싸게 판다 (엽전 3할 덜)", ok: () => true, go: () => shopScreen("도깨비 장터", "히히, 싸게 줄게", .7, resumeStage) },
   { id: "well", name: "약수", han: "泉", desc: "숨 하나를 되찾는다 · 대신 이번 판 혼 -15", ok: () => run.breath < breathCap(), go: () => { run.breath = Math.min(breathCap(), run.breath + 1); run.honBonus = (run.honBonus || 0) - 15; toast("숨 +1 · 혼 -15"); saveRun(); setHud(); resumeStage(); } }];
+// ---------- 엽전과 장터: money of the run alone (gone when it ends), spent on the road ----------
+// earned by cutting (more for a read blow), sweeping a gate, chests and guardians; 복주머니 adds half again
+const COIN = { kill: 1, kan: 2, sweep: 10, chest: 10, elite: 10, boss: 25 };
+function addCoin(n, x, y) { if (!run || mode === "tutorial" || run.hub || !n) return; n = Math.round(n * (treasure("bok") ? 1.5 : 1)); run.coin = (run.coin || 0) + n; if (x != null) popText(x, y, `엽전 +${n}`, "#9a7a2a"); hudCache = ""; }
+const treasure = id => !!(run && run.treasure === id);
+// wares: consumables act at once; one 보물 is carried for the rest of the run (a new one replaces it). `hon` = opened at the 대장간 first
+const WARES = [
+  { id: "pill", name: "환약", han: "丸藥", desc: "숨 하나를 되찾는다", price: 30, ok: () => run.breath < breathCap(), go: () => { run.breath++; setHud(); } },
+  { id: "charm", name: "부적", han: "符", desc: "다음 한 대를 막는다 (둘까지 지닌다)", price: 22, ok: () => (run.charm || 0) < 2, go: () => { run.charm = (run.charm || 0) + 1; } },
+  { id: "sp", name: "수련서", han: "修鍊書", desc: "수련점 하나 (살 때마다 비싸진다)", price: () => 45 + 20 * (run.spBought || 0), ok: () => true, go: () => { run.sp = (run.sp || 0) + 1; run.spBought = (run.spBought || 0) + 1; } },
+  { id: "powder", name: "화약통", han: "火藥", desc: "다음 관문을 천고 기운 가득 차서 시작한다", price: 25, hon: 60, ok: () => !run.qiStart, go: () => { run.qiStart = 100; } },
+  { id: "bok", name: "복주머니", han: "福囊", desc: "보물 · 엽전을 절반 더 얻는다", price: 40, treasure: true },
+  { id: "drumstick", name: "북채", han: "鼓棒", desc: "보물 · 천고 기운이 25% 빨리 찬다", price: 55, treasure: true, hon: 90 },
+  { id: "straw", name: "짚신", han: "草鞋", desc: "보물 · 관문마다 낙법을 한 번 더 쓴다", price: 50, treasure: true, hon: 90 },
+  { id: "bell", name: "풍경", han: "風磬", desc: "보물 · 간파하면 엽전 1을 더 얻는다", price: 45, treasure: true, hon: 120 }];
+const wareOpen = w => !w.hon || (META.wares || []).includes(w.id);
+const warePrice = (w, disc) => Math.max(1, Math.round((typeof w.price === "function" ? w.price() : w.price) * (disc || 1)));
+function shopScreen(title, line, disc, back) { // 장터: three or four wares drawn for this stop, 환약 always among them
+  const key = `${run.cycle || 0}:${run.m}:${run.node || ""}`;
+  if (run.shopKey !== key) { const rnd = mulberry((run.seed ^ hashStr(key)) >>> 0), pool = WARES.filter(w => wareOpen(w) && w.id !== "pill" && !(w.treasure && treasure(w.id))), pick = ["pill"];
+    while (pick.length < 4 && pool.length) pick.push(pool.splice((rnd() * pool.length) | 0, 1)[0].id); run.shopKey = key; run.shopWares = pick; run.shopSold = []; saveRun(); }
+  const rows = []; const cur = document.createElement("div"); cur.className = "bd-cur"; cur.innerHTML = `<span>엽전 ${run.coin || 0}</span><span>숨 ${run.breath}</span>${run.treasure ? `<span>보물 · ${WARES.find(w => w.id === run.treasure).name}</span>` : ""}`; rows.push(cur);
+  for (const id of run.shopWares) { const w = WARES.find(o => o.id === id); if (!w) continue; const pr = warePrice(w, disc), sold = (run.shopSold || []).includes(id) && id !== "sp" && id !== "pill";
+    const can = !sold && (run.coin || 0) >= pr && (!w.ok || w.ok());
+    rows.push(bdRow(`${w.name} ${w.han}`, `${w.desc}${w.treasure && run.treasure ? " (지닌 보물과 바뀐다)" : ""}`, null, sold ? "팔림" : `엽전 ${pr}`, () => {
+      run.coin -= pr; if (w.treasure) run.treasure = w.id; else w.go(); (run.shopSold = run.shopSold || []).push(id); saveRun(); Music.sfx("lantern"); toast(`${w.name}${w.treasure ? " · 보물로 지닌다" : ""}`); shopScreen(title, line, disc, back); }, !can)); }
+  board(title, line, rows, [["나가기", back]]);
+}
+
 // 수련도: the weapon's three branches as rows of seals (the third a red 오의), then the shared slots — one strip, no prose
 function treeStrip(offer = []) {
   const d = document.createElement("div"); d.className = "ch-held"; const tk = treeKey(), T = TREES[tk], mine = new Set(run.perks || []), off = new Set(offer.map(c => c.id));
@@ -1509,6 +1542,7 @@ function nextGoal() { // the cheapest thing still locked in the 거점, and how 
   const c = [];
   for (const B of BUILDINGS) { const nx = B.lv[META.bld[B.id] || 0]; if (nx && nx.hon && !nx.shard) c.push([nx.hon, `${B.name} · ${nx.desc}`]); }
   for (const w of WELL) if (!well(w.id) && (!w.need || well(w.need))) c.push([w.hon, `약수 · ${w.name}`]);
+  { const w = WARES.find(o => o.hon && !wareOpen(o)); if (w) c.push([w.hon, `장터 물건 · ${w.name}`]); }
   { const t = TREE_ALT[treeKey && run ? treeKey() : "hwando"] || TREE_ALT.hwando, nx = Object.values(t).flat().find(o => !(META.alts || []).includes(o.id)); if (nx) c.push([ALT_HON, `수련 후보 · ${nx.name}`]); }
   for (const [id, w] of Object.entries(WEAPONS)) if (w.cost && !w.ch && !META.weapons.includes(id)) c.push([w.cost, `무기 · ${w.name}`]);
   const t = TREE_OPEN[treeOpen()]; if (t) c.push([t.hon, `수련 · ${t.name}`]);
@@ -2386,7 +2420,7 @@ function breakCrack(i) {
   LV.gridVer = (LV.gridVer || 0) + 1; shake = Math.max(shake, 5); Music.sfx("strike"); tipOnce("map_crack", "숨은 방", "금 간 바위는 베거나 쏘면 무너진다 · 안에 상자가 있다");
 }
 function openChest(c) {
-  c.open = true; Music.sfx("lantern"); seals.push({ x: c.x, y: c.y - 10, t: 0, rot: 0, ch: "寶" });
+  c.open = true; Music.sfx("lantern"); seals.push({ x: c.x, y: c.y - 10, t: 0, rot: 0, ch: "寶" }); addCoin(COIN.chest, c.x, c.y - 40);
   const r = (c.x * 7 + c.y) % 3;
   if (r === 0 && run.breath < startBreath() + 1) { run.breath++; toast(`상자 · 숨 ${run.breath}`); }
   else if (r === 1) { addQi(30); toast("상자 · 천고 기운이 차오른다"); }
@@ -2568,6 +2602,7 @@ function killEnemy(e) {
   ;
   if (mode !== "tutorial") resKill(e);
   addQi(3); if (P && state === "play") chainAdd(1);
+  if (P && state === "play" && mode !== "tutorial") addCoin(e.type === "b" ? COIN.boss : e.kanpa ? COIN.kan : COIN.kill, e.x + e.w / 2, e.y - 6);   // 엽전
   if (P && state === "play" && frenzy() && has("ss_a2")) P.frenzyUntil += .6;   // 광란
   if (P && state === "play" && P.iaiCut && has("bd_c3")) { run.senN = (run.senN || 0) + 1; ougiArt(["ogA", 11], e.x + e.w / 2, e.y + e.h / 2, 90, { life: .35, flip: P.face < 0 }); }   // 천섬
   if (e.elite && P && state === "play") { addQi(12); P.ki = 1; addFx("wfx", WF2.burst, e.x + e.w / 2, e.y + e.h / 2, 80, { life: .4, grow: .3 }); }   // 정예: worth the trouble
@@ -2739,6 +2774,7 @@ function kanPerks(e) { // what the held 간파 비급 gives back for one read bl
   if (!P || state !== "play") return; const x = e.x + e.w / 2, y = e.y + e.h / 2, px = P.x + P.w / 2, py = P.y + P.h / 2;
   if (pet && !pet.act) pet.cd = Math.min(pet.cd, .05);   // the beast answers a read blow at once
   if (has("d_beat")) P.airDash++;
+  if (treasure("bell")) addCoin(1);   // 풍경
   if (isGun()) gunReload(9);   // 맞불: a read blow fills the gun
   if (has("hw_a1")) { P.ctrN = songPos < (P.ctrUntil || 0) ? (P.ctrN || 0) + 1 : 1; P.ctrUntil = songPos + .8; addQi(4 * P.ctrN); if (P.ctrN >= 2) { popText(x, e.y - 16, `연쇄 ${P.ctrN}`); Music.sfx(P.ctrN >= 4 ? "strike" : "reflect"); }   // 역습
     if (P.ctrN === 5 && has("hw_a3")) ilseomCheon();   // 일섬천격
@@ -2786,7 +2822,7 @@ const viaMua = () => !!(P && P.aimDash && !P.tapDash);   // the cut came out of 
 function chainAdd(n) { if (!P) return; const g0 = Math.min(5, P.chain || 0); P.chain = (P.chain || 0) + n; P.chainPop = .25; if (Math.min(5, P.chain) > g0) Music.sfx("lantern"); }
 let qiLockUntil = 0;   // while 천고난무 is still cutting (and a breath after), what it fells gives no 기운 back
 function addQi(n) { // 천고 기운: won by fighting well — 일섬, 간파, 과녁
-  if (mode === "tutorial" || !run || chungoFx || performance.now() < qiLockUntil) return; const before = run.qi || 0; run.qi = Math.min(100, before + n * .6 * (1 + treeStat("qi")) * (oath("jangdan") ? 2 : 1) * (1 + .15 * Math.min(8, (P && P.chain) || 0)));
+  if (mode === "tutorial" || !run || chungoFx || performance.now() < qiLockUntil) return; const before = run.qi || 0; run.qi = Math.min(100, before + n * .6 * (1 + treeStat("qi")) * (oath("jangdan") ? 2 : 1) * (treasure("drumstick") ? 1.25 : 1) * (1 + .15 * Math.min(8, (P && P.chain) || 0)));
   if (before < 100 && run.qi >= 100) { if (META.tips && META.tips.chungo) toast(`천고 기운이 찼다 · ${MOBILE ? "태극 북" : "북 또는 Q"} → ${drumName()}`);
     else tipOnce("chungo", "천고난무", `북이 다 찼다 — 무기의 오의를 약하게 펼친다(우두머리에겐 통하지 않는다). 한 갈래를 끝(4단)까지 익히면 온전한 오의가 된다`, MOBILE ? "아래 태극 북을 누르기" : "태극 북 클릭 또는 Q"); Music.jing(); }
 }
@@ -3388,6 +3424,7 @@ function setHud() {
 let hudCache = "";
 function updateHud() {
   const t = fmt(run.time), pip = (P.onGround || P.airDash > 0) && P.dashCd <= 0, hk = !!hookCand, key = t + pip + hk;
+  { const el = $("hCoin"), v = run && !run.hub && mode !== "tutorial" ? `${run.coin || 0}` : ""; if (el && el.dataset.t !== v) { el.dataset.t = v; el.hidden = !v; el.innerHTML = `<small>엽전</small><b>${v}</b>${run.charm ? `<small>부적 ${run.charm}</small>` : ""}`; } }
   { const c = cutCount(), el = $("hCut"), txt = c ? `벤 적 ${c.k}/${c.n}` : ""; if (el && el.dataset.t !== txt) { el.dataset.t = txt; el.hidden = !c; if (c) { el.innerHTML = `<b>${c.k}</b>/${c.n}<small>${c.k < c.need ? `결계 ${c.need - c.k}` : c.k >= c.n ? "일소" : "열림"}</small>`; el.classList.toggle("open", c.k >= c.need); } } }
   { const gt = gateGoalText(); if (gt !== (P.goalShown ?? null)) { P.goalShown = gt; $("hJang").classList.toggle("goal", !!gt); if (gt) $("hJang").textContent = gt; else setHud(); } }
   if (key === hudCache) return; hudCache = key;
@@ -4987,7 +5024,7 @@ function hubAct() {
   if (id === "gate") return menu("산문 山門", "어디로 갈 것인가", [["길 떠나기", "천고를 향한 한 바퀴", gateScreen], ["천고탑", "층마다 우두머리 · 무한", () => towerScreen(), cut ? null : "천고를 한 번 베면 열린다"], ["수련터", "조작을 다시 익힌다", () => { leaveHub(); Music.unlock(); loadGate(playSheets(), BASE_IMGS, startTutorial, "수련터를 그리는 중"); }]]);
   if (id === "well") return menu("약수터 藥水", "숨을 다스리고 영물을 키운다", [["약수", "혼으로 숨을 다스린다", wellScreen], ["둥지", "혼으로 영물을 키운다", petScreen, lockAt(2)]]);
   if (id === "hall") return menu("본당 本堂", "산중 암자의 중심", [["서약", "판에 거는 서약을 연다 — 걸수록 혼이 더 모인다", () => hermitScreen("seogo"), lockAt(3)], ...(META.books.length || META.firsts.cut ? [["비급각", "봉인한 수련 빌드", sealShelf]] : [])]);
-  if (id === "forge") return menu("대장간 鍛冶間", "벼리고 물들인다", [["무기", "새 무기를 벼린다", () => hermitScreen("daejang"), lockAt(1)], ["수련 후보", "혼으로 갈래의 2·4단 후보를 연다 — 판마다 그중 하나가 나온다", altScreen, lockAt(1)], ["의방", "띠의 빛깔", () => hermitScreen("uibang"), lockAt(3)]]);
+  if (id === "forge") return menu("대장간 鍛冶間", "벼리고 물들인다", [["무기", "새 무기를 벼린다", () => hermitScreen("daejang"), lockAt(1)], ["수련 후보", "혼으로 갈래의 2·4단 후보를 연다 — 판마다 그중 하나가 나온다", altScreen, lockAt(1)], ["장터 물건", "혼으로 보부상이 들고 올 물건을 늘린다", wareScreen, lockAt(1)], ["의방", "띠의 빛깔", () => hermitScreen("uibang"), lockAt(3)]]);
   if (id === "drum") return menu("큰북 大鼓", "북 곁의 기록", [["수행", "오늘의 수행", questScreen, lockAt(1)], ["도감", "우두머리 · 수련 · 기억 · 호", () => codexScreen(), met ? null : "우두머리를 한 번 만나면 열린다"], ["플레이 기록", "최근 판·관문 시간·자주 쓰러진 곳·기기 성능", logScreen]]);
   if (id === "gate") return gateScreen();
   if (id === "dummy") { leaveHub(); Music.unlock(); loadGate(playSheets(), BASE_IMGS, startTutorial, "수련터를 그리는 중"); return; }
@@ -5022,6 +5059,12 @@ function decoScreen(slot) {
     rows.push(bdRow(d.name + (cur === d.id ? " · 놓여 있음" : ""), own ? "이미 들였다" : `혼 ${d.hon}`, null, cur === d.id ? null : own ? "놓기" : "들이기", () => {
       if (!own) { META.hon -= d.hon; dk.own.push(d.id); } dk.slots[slot] = d.id; saveMeta(); enterHub(); toast(`${d.name}을(를) 놓았다`); }, !own && META.hon < d.hon)); }
   board("거점 꾸미기", "들인 것은 어느 터에든 다시 놓을 수 있다", rows, [["돌아가기", resumeHub]]);
+}
+function wareScreen() { // 장터 물건: what the peddlers may carry
+  const rows = [curLine()]; META.wares = META.wares || [];
+  for (const w of WARES) { const got = wareOpen(w); rows.push(bdRow(`${w.name} ${w.han}`, `${w.desc}${got ? (w.hon ? " · 열림" : " · 처음부터") : ` — 혼 ${w.hon}`}`, null, got ? null : "열기", () => {
+    META.hon -= w.hon; META.wares.push(w.id); saveMeta(); hubHud(); Music.sfx("lantern"); toast(`${w.name} · 이제 장터에 나온다`); wareScreen(); }, !got && META.hon < w.hon)); }
+  board("장터 물건", "엽전은 판 안에서만 쓰는 돈 · 혼은 여기서 장터를 넓힌다", rows, [["돌아가기", resumeHub]]);
 }
 function altScreen() { // 수련 후보: open other nodes for a branch's 2단 and 4단; each run draws one of those opened
   const rows = [curLine()]; META.alts = META.alts || [];

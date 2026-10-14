@@ -544,3 +544,11 @@ body.portrait #hud .t { font-size: 14px; min-width: 0; padding: 4px 8px; }
 body.portrait.ui-ready #hud .t, body.portrait.ui-ready #hCut, body.portrait.ui-ready #hBreath { padding-inline: 9px; }
 body.portrait #hCut small { margin-left: 4px; }
 body.portrait #tip { top: calc(env(safe-area-inset-top, 0px) + 196px); }
+/* 엽전 */
+#hCoin { display: flex; align-items: baseline; gap: 4px; padding: 5px 10px; font-family: var(--f-head); color: var(--ink); white-space: nowrap; }
+#hCoin[hidden] { display: none; }
+#hCoin b { font-weight: 400; font-size: 17px; color: #8a6a1e; } #hCoin small { font-size: 11px; color: var(--ink-2); }
+.night #hCoin, .night #hCoin small { color: #ece6d8; } .night #hCoin b { color: #e8c06a; }
+.ui-ready #hCoin { background: var(--ui-wash) center / 100% 100% no-repeat; border-radius: 0; padding-inline: 14px; }
+body.portrait #hCoin { order: 4; } body.portrait.ui-ready #hCoin { padding-inline: 9px; }
+#hCoin { color: #17161a; } #hCoin b { color: #7a5508; font-size: 18px; } #hCoin small { color: rgba(23,22,26,.78); font-size: 12px; }
