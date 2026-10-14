@@ -1221,13 +1221,13 @@ function stepMom(dt) {
 const GOALS = [
   { id: "kan", text: "간파 세 번", prog: g => `${Math.min(3, (run.gKan || 0) - g.kan0)}/3`, ok: g => (run.gKan || 0) - g.kan0 >= 3 },
   { id: "nohit", text: "숨을 잃지 않기", prog: g => (run.gHits || 0) - g.hit0 ? "실패" : "", ok: g => (run.gHits || 0) === g.hit0 },
-  { id: "time", text: "60초 안에 넘기", prog: g => `${Math.max(0, Math.ceil(60 - (run.time - g.t0)))}초`, ok: g => run.time - g.t0 <= 60 },
+  { id: "time", text: "모두 베고 넘기", prog: g => { const c = cutCount(); return c ? `${c.k}/${c.n}` : ""; }, ok: g => { const c = cutCount(); return !!c && c.k >= c.n; } },
   { id: "tier", text: "기세 3단에 이르기", prog: g => (run.gMaxTier || 0) >= 3 ? "이룸" : "", ok: g => (run.gMaxTier || 0) >= 3 },
   { id: "perfect", text: "완벽 간파 한 번", prog: g => (run.perfectN || 0) > g.pf0 ? "이룸" : "", ok: g => (run.perfectN || 0) > g.pf0 }];
 const gateGoalOn = () => !!(run && run.gate && mode !== "tutorial" && !hubOn && !(run.node === "rest" || run.node === "event"));
 function gateGoalText() { if (!gateGoalOn()) return null; const G = GOALS.find(o => o.id === run.gate.goal); const p = G.prog(run.gate); return `과제 · ${G.text}${p ? " (" + p + ")" : ""}`; }
 function gateGrade() { const g = run.gate, G = GOALS.find(o => o.id === g.goal); let sc = 0;
-  if (G.ok(g)) sc += 2; if ((run.gHits || 0) === g.hit0) sc++; if (run.time - g.t0 <= 60) sc++; if ((run.gMaxTier || 0) >= 3) sc++;
+  if (G.ok(g)) sc += 2; if ((run.gHits || 0) === g.hit0) sc++; if (run.time - g.t0 <= 90) sc++; if ((run.gMaxTier || 0) >= 3) sc++;
   return { ch: sc >= 4 ? "甲" : sc >= 2 ? "乙" : "丙", goal: G.ok(g) }; }
 const GRADE_KO = { "甲": "상", "乙": "중", "丙": "하" }, gradeKo = g => GRADE_KO[g] || g;   // shown in Korean: 상 · 중 · 하
 function logGate(outcome) { // 플레이 기록: each gate's time, breaths lost, grade and frame rate — kept on the device, shown at the 큰북
@@ -1242,6 +1242,7 @@ function madangClear() {
   if (run.gate && !run.tower) { const gr = gateGrade(); run.lastGrade = gr.ch; run.grades = (run.grades || "") + gr.ch;
     seals.push({ x: P.x + P.w / 2, y: P.y - 10, t: 0, rot: -.12, ch: gr.ch, big: true }); popText(P.x + P.w / 2, P.y - 58, `${gradeKo(gr.ch)} 등급`, gr.ch === "甲" ? SEAL : "#17161a"); toast(`관문 등급 ${gradeKo(gr.ch)}${gr.goal ? " · 과제를 이뤘다" : ""}${gr.ch === "甲" ? " · 수련점 +1" : gr.ch === "乙" ? " · 혼 +10" : ""}`);
     if (gr.ch === "乙") run.honBonus = (run.honBonus || 0) + 10; if (gr.ch === "甲") petJeong(3); run.gate = null; }
+  { const c = cutCount(); if (c && c.k >= c.n && c.n >= 3) { run.honBonus = (run.honBonus || 0) + 10; addQi(20); popText(P.x + P.w / 2, P.y - 84, "일소 · 혼 +10", SEAL); } }   // every guard cut: a little more 혼 and 기운
   if (!run.tower && !oath("godok") && !upOn("noheal") && run.breath < TUNING.GATE_HEAL_TO) { run.breath++; toast(`숨을 골랐다 · 숨 ${run.breath}`); }   // each gate passed lets you catch one breath back (up to three)
   run.cleared = run.node || "gate"; if (run.cleared === "elite") { run.honBonus = (run.honBonus || 0) + 20; addQi(40); }
   run.m++; run.node = null; run.nakN = 0; run.janUsed = false; run.senN = 0; run.fudoN = 0; run.cp = -1; run.dead = []; run.cutDrums = []; if (!upOn("noheal") && !oath("godok") && (false)) run.breath = Math.min(breathCap(), (run.breath + 1));   // breath no longer refills by itself: rest on the road, or before 천고대
@@ -2317,7 +2318,9 @@ function playerHazards() {
       Music.sfx("lantern");
     }
   });
-  if (LV.exit && overlap(pr, LV.exit) && !bossAlive()) madangClear();
+  if (LV.exit && overlap(pr, LV.exit) && !bossAlive()) { const c = cutCount();
+    if (c && c.k < c.need) { P.x = LV.exit.x - P.w - 6; P.vx = -260; shake = Math.max(shake, 4); if (performance.now() - (LV.sealToast || 0) > 1800) { LV.sealToast = performance.now(); toast(`결계 · ${c.need - c.k}명을 더 베어야 열린다 (${c.k}/${c.n})`); Music.sfx("clang"); } }
+    else madangClear(); }
 }
 
 // ---------- the 마당's own ground: 기와 that gives way, 장단 발판, wind, mist and lamps, rising ink, 결진 gates, cracked rock, chests ----------
@@ -2349,6 +2352,26 @@ function openChest(c) {
   saveRun();
 }
 function fogTarget() { if (!LV || !LV.fogs || !P) return 0; const cx = P.x + P.w / 2; let k = 0; for (const z of LV.fogs) k = Math.max(k, Math.min(1, Math.max(0, (Math.min(cx - z.x0, z.x1 - cx) + 2 * T) / (4 * T)))); return k; }
+// 결계: the exit stays shut until enough of the gate's guards are cut; those left far behind seep after you through the ink
+function cutCount() {
+  if (!LV || !LV.exit || mode === "tutorial" || !run || run.node === "rest" || run.node === "event" || LV.hub) return null;
+  const ids = LV.foeIds || (LV.foeIds = new Set(LV.defs.filter(d => d.type !== "b").map(d => d.id))), n = ids.size; if (!n) return null;
+  const alive = enemies.filter(e => e.alive && ids.has(e.id)).length, k = n - alive;
+  return { k, n, need: Math.ceil(n * TUNING.GATE_CUT_RATIO) };
+}
+function stepChase(dt) {
+  const c = cutCount(); if (c && c.k >= c.need && !LV.sealOpen) { LV.sealOpen = true; Music.sfx("lantern"); toast(c.k >= c.n ? "결계가 풀렸다 · 일소" : `결계가 풀렸다 · 출구로 · 남은 적 ${c.n - c.k}`); }
+  if (!c || c.k >= c.need && !(run.gate && run.gate.goal === "time")) return;
+  if ((LV.chaseT = (LV.chaseT || TUNING.CHASE_EVERY) - dt) > 0) return; LV.chaseT = TUNING.CHASE_EVERY;
+  if (LV.arenas && LV.arenas.some(a => a.st === 1)) return;
+  const e = enemies.find(o => o.alive && "pgasm".includes(o.type) && LV.foeIds.has(o.id) && o.x < P.x - TUNING.CHASE_GAP * T && !o.chased); if (!e) return;
+  const dir = -1, tx = P.x + dir * 8 * T; const fy = findFloor(tx, P.y - 2 * T); if (fy == null || Math.abs(fy - (P.y + P.h)) > 4 * T) return;
+  const nx = tx, ny = fy - e.h; if (rectSolid(nx, ny, e.w, e.h)) return;
+  addFx("gfx", 8, e.x + e.w / 2, e.y + e.h, 40, { life: .4, grow: .3, ay: 1, a: .8 });
+  e.x = nx; e.y = ny; e.vx = 0; e.chased = true; e.face = 1; if (e.fy != null) e.fy = ny; if (e.floor != null) e.floor = fy;
+  addFx("gfx", 8, nx + e.w / 2, fy, 52, { life: .5, grow: .4, ay: 1, a: .9 }); for (let i = 0; i < 8; i++) parts.push({ x: nx + e.w / 2 + (Math.random() - .5) * 30, y: fy - Math.random() * 40, vx: (Math.random() - .5) * 120, vy: -Math.random() * 160, life: .5, max: .5, c: "#17161a", s: 3 });
+  if (!LV.chaseTold) { LV.chaseTold = true; tipOnce("chase", "뒤쫓는 자", "베지 않고 지나친 적은 먹을 타고 뒤따라온다 · 출구 결계는 관문 적 6할을 베어야 열린다"); }
+}
 function stepTerrain(dt) {
   if (!LV || LV.hub || !P) return;
   const bl = Music.beatLen, cx = P.x + P.w / 2, cy = P.y + P.h / 2, feet = P.y + P.h;
@@ -3265,6 +3288,7 @@ function frameBody(now) {
     const wdt = rdt * ts, n = Math.max(1, Math.ceil(wdt / (1 / 120))), sdt = wdt / n;
     for (let i = 0; i < n; i++) {
       if (state === "play") { stepPlayer(sdt); if (LV) P.x = Math.max(0, Math.min(LV.w * T - P.w, P.x)); stepPet(sdt); P.slashT = Math.max(0, P.slashT - sdt); slashHits(); stepTerrain(sdt); if (state === "play") playerHazards(); }
+      if (state === "play" && i === 0) stepChase(wdt);
       if (state === "play" || state === "dead") { stepEnemies(sdt); stepBullets(sdt); if (state === "play") stepHazards(); }
       if (state !== "play" && state !== "dead") break;
     }
@@ -3561,6 +3585,15 @@ function render(rdt) {
     ctx.fillStyle = c.on ? SEAL : pal.foe; ctx.fillRect(lx - 6, ly + 11, 12, 9);
     ctx.fillStyle = pal.tile; ctx.fillRect(lx - 7, ly + 2, 14, 1.5); ctx.fillRect(lx - 7, ly + 19, 14, 1.5);
   }
+  // 결계 over the exit while too few guards are cut: talisman strips on a rope, and the count
+  if (LV.exit && visible(LV.exit.x)) { const c = cutCount(), e = LV.exit, cx = e.x + e.w / 2;
+    if (c && c.k < c.need) { const y0 = e.y - 70, y1 = e.y + e.h + 4, w = 3 * T;
+      const g = ctx.createLinearGradient(cx - w, 0, cx + w, 0); g.addColorStop(0, "rgba(195,22,28,0)"); g.addColorStop(.5, `rgba(195,22,28,${.16 + .06 * Math.sin(tt * 4)})`); g.addColorStop(1, "rgba(195,22,28,0)"); ctx.fillStyle = g; ctx.fillRect(cx - w, y0, w * 2, y1 - y0);
+      ctx.strokeStyle = pal.tile; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(cx - w * .8, y0 + 8); ctx.quadraticCurveTo(cx, y0 + 22, cx + w * .8, y0 + 8); ctx.stroke();
+      for (let i = 0; i < 5; i++) { const fx = cx - w * .64 + i * w * .32, fy = y0 + 12 + Math.sin(i * 1.3) * 3, sw = Math.sin(tt * 2 + i) * .08; ctx.save(); ctx.translate(fx, fy); ctx.rotate(sw);
+        ctx.fillStyle = "#efe6cf"; ctx.fillRect(-5, 0, 10, 30); ctx.fillStyle = SEAL; ctx.fillRect(-3, 4, 6, 2); ctx.fillRect(-1, 8, 2, 16); ctx.fillRect(-3, 25, 6, 2); ctx.restore(); }
+      ctx.font = `700 13px ${BODY_FONT}`; ctx.textAlign = "center"; ctx.textBaseline = "alphabetic"; ctx.lineWidth = 3; ctx.strokeStyle = "rgba(236,230,216,.9)"; const txt = `결계 ${c.k}/${c.need}`; ctx.strokeText(txt, cx, y0 - 4); ctx.fillStyle = SEAL; ctx.fillText(txt, cx, y0 - 4); ctx.textAlign = "left";
+    } }
   // 낙관 (exit)
   if (LV.exit && visible(LV.exit.x)) {
     const e = LV.exit, cx = e.x + e.w / 2, cy = e.y + e.h / 2, beat = 1 - (songPos / Music.beatLen % 1);
