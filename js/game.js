@@ -52,6 +52,7 @@ const LAST_M = 5, MD = m => [0, 1, 2, 2, 3, 4][Math.min(LAST_M, m)];   // a turn
 // which guardian waits: in 천고탑, a 그림자 every tenth floor and the drum's own lord at the thirtieth once the name is whole
 function bossKindOf(r = run, m = r && r.m) {
   if (r && r.tower) { if (r.floor === 30 && META.mem.length >= 9) return "cheongo"; if (r.floor % 10 === 0 && META.books.length > 1) return "shadow"; }
+  if (r && r.target && !(r.cycle || 0) && !r.daily && BOSSES[r.target]) return r.target;   // 봉인 지도: the guardian chosen at the 산문
   return bossFor(r.seed, r.cycle || 0, m);
 }
 function stageOf(m, r = run) {
@@ -1094,6 +1095,11 @@ function startPicks(step = 0) {
     while (picks.length < 3 && pool.length) picks.push(pool.splice((rnd() * pool.length) | 0, 1)[0]);
     picks.push({ id: null, name: "서약 없음", han: "無", desc: "아무것도 걸지 않는다", calm: true });
     return pickScreen("서약을 하라", "무엇을 걸고 오를 것인가 · 서약 하나마다 혼 +20%", picks, o => { run.oath = o.id; if (o.id === "pi") run.breath = Math.min(run.breath, 2); saveRun(); next(); }); }
+  if ((step === 2 || step === 3) && run.target === undefined) { run.target = null;   // 봉인 지도: which guardian this run goes to seal
+    if (!run.daily && (META.runN || 0) >= 1) { const open = SEAL_KINDS.filter(k => !sealed(k)), rnd = mulberry((run.seed ^ 0x5EA1) >>> 0), pool = (open.length ? open : SEAL_KINDS.slice()), picks = [];
+      while (picks.length < 3 && pool.length) picks.push(pool.splice((rnd() * pool.length) | 0, 1)[0]);
+      const items = picks.map(k => ({ id: k, name: BOSSES[k].name, han: BOSSES[k].han, desc: sealed(k) ? "이미 봉인했다 · 다시 겨룬다" : `아직 봉인하지 못했다 · 첫 봉인에 천고 조각과 이야기 한 장`, glyph: BOSSES[k].han })).concat([{ id: null, name: "발길 닿는 대로", han: "隨", desc: "천고대에서 누구를 만날지 모른다", calm: true }]);
+      return pickScreen("누구를 봉인하러 가는가", `봉인 지도 ${sealedN()} / ${SEAL_KINDS.length}`, items, o => { run.target = o.id; saveRun(); startPicks(3); }); } }
   if (step === 3 && META.ended && typeof upPicks === "function") return upPicks(next);
   run.picking = false; saveRun(); Music.stop(); showInterlude();
 }
@@ -1549,6 +1555,7 @@ function nextGoal() { // the cheapest thing still locked in the 거점, and how 
   for (const w of WELL) if (!well(w.id) && (!w.need || well(w.need))) c.push([w.hon, `약수 · ${w.name}`]);
   { const w = WARES.find(o => o.hon && !wareOpen(o)); if (w) c.push([w.hon, `장터 물건 · ${w.name}`]); }
   { const F = FORMS.hwando; if (!(META.forms || []).includes(F.id)) c.push([F.hon, `무기 형 · 환도 ${F.name}`]); }
+  if (sealedN() < 10) c.push([0, `봉인 지도 ${sealedN()} / 10 · 산문에서 봉인할 수문장을 고른다`]);
   { const t = TREE_ALT[treeKey && run ? treeKey() : "hwando"] || TREE_ALT.hwando, nx = Object.values(t).flat().find(o => !(META.alts || []).includes(o.id)); if (nx) c.push([ALT_HON, `수련 후보 · ${nx.name}`]); }
   for (const [id, w] of Object.entries(WEAPONS)) if (w.cost && !w.ch && !META.weapons.includes(id)) c.push([w.cost, `무기 · ${w.name}`]);
   const t = TREE_OPEN[treeOpen()]; if (t) c.push([t.hon, `수련 · ${t.name}`]);
@@ -3020,6 +3027,9 @@ Object.assign(BOSSES, {
     pool: c => ["shblink", "shcut", "shdash", "shstrike"] }
 });
 function shadowBook() { const others = META.books.filter(b => !run || b.id !== run.book); return others.length ? others[(Math.random() * others.length) | 0] : null; }
+const SEAL_KINDS = ["sumun", "gumiho", "dokkaebi", "imugi", "wongwi", "jangseung", "haetae", "bulgasari", "baekho", "talchum"];   // 봉인 지도: the ten guardians of the land
+const sealed = k => !!(META.codex && META.codex[k] && META.codex[k].kills);
+const sealedN = () => SEAL_KINDS.filter(sealed).length;
 const BOSS_ORDER = ["gumiho", "dokkaebi", "imugi", "wongwi", "jangseung", "haetae", "bulgasari", "baekho", "talchum"];
 const MASKS = ["양반탈", "각시탈", "말뚝이탈"];
 function bossFor(seed, cy, m) { // one guardian per turn, 수문장 first, then a run-seeded order of the rest
@@ -4639,10 +4649,13 @@ function towerNext() { // 천고 of this floor is cut: one floor up, another ome
   saveRun(); state = "result"; Music.stop();
   setTimeout(() => { if (run.fresh) { run.choosing = "tower"; saveRun(); showChoice("tower"); } else towerRest(); }, 700);
 }
+const SEAL_MILESTONE = [{ n: 3, hon: 100, text: "혼 +100" }, { n: 6, hon: 200, shard: 1, text: "혼 +200 · 천고 조각 +1" }, { n: 10, hon: 300, shard: 3, text: "열 수문장을 모두 봉인했다 · 혼 +300 · 천고 조각 +3" }];
 // first time a guardian falls: a 천고 조각 and its entry in the 도감
 function codexBoss(e) {
   const c = META.codex[e.kind] = META.codex[e.kind] || { kills: 0, marks: [] };
-  if (!c.kills) { run.firstBoss = (run.firstBoss || 0) + 1; toast(`도감에 ${BOSSES[e.kind].name}의 이름이 적혔다`); }
+  if (!c.kills) { run.firstBoss = (run.firstBoss || 0) + 1; c.kills++; const n = sealedN(); c.kills--;
+    toast(`봉인 · ${BOSSES[e.kind].name} — 봉인 지도 ${n} / ${SEAL_KINDS.length}`);
+    const ms = SEAL_MILESTONE.find(m => m.n === n); if (ms && SEAL_KINDS.includes(e.kind)) { META.hon += ms.hon || 0; META.shard += ms.shard || 0; setTimeout(() => toast(`봉인 ${n} · ${ms.text}`), 1800); } }
   c.kills++;
   const mk = m => { if (!c.marks.includes(m)) c.marks.push(m); };
   if (e.fightBreath != null && run.breath >= e.fightBreath) mk("nohit");
@@ -4802,6 +4815,7 @@ function upPicks(next) {
 const TITLES = [
   { id: "drum", name: "첫 북소리", desc: "천고를 처음 베다", ok: () => META.firsts.cut },
   { id: "beat", name: "일섬의 귀신", desc: "한 판에 일섬으로 적 40을 베다", ok: () => META.firsts.beat },
+  { id: "sealall", name: "봉인자", desc: "열 수문장을 모두 봉인하다", ok: () => sealedN() >= 10 },
   { id: "hundred", name: "백전불패", desc: "우두머리 열을 모두 도감에 올리다", ok: () => BOSS_ORDER.concat("sumun").every(k => META.codex[k]) },
   { id: "untouched", name: "맞지 않는 자", desc: "다섯 우두머리를 숨을 잃지 않고 쓰러뜨리다", ok: () => Object.values(META.codex).filter(c => c.marks.includes("nohit")).length >= 5 },
   { id: "tower", name: "탑의 주인", desc: "천고탑 30층에 오르다", ok: () => META.towerBest >= 30 },
@@ -5039,7 +5053,7 @@ function hubAct() {
   const menu = (title, sub, items) => board(title, sub, items.map(([n, d, fn, lock]) => lock ? bdRow(`？ ${n}`, lock) : bdRow(n, d, null, "가기", fn)), [["돌아가기", resumeHub]]);
   if (id === "gate") return menu("산문 山門", "어디로 갈 것인가", [["길 떠나기", "천고를 향한 한 바퀴", gateScreen], ["천고탑", "층마다 우두머리 · 무한", () => towerScreen(), cut ? null : "천고를 한 번 베면 열린다"], ["수련터", "조작을 다시 익힌다", () => { leaveHub(); Music.unlock(); loadGate(playSheets(), BASE_IMGS, startTutorial, "수련터를 그리는 중"); }]]);
   if (id === "well") return menu("약수터 藥水", "숨을 다스리고 영물을 키운다", [["약수", "혼으로 숨을 다스린다", wellScreen], ["둥지", "혼으로 영물을 키운다", petScreen, lockAt(2)]]);
-  if (id === "hall") return menu("본당 本堂", "산중 암자의 중심", [["서약", "판에 거는 서약을 연다 — 걸수록 혼이 더 모인다", () => hermitScreen("seogo"), lockAt(3)], ...(META.books.length || META.firsts.cut ? [["비급각", "봉인한 수련 빌드", sealShelf]] : [])]);
+  if (id === "hall") return menu("본당 本堂", "산중 암자의 중심", [["봉인 지도", `열 수문장 · ${sealedN()} / 10 봉인`, sealMap, met ? null : "우두머리를 한 번 만나면 열린다"], ["서약", "판에 거는 서약을 연다 — 걸수록 혼이 더 모인다", () => hermitScreen("seogo"), lockAt(3)], ...(META.books.length || META.firsts.cut ? [["비급각", "봉인한 수련 빌드", sealShelf]] : [])]);
   if (id === "forge") return menu("대장간 鍛冶間", "벼리고 물들인다", [["무기", "새 무기를 벼린다", () => hermitScreen("daejang"), lockAt(1)], ["수련 후보", "혼으로 갈래의 2·4단 후보를 연다 — 판마다 그중 하나가 나온다", altScreen, lockAt(1)], ["장터 물건", "혼으로 보부상이 들고 올 물건을 늘린다", wareScreen, lockAt(1)], ["무기 형", "같은 무기를 다르게 쥐는 법 — 판을 시작할 때 고른다", formScreen, lockAt(2)], ["의방", "띠의 빛깔", () => hermitScreen("uibang"), lockAt(3)]]);
   if (id === "drum") return menu("큰북 大鼓", "북 곁의 기록", [["수행", "오늘의 수행", questScreen, lockAt(1)], ["도감", "우두머리 · 수련 · 기억 · 호", () => codexScreen(), met ? null : "우두머리를 한 번 만나면 열린다"], ["플레이 기록", "최근 판·관문 시간·자주 쓰러진 곳·기기 성능", logScreen]]);
   if (id === "gate") return gateScreen();
@@ -5075,6 +5089,17 @@ function decoScreen(slot) {
     rows.push(bdRow(d.name + (cur === d.id ? " · 놓여 있음" : ""), own ? "이미 들였다" : `혼 ${d.hon}`, null, cur === d.id ? null : own ? "놓기" : "들이기", () => {
       if (!own) { META.hon -= d.hon; dk.own.push(d.id); } dk.slots[slot] = d.id; saveMeta(); enterHub(); toast(`${d.name}을(를) 놓았다`); }, !own && META.hon < d.hon)); }
   board("거점 꾸미기", "들인 것은 어느 터에든 다시 놓을 수 있다", rows, [["돌아가기", resumeHub]]);
+}
+const SEAL_AT = { sumun: [50, 44], gumiho: [15, 25], dokkaebi: [32, 30], imugi: [10, 63], wongwi: [72, 14], jangseung: [30, 70], haetae: [62, 65], bulgasari: [47, 84], baekho: [85, 30], talchum: [76, 47] };
+function sealMap() { // 봉인 지도: the ten guardians on the painted land, a seal stamped on each one cut; the 천고 waits in the middle
+  const rows = [curLine()], map = document.createElement("div"); map.className = "seal-map";
+  const lore = document.createElement("p"); lore.className = "seal-lore"; lore.textContent = "낙관을 눌러 읽는다 · 산문에서 봉인할 수문장을 고를 수 있다";
+  for (const k of SEAL_KINDS) { const B = BOSSES[k], ok = sealed(k), [x, y] = SEAL_AT[k], m = document.createElement("button");
+    m.className = "seal-pt" + (ok ? " on" : ""); m.style.left = x + "%"; m.style.top = y + "%"; m.innerHTML = `<i>${ok ? B.han.slice(0, 2) : "？"}</i><span>${ok ? B.name : "？？？"}</span>`;
+    m.addEventListener("click", () => { Music.sfx("hook"); lore.textContent = ok ? `${B.name} ${B.han} — ${BOSS_LORE[k] || B.line}` : "아직 봉인하지 못한 수문장 · 산문에서 고르면 천고대에서 만난다"; }); map.appendChild(m); }
+  rows.push(map, lore);
+  const nx = SEAL_MILESTONE.find(m => m.n > sealedN()); rows.push(bdRow(`봉인 ${sealedN()} / ${SEAL_KINDS.length}`, nx ? `${nx.n}을 봉인하면 · ${nx.text}` : "모든 수문장을 봉인했다"));
+  board("봉인 지도", "천고를 멈춘 땅의 열 수문장", rows, [["돌아가기", resumeHub]]);
 }
 function formScreen() { // 무기 형: one more way to hold each weapon you own
   const rows = [curLine()]; META.forms = META.forms || [];
