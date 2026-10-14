@@ -11,7 +11,7 @@ const TUNING = Object.freeze({
   // 숨
   START_BREATH: 4, GATE_HEAL_TO: 4,
   GATE_CUT_RATIO: .6,   // the exit's 결계 opens once this share of the gate's guards is cut
-  CHASE_GAP: 18, CHASE_EVERY: 4.5,   // guards left this many tiles behind seep after you through the ink, one at a time   // a cleared gate gives one back while below this
+  CHASE_GAP: 18, CHASE_EVERY: 3,   // guards left this many tiles behind seep after you through the ink, one at a time   // a cleared gate gives one back while below this
   REST_BREATH: 2,                     // 쉼터 · 숨 고르기
   // walking in: foes near the start wait for your first move
   START_SLEEP_R: 520, START_SLEEP_T: 8, ENTRY_FIRE_DELAY: 3,

@@ -2382,7 +2382,7 @@ function stepChase(dt) {
   if (!c || c.k >= c.need && !(run.gate && run.gate.goal === "time")) return;
   if ((LV.chaseT = (LV.chaseT || TUNING.CHASE_EVERY) - dt) > 0) return; LV.chaseT = TUNING.CHASE_EVERY;
   if (LV.arenas && LV.arenas.some(a => a.st === 1)) return;
-  const e = enemies.find(o => o.alive && "pgasm".includes(o.type) && LV.foeIds.has(o.id) && o.x < P.x - TUNING.CHASE_GAP * T && !o.chased); if (!e) return;
+  const e = enemies.find(o => o.alive && o.type !== "d" && o.type !== "b" && LV.foeIds.has(o.id) && o.x < P.x - TUNING.CHASE_GAP * T && !o.chased); if (!e) return;
   const dir = -1, tx = P.x + dir * 8 * T; const fy = findFloor(tx, P.y - 2 * T); if (fy == null || Math.abs(fy - (P.y + P.h)) > 4 * T) return;
   const nx = tx, ny = fy - e.h; if (rectSolid(nx, ny, e.w, e.h)) return;
   addFx("gfx", 8, e.x + e.w / 2, e.y + e.h, 40, { life: .4, grow: .3, ay: 1, a: .8 });
