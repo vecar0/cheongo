@@ -2,7 +2,7 @@
 (() => {
 "use strict";
 const T = 32;
-const ASSET_V = "136";   // bump when any picture changes: the service worker then fetches the new json and webp together
+const ASSET_V = "137";   // bump when any picture changes: the service worker then fetches the new json and webp together
 const $ = id => document.getElementById(id);
 const cv = $("cv"); let ctx = cv.getContext("2d", { alpha: false });   // let: the ground is baked by pointing ctx at an offscreen canvas for a moment   // opaque canvas: cheaper to composite on phones
 let W = 0, H = 0, DPR = 1, SCALE = 1;
@@ -315,7 +315,7 @@ const CAL = { title: 0, death: 1, madang: [2, 3, 4, 5, 6], end: 7, clear: 8 };  
 const PROP = { rope: 0, aim: 1, reticle: 2, pine: 3, stoneLantern: 4, jars: 5, banner: 6, sotdae: 7, palisade: 8 };
 const DRESS = [[PROP.pine, 74, 3], [PROP.stoneLantern, 34, 2], [PROP.jars, 26, 1], [PROP.banner, 80, 3], [PROP.sotdae, 84, 3], [PROP.palisade, 28, 1]]; // [frame, world height, headroom tiles]
 const OBJ = { lanternOn: 0, lanternOff: 1, kite: 2, thorns: 3, seal: 4, emitter: 5, slash: 6, slashRed: 7, splat: 8 };
-const LAZY_SHEETS = new Set(["bfx2", "bfx3", "gun1", "gun2", "grun2", "mv0", "mvrun", "weapons", "mu", "mv1", "mfx", "po", "mv2", "pfx", "arms", "bossA", "bossB", "bossC", "bossD", "bossE", "bossF", "bossfx", "bname"]);
+const LAZY_SHEETS = new Set(["bfx2", "bfx3", "gun1", "gun2", "grun2", "mv0", "mvrun", "weapons", "mu", "mv1", "mfx", "po", "mv2", "pfx", "arms", "bossA", "bossB", "bossC", "bossD", "bossE", "bossF", "bossfx", "bname", "md0", "md1", "md2", "md3", "md4"]);
 const CHAR_SHEETS = { mumyeong: ["mv0", "mvrun", "weapons"], munyeo: ["mu", "mv1", "mfx", "arms"], posu: ["po", "mv2", "pfx", "arms"] };
 const sheetLoading = new Set();
 function loadSheet(n) { // one atlas: frames JSON + image (ink-inverted copy for the night palette where needed)
@@ -323,7 +323,7 @@ function loadSheet(n) { // one atlas: frames JSON + image (ink-inverted copy for
   Promise.all([
     fetch(`assets/sprites/${n}.json?v=${ASSET_V}`).then(r => r.json()),
     new Promise((res, rej) => { const im = new Image(); im.onload = () => res(im); im.onerror = rej; im.src = `assets/sprites/${n}.webp?v=${ASSET_V}`; })
-  ]).then(([f, img]) => { let inv = null; if (["hero", "hero2", "foes", "objects", "fx", "props", "props2", "rocks", "pines", "slabs", "pillars", "guide", "bname", "foes3"].includes(n)) try { inv = inkInverted(img); } catch (e) { inv = null; }   // short of canvas memory: keep the sheet, lose only its night copy
+  ]).then(([f, img]) => { let inv = null; if (["hero", "hero2", "foes", "objects", "fx", "props", "props2", "rocks", "pines", "slabs", "pillars", "guide", "bname", "foes3", "mapobj", "md0", "md1", "md2", "md3", "md4"].includes(n)) try { inv = inkInverted(img); } catch (e) { inv = null; }   // short of canvas memory: keep the sheet, lose only its night copy
     SPR[n] = { f, img, inv };
     if (SPR[n].inv) gpuize(SPR[n].inv, bm => { SPR[n].inv = bm; }); applyUiSprites(); }).catch(() => { sheetLoading.delete(n); const a = (sheetTry[n] = (sheetTry[n] || 0) + 1); setTimeout(() => loadSheet(n), Math.min(5000, 1200 * a)); });   // a failed load (offline blip, a deploy in progress) is tried again
 }
@@ -376,7 +376,7 @@ function playSheets() { const ch = (run && run.char) || "mumyeong", out = ALL_SH
   if (run && mode !== "tutorial" && (run.tower || run.m === LAST_M)) out.push(...bossSheets(bossKindOf(run)));
   return [...new Set(out)]; }
 function needSheets(list) { for (const n of list) loadSheet(n); }   // phones: only the hand being played and the guardian being fought are held in memory
-const ALL_SHEETS = ["hero", "hero2", "foes", "objects", "ui", "fx", "hud", "hudsolid", "props", "props2", "rocks", "pines", "slabs", "pillars", "rogue", "roguea", "rogue2", "rogue3", "rogue4", "foes2", "bossA", "bossB", "bossfx", "bossC", "bossD", "bossE", "bossF", "hero3", "herofx", "slashfx", "perkfx", "weapons", "chars", "misc", "arms", "ic0", "ic1", "ic2", "ic3", "ic4", "ic5", "ic6", "ic7", "ic8", "ic9", "ic10", "ic11", "ic12", "ic13", "ic14", "ic15", "mu", "po", "mfx", "pfx", "vis", "guide", "mv0", "mv1", "mv2", "bcal", "bvfx", "bname", "mvrun", "mech", "foes3", "kfx", "kring", "wfx", "ic16", "gfx", "swm", "gun1", "gun2", "grun2", "muz", "ogA", "ogB", "hub", "pet", "npc", "bfx2", "bfx3"];
+const ALL_SHEETS = ["hero", "hero2", "foes", "objects", "ui", "fx", "hud", "hudsolid", "props", "props2", "rocks", "pines", "slabs", "pillars", "rogue", "roguea", "rogue2", "rogue3", "rogue4", "foes2", "bossA", "bossB", "bossfx", "bossC", "bossD", "bossE", "bossF", "hero3", "herofx", "slashfx", "perkfx", "weapons", "chars", "misc", "arms", "ic0", "ic1", "ic2", "ic3", "ic4", "ic5", "ic6", "ic7", "ic8", "ic9", "ic10", "ic11", "ic12", "ic13", "ic14", "ic15", "mu", "po", "mfx", "pfx", "vis", "guide", "mv0", "mv1", "mv2", "bcal", "bvfx", "bname", "mvrun", "mech", "foes3", "kfx", "kring", "wfx", "ic16", "gfx", "swm", "gun1", "gun2", "grun2", "muz", "ogA", "ogB", "hub", "pet", "npc", "bfx2", "bfx3", "mapobj", "md0", "md1", "md2", "md3", "md4"];
 for (const n of ALL_SHEETS) if (!LAZY_SHEETS.has(n)) loadSheet(n);
 function inkInverted(img) { // night palette: grey ink becomes bone white, coloured accents stay as they are
   const c = document.createElement("canvas"); c.width = img.width; c.height = img.height; const g = c.getContext("2d"); g.drawImage(img, 0, 0);
@@ -712,24 +712,100 @@ function genPiece(rng, m, ropes, ctl = 0) {   // ctl (천고탑): the higher, th
 }
 // boss arena before the last drum: a long floor with two ledges to dodge the 수문장's ground waves
 const ARENA_PIECE = (() => { const r = []; for (let y = 0; y < 16; y++) r.push(y >= 12 ? "#".repeat(26) : y === 11 ? " C" + " ".repeat(16) + "b" + " ".repeat(7) : y === 9 ? "     ====      ====       " : y === 5 ? "       T          T       " : " ".repeat(26)); return r; })();   // two 과녁 above: a loop of aimed dashes down onto the guardian
+// shaped pieces: a 마당 rises and falls instead of running one flat strip. Each piece is { c, entry, exit, meta }:
+// entry/exit are the ground rows at its left/right edge (12 on a plain 16-row piece), so the next piece is laid at the height this one ends
+const blankPiece = (W, H) => Array.from({ length: H }, () => Array(W).fill(" "));
+function stepTile(rng, m, i) { return m === 2 ? (i % 2 ? "2" : "1") : m === 4 && rng() < .6 ? "x" : "="; }   // 자진모리 steps keep the beat, 단모리 tiles give way
+function genClimb(rng, m, rise) {   // 오름길: a shaft climbed ledge by ledge, its exit `rise` rows above its mouth
+  const W = 13, H = 16 + rise, g = H - 4, top = g - rise, c = blankPiece(W, H), put = (x, y, ch) => { if (x >= 0 && x < W && y >= 0 && y < H) c[y][x] = ch; };
+  for (let y = g; y < H; y++) for (let x = 0; x < W; x++) put(x, y, "#");
+  for (let y = Math.max(0, top - 3); y < g - 4; y++) put(0, y, "#");                  // the near wall, open at the mouth
+  for (let y = top; y < g; y++) for (let x = W - 3; x < W; x++) put(x, y, "#");      // the cliff; its top is the way on
+  const ys = []; for (let y = g - 3; y > top; y -= 3) ys.push(y);
+  ys.forEach((y, i) => { const right = (ys.length - 1 - i) % 2 === 0, x0 = right ? 6 : 1 + ((rng() * 2) | 0);
+    if (!right && rng() < .3) { for (let k = 0; k < 3; k++) put(1 + k, y, "#"); return; }   // a stone shelf off the wall, to kick from
+    const ch = stepTile(rng, m, i); for (let k = 0; k < 3; k++) put(x0 + k, y, ch); });
+  if (rng() < .6) put(5, top + ((g - top) >> 1) - 1, "*");
+  if (rise >= 12 && rng() < .5) put(9, top + 3, "o");
+  return { c, entry: g, exit: top, shaft: { x0: 1, x1: W - 3, yTop: top, yBot: g } };
+}
+function genBranch(rng, m) {   // 갈림길: a high road over a low one — harder above, a chest at its end; a slip only drops you to the low road
+  const W = 26, H = 22, g = 18, c = blankPiece(W, H), put = (x, y, ch) => { if (x >= 0 && x < W && y >= 0 && y < H) c[y][x] = ch; };
+  for (let y = g; y < H; y++) for (let x = 0; x < W; x++) put(x, y, "#");
+  for (let x = 6; x < W - 6; x++) { put(x, 9, "#"); put(x, 10, "#"); }               // the high road
+  const gap = 9 + ((rng() * 5) | 0); for (const x of [gap, gap + 1]) { put(x, 9, " "); put(x, 10, " "); }
+  for (let k = 0; k < 3; k++) { put(2 + k, 12, stepTile(rng, m, 0)); put(5 + k, 15, stepTile(rng, m, 1)); }
+  put(gap + 5, 8, "^"); if (rng() < .5) put(gap + 9, 8, "^");
+  put(gap + 3, 4, "*"); if (rng() < .5) put(W - 9, 3, "*");
+  put(W - 8, 8, "$");
+  put(11, g - 1, "?"); put(17, g - 1, "?"); for (let y = g - 3; y < g; y++) { put(14, y, "#"); put(15, y, "#"); }
+  return { c, entry: g, exit: g };
+}
+function genArena(rng, m) {   // 결진: the gates shut behind you until every guard here is cut
+  const W = 24, c = blankPiece(W, 16), put = (x, y, ch) => { c[y][x] = ch; };
+  for (let y = 12; y < 16; y++) for (let x = 0; x < W; x++) put(x, y, "#");
+  for (let k = 0; k < 4; k++) { put(5 + k, 9, "="); put(15 + k, 9, "="); }
+  put(7, 11, "?"); put(12, 11, "?"); put(17, 11, "?"); put(12, 5, "*"); if (m >= 3) put(7, 8, "?");
+  return { c, entry: 12, exit: 12, arena: true };
+}
+function hidePocket(grid, gRow, rng, W) {   // 숨은 방: a block of rock with a cracked face — cut it open, a chest inside
+  const ok = [];
+  for (let x = 12; x < W - 20; x++) { const g = gRow[x]; if (g < 6) continue; let good = true;
+    for (let k = -1; k < 7 && good; k++) { if (gRow[x + k] !== g || grid[g][x + k] !== "#") good = false; for (let y = g - 4; y < g && good; y++) if (grid[y][x + k] !== " ") good = false; }
+    if (good) ok.push(x); }
+  if (!ok.length) return false;
+  const x = ok[(rng() * ok.length) | 0], g = gRow[x], L = rng() < .5;   // which face is cracked
+  for (let k = 0; k < 6; k++) for (let y = g - 3; y < g; y++) grid[y][x + k] = "#";
+  for (let k = 1; k < 5; k++) for (let y = g - 2; y < g; y++) grid[y][x + k] = " ";
+  for (let y = g - 2; y < g; y++) grid[y][L ? x : x + 5] = "%";
+  grid[g - 1][x + (L ? 3 : 2)] = "$"; return true;
+}
 function buildMadangMap(seed, m, cy = 0, omIn = null, arena = m === 4, crowd = 0, ctl = 0, len = 9) {   // len: how many pieces — the gates are short now, and full
   const omList = Array.isArray(omIn) ? omIn : [omIn], om = omList.includes("gyeopjul") ? "gyeopjul" : omList.includes("gunse") || crowd ? "gunse" : omIn;
   const rng = mulberry(seed ^ Math.imul(m + 1, 0x9E3779B1) ^ Math.imul(cy, 0x85EBCA6B));   // each turn of the tower lays out fresh
-  const rows = START_PIECE.slice();
+  const pcs = [{ c: START_PIECE.map(r => r.split("")), entry: 12, exit: 12, std: true }];
   const used = new Set(), cyF = ctl ? Math.floor(cy / 4) : cy;   // more guards each turn; in the 탑 every fourth floor counts as a turn
   const tiers = MADANG[m].tiers.slice();
   for (let i = tiers.length - 1; i > 0; i--) { const j = (rng() * (i + 1)) | 0; [tiers[i], tiers[j]] = [tiers[j], tiers[i]]; }   // fresh order every run
-  for (const tier of tiers.slice(0, len)) {
+  // which pieces take a shape: 휘모리 always climbs once; elsewhere a climb or a drop, a forked road, a walled 결진 now and then
+  const n = Math.min(len, tiers.length), plan = Array(n).fill(""), slot = () => { const free = plan.map((p, i) => p || i === 0 ? -1 : i).filter(i => i >= 0); return free.length ? free[(rng() * free.length) | 0] : -1; };
+  if (!ctl && n >= 3) {
+    if (m === 3) { const s = slot(); if (s >= 0) plan[s] = "climb"; }
+    else if (rng() < .3) { const s = slot(); if (s >= 0) plan[s] = rng() < .55 ? "climb" : "drop"; }
+    if (m >= 1 && rng() < .4) { const s = slot(); if (s >= 0) plan[s] = "branch"; }
+    if (m >= 1 && rng() < (crowd >= 2 ? .6 : .32)) { const s = slot(); if (s >= 0) plan[s] = "arena"; }
+  }
+  let net = 0;   // how far the ground has risen so far: a 마당 never climbs past one shaft's height
+  tiers.slice(0, n).forEach((tier, pi) => {
     const kind = typeof tier === "string" ? tier[0] : "", t = kind ? +tier.slice(1) : tier;
     const fits = i => kind === "w" ? CHUNKS[i].wall && CHUNKS[i].tier <= t : kind === "m" ? CHUNKS[i].multi && CHUNKS[i].tier <= t : CHUNKS[i].tier === t && !CHUNKS[i].multi;
     let pool = CHUNKS.map((c, i) => i).filter(i => fits(i) && !used.has(i));
     if (!pool.length) pool = CHUNKS.map((c, i) => i).filter(fits);
     const ci = pool[(rng() * pool.length) | 0];
-    let c;
-    if (rng() < (om === "gyeopjul" ? .7 : .4 + .08 * ctl)) c = genPiece(rng, m, om === "gyeopjul", ctl);                          // about 40% of pieces are generated fresh
-    else { used.add(ci); c = CHUNKS[ci].map.map(r => r.split("")); if (rng() < .5) c.forEach(row => row.reverse()); }   // handmade, sometimes mirrored
-    if (c[11][1] === " ") c[11][1] = "C";
-    for (let y = 0; y < 16; y++) for (let x = 0; x < c[y].length; x++) {
+    let pc, c, sh = plan[pi];
+    if (sh === "climb" || sh === "drop") { const rise = 9 + 3 * ((rng() * 2) | 0); if (sh === "climb" && net + rise > 12) sh = "drop"; if (sh === "drop" && net - rise < 0) sh = "climb";
+      pc = genClimb(rng, m, rise);
+      if (sh === "drop") { pc.c.forEach(r => r.reverse()); pc = { c: pc.c, entry: pc.exit, exit: pc.entry }; net -= rise; }   // the same shaft, walked down
+      else { pc.ink = m === 3; net += rise; } }
+    else if (sh === "branch") pc = genBranch(rng, m);
+    else if (sh === "arena") pc = genArena(rng, m);
+    else {
+      if (rng() < (om === "gyeopjul" ? .7 : .4 + .08 * ctl)) c = genPiece(rng, m, om === "gyeopjul", ctl);                          // about 40% of pieces are generated fresh
+      else { used.add(ci); c = CHUNKS[ci].map.map(r => r.split("")); if (rng() < .5) c.forEach(row => row.reverse()); }   // handmade, sometimes mirrored
+      if (c[11][1] === " ") c[11][1] = "C";
+      pc = { c, entry: 12, exit: 12, std: true };
+      if (m === 2 || m === 4) {   // the 마당's own ground: ledges that keep the beat (자진모리) or crack underfoot (단모리)
+        let run = 0; for (let y = 0; y < 16; y++) for (let x = 0; x < c[y].length; x++) if (c[y][x] === "=" && (x === 0 || c[y][x - 1] !== "=")) {
+          if (rng() > .6) continue; const ch = m === 2 ? (run++ % 2 ? "2" : "1") : "x"; for (let k = x; k < c[y].length && c[y][k] === "="; k++) c[y][k] = ch; }
+        for (let x = 1; x < c[0].length - 1; x++) if (c[12][x] === " " && c[12][x - 1] === "#") { let e = x; while (e < c[0].length && c[12][e] === " ") e++;   // a bridge over the wider pits
+          if (e - x >= 4 && rng() < .55) for (let k = x + 1; k < e - 1; k++) if (c[10][k] === " " && c[9][k] === " ") c[10][k] = m === 2 ? (k - x - 1 < (e - x - 2) / 2 ? "1" : "2") : "x";
+          x = e; }
+      }
+      if (m === 0 && pi > 0 && rng() < .5) pc.fog = true;    // 진양조: mist the lanterns burn through
+      if (m === 1 && pi > 0 && rng() < .55) pc.wind = true;  // 중모리: wind that turns each bar
+    }
+    c = pc.c; if (!pc.std) { const er = pc.entry - 1; if (c[er][1] === " " && c[er + 1][1] === "#") c[er][1] = "C"; }
+    for (let y = 0; y < c.length; y++) for (let x = 0; x < c[y].length; x++) {
       const ch = c[y][x];
       if (ch === "?") {
         const r = rng();
@@ -739,31 +815,43 @@ function buildMadangMap(seed, m, cy = 0, omIn = null, arena = m === 4, crowd = 0
       else if ((ch === "L" || ch === "M") && rng() < .5) c[y][x] = ch === "L" ? "M" : "L";
     }
     // extra guard on open ground in about half the pieces
-    for (let extra = (om === "gunse" ? 2 : 1) + crowd + Math.min(4, cyF); extra > 0; extra--) if (rng() < .45 + .08 * m + (om === "gunse" ? .35 : 0) + .1 * Math.min(3, cyF)) /* each turn of 천고 brings more guards; the 탑 asks for hands instead */ for (let tries = 0; tries < 8; tries++) {
+    if (pc.std) for (let extra = (om === "gunse" ? 2 : 1) + crowd + Math.min(4, cyF); extra > 0; extra--) if (rng() < .45 + .08 * m + (om === "gunse" ? .35 : 0) + .1 * Math.min(3, cyF)) /* each turn of 천고 brings more guards; the 탑 asks for hands instead */ for (let tries = 0; tries < 8; tries++) {
       const x = 3 + ((rng() * (c[0].length - 6)) | 0);
       let y = 2; while (y < 15 && c[y][x] === " ") y++;
       if (y < 15 && c[y][x] === "#" && c[y - 1][x] === " " && c[y - 2][x] === " " && !(cyF ? c[y - 1].slice(Math.max(0, x - 2), x + 3) : c[y - 1]).some(ch => "gshdmrpak".includes(ch))) { /* later turns: guards may share a stretch of ground, just not stand on top of each other */ c[y - 1][x] = m >= 2 && rng() < .35 ? "h" : rng() < .5 ? "p" : "g"; break; }
     }
-    for (let y = 0; y < 16; y++) rows[y] += c[y].join("");
-  }
-  if (arena) for (let y = 0; y < 16; y++) rows[y] += ARENA_PIECE[y];   // only 天鼓臺 (tier 4) has a guardian, 천고 right behind it
-  for (let y = 0; y < 16; y++) rows[y] += END_PIECE[y];
-  // scatter extra kites through open sky so the 연 line can carry you across most of the 마당
-  const W = rows[0].length, grid = rows.map(r => r.split(""));
+    pcs.push(pc);
+  });
+  if (arena) pcs.push({ c: ARENA_PIECE.map(r => r.split("")), entry: 12, exit: 12, std: true });   // only 天鼓臺 (tier 4) has a guardian, 천고 right behind it
+  pcs.push({ c: END_PIECE.map(r => r.split("")), entry: 12, exit: 12, std: true });
+  // lay the pieces out: each starts at the height the last one ended; under every piece the rock runs on down
+  let gy = 0, minT = 0, maxB = 0, W = 0;
+  for (const p of pcs) { p.top = gy - p.entry; gy = p.top + p.exit; minT = Math.min(minT, p.top); maxB = Math.max(maxB, p.top + p.c.length); W += p.c[0].length; }
+  const H = maxB - minT, grid = Array.from({ length: H }, () => Array(W).fill(" ")), gRow = new Int16Array(W).fill(-1);
+  const meta = { md: m, wind: [], fog: [], arenas: [], shafts: [] };
+  let x0 = 0;
+  for (const p of pcs) { const t = p.top - minT, w = p.c[0].length;
+    for (let y = t; y < H; y++) for (let x = 0; x < w; x++) grid[y][x0 + x] = y < t + p.c.length ? p.c[y - t][x] : "#";
+    if (p.std) for (let x = 0; x < w; x++) gRow[x0 + x] = t + 12;
+    if (p.fog) meta.fog.push([x0, x0 + w]); if (p.wind) meta.wind.push([x0, x0 + w]);
+    if (p.arena) meta.arenas.push({ x0: x0, x1: x0 + w - 1, y0: 0, y1: t + 11 });   // the gates reach the sky: no climbing over them
+    if (p.shaft && p.ink) meta.shafts.push({ x0: x0 + p.shaft.x0, x1: x0 + p.shaft.x1, yTop: t + p.shaft.yTop, yBot: t + p.shaft.yBot });
+    x0 += w; }
   for (let x = 0; x < W; x++) {   // wide pits: a 과녁 over the middle so a missed dash is not the only way over
-    if (grid[12][x] === "#" || grid[12][x] === "=") continue; let e = x; while (e < W && grid[12][e] !== "#" && grid[12][e] !== "=") e++;
-    const gw = e - x, cover = grid.slice(3, 11).some(r => r.slice(x - 1, e + 1).some(ch => ch === "o" || ch === "T"));
-    if (gw >= 6 && !cover) { const mx = x + (gw >> 1); if (grid[7][mx] === " " && grid[8][mx] === " ") grid[7][mx] = "T"; }
+    const g = gRow[x]; if (g < 0 || grid[g][x] === "#" || grid[g][x] === "=") continue; let e = x; while (e < W && gRow[e] === g && grid[g][e] !== "#" && grid[g][e] !== "=") e++;
+    const gw = e - x, cover = grid.slice(Math.max(0, g - 9), g - 1).some(r => r.slice(x - 1, e + 1).some(ch => ch === "o" || ch === "T" || ch === "x" || ch === "1" || ch === "2"));
+    if (gw >= 6 && !cover) { const mx = x + (gw >> 1); if (grid[g - 5][mx] === " " && grid[g - 4][mx] === " ") grid[g - 5][mx] = "T"; }
     x = e; }
-  for (let x = 10, last = -99; x < W - 10; x++) {
-    if (x - last < 18 || rng() > .12) continue;
-    const y = 4 + ((rng() * 3) | 0);
+  for (let x = 10, last = -99; x < W - 10; x++) {   // scatter extra kites through open sky so the 연 line can carry you across most of the 마당
+    const g = gRow[x]; if (g < 9 || x - last < 18 || rng() > .12) continue;
+    const y = g - 8 + ((rng() * 3) | 0);
     let ok = true;
     for (let dy = -2; dy <= 3 && ok; dy++) for (let dx = -2; dx <= 2; dx++) if (grid[y + dy] && grid[y + dy][x + dx] !== " ") { ok = false; break; }
     if (!ok || grid.some((r, yy) => r.slice(Math.max(0, x - 6), x + 7).includes("o") && Math.abs(yy - y) < 6)) continue;
     grid[y][x] = "o"; last = x;
   }
-  return grid.map(r => r.join(""));
+  if (!ctl && rng() < (m === 0 ? .75 : .5)) hidePocket(grid, gRow, rng, W);
+  const out = grid.map(r => r.join("")); out.meta = meta; return out;
 }
 
 let LV = null;
@@ -771,13 +859,17 @@ function loadMap(map, pal, hints) {
   freeGround(LV);   // the old gate's baked ground goes with it
   const h = map.length, w = Math.max(...map.map(r => r.length));
   const grid = new Uint8Array(w * h);
-  const lv = { w, h, grid, pal, hints: hints || [], defs: [], points: [], targets: [], cps: [], lasers: [], start: null, exit: null, stains: [] };
+  const lv = { w, h, grid, pal, hints: hints || [], defs: [], points: [], targets: [], cps: [], lasers: [], start: null, exit: null, stains: [], cracks: new Map(), chests: [], crumb: new Map() };
   let id = 0;
   for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
     const ch = map[y][x] || " ";
     if (ch === "#") grid[y * w + x] = 1;
     else if (ch === "^") grid[y * w + x] = 2;
     else if (ch === "=") grid[y * w + x] = 3;   // ledge: stand on it, jump up through it
+    else if (ch === "1" || ch === "2") grid[y * w + x] = ch === "1" ? 4 : 5;   // 장단 발판: a ledge only on its two beats of four
+    else if (ch === "x") grid[y * w + x] = 6;   // 기와: a ledge that gives way a beat after it is stood on
+    else if (ch === "%") { grid[y * w + x] = 1; lv.cracks.set(y * w + x, x); }   // cracked rock: cut it and it falls in
+    else if (ch === "$") lv.chests.push({ x: x * T + 16, y: (y + 1) * T, open: false });
     else if (ch === "P") lv.start = { x: x * T + 7, y: (y + 1) * T - 30 };
     else if (ch === "E") lv.exit = { x: x * T + 1, y: (y - 1) * T + 6, w: T - 2, h: 2 * T - 6 };
     else if ("gsdhmrbpak".includes(ch)) lv.defs.push({ type: ch, tx: x, ty: y, id: id++ });
@@ -786,6 +878,12 @@ function loadMap(map, pal, hints) {
     else if (ch === "C") lv.cps.push({ x: x * T + 16, y: (y + 1) * T, on: false });
     else if (ch === "L" || ch === "M") lv.lasers.push({ tx: x, ty: y, phase: ch === "L" ? 0 : 2 });
   }
+  { const mt = map.meta || {}; lv.md = mt.md;   // the 마당's own weather and walls
+    lv.winds = (mt.wind || []).map(([a, b]) => ({ x0: a * T, x1: b * T, ph: (a * 7) % 2 }));
+    lv.fogs = (mt.fog || []).map(([a, b]) => ({ x0: a * T, x1: b * T })); lv.lamps = [];
+    for (const f of mt.fog || []) for (let x = f[0] + 3; x < f[1] - 1; x += 7) { let y = 1; while (y < h && grid[y * w + x] === 0) y++; if (y < h && grid[y * w + x] === 1 && y > 2) lv.lamps.push({ x: x * T + 16, y: y * T, lit: false }); }
+    lv.arenas = (mt.arenas || []).map(a => ({ ...a, st: 0 }));
+    lv.shafts = (mt.shafts || []).map(s => ({ ...s, ink: null })); }
   for (const l of lv.lasers) { let yy = l.ty + 1; while (yy < h && grid[yy * w + l.tx] !== 1) yy++; l.x = l.tx * T + 16; l.y0 = l.ty * T + 22; l.y1 = yy * T; }
   lv.ridges = makeRidges(w * T, hashStr(map[11]));
   lv.drums = [];
@@ -825,6 +923,13 @@ function loadMap(map, pal, hints) {
       const edge = (tile(x + 1, y) === 0 && tile(x + 1, y + 1) === 0) || (tile(x - 1, y) === 0 && tile(x - 1, y + 1) === 0);
       if (!edge && y <= 7 && rnd() < .18) put("props2", P2.brazier, x, y, 34);
     }
+    if (lv.md != null) needSheets(["md" + lv.md]);
+    if (lv.md != null && MD_PROPS[lv.md]) { const set = MD_PROPS[lv.md], sh = "md" + lv.md;   // the 마당's own things along its ground: bamboo and wells, kites and straw, stalls and carts, pagodas, drums and railings
+      for (let x = 6, last = -99; x < w - 6; x++) { if (x - last < 6 + ((rnd() * 7) | 0)) continue; const y = surf(x, 1); if (y < 0) continue;
+        let flat = true; for (let k = -2; k <= 2; k++) if (tile(x + k, y) !== 1 || tile(x + k, y - 1) !== 0) flat = false; if (!flat) continue;
+        const [i, hh, air] = set[(rnd() * set.length) | 0];
+        if (air) { if (y > 6 && put(sh, i, x, y - 5 - ((rnd() * 3) | 0), hh, { hang: true })) last = x; continue; }
+        if (put(sh, i, x, y, hh, { flip: rnd() < .5 })) last = x; } }
     for (let y = 2; y < h - 4; y++) for (let x = 2; x < w - 6; x++) { // paper lanterns strung under roofs
       let n = 0; while (x + n < w && tile(x + n, y) === 1 && tile(x + n, y + 1) === 0 && tile(x + n, y + 2) === 0 && tile(x + n, y + 3) === 0) n++;
       ;
@@ -832,7 +937,11 @@ function loadMap(map, pal, hints) {
     } }
   LV = lv;
 }
-function tileAt(tx, ty) { if (tx < 0 || tx >= LV.w) return 1; if (ty < 0 || ty >= LV.h) return 0; return LV.grid[ty * LV.w + tx]; }
+function tileAt(tx, ty) { if (tx < 0 || tx >= LV.w) return 1; if (ty < 0 || ty >= LV.h) return 0; const v = LV.grid[ty * LV.w + tx]; return v < 4 ? v : dynTile(v, ty * LV.w + tx); }
+// the living ground: 4/5 장단 발판 (two beats on, two off, in opposite phases), 6 기와 (whole until it crumbles, back four beats later)
+function plankOn(v) { const b = Math.floor(songPos / Music.beatLen) + (v === 5 ? 2 : 0); return ((b % 4) + 4) % 4 < 2; }
+function plankNext(v) { const bl = Music.beatLen, b = Math.floor(songPos / bl), f = songPos / bl - b, n = (((b + 1 + (v === 5 ? 2 : 0)) % 4) + 4) % 4; return f > .45 ? (n === 0 ? 1 : n === 2 ? -1 : 0) : 0; }   // +1 about to appear, -1 about to go
+function dynTile(v, i) { if (v === 6) { const c = LV.crumb.get(i); return c && c.gone ? 0 : 3; } return plankOn(v) ? 3 : 0; }
 function rectSolid(x, y, w, h) {
   const x0 = Math.floor(x / T), x1 = Math.floor((x + w - 0.01) / T), y0 = Math.floor(y / T), y1 = Math.floor((y + h - 0.01) / T);
   for (let ty = y0; ty <= y1; ty++) for (let tx = x0; tx <= x1; tx++) if (tileAt(tx, ty) === 1) return true;
@@ -2211,6 +2320,127 @@ function playerHazards() {
   if (LV.exit && overlap(pr, LV.exit) && !bossAlive()) madangClear();
 }
 
+// ---------- the 마당's own ground: 기와 that gives way, 장단 발판, wind, mist and lamps, rising ink, 결진 gates, cracked rock, chests ----------
+// per 마당 prop set: [frame, height, floats in the sky]
+const MD_PROPS = [[[0, 150], [1, 64], [3, 46], [4, 52], [5, 74], [6, 74]], [[1, 48], [2, 72], [3, 92], [4, 94], [5, 124]], [[0, 98], [1, 52], [2, 62], [3, 58], [4, 66], [5, 94]],
+  [[0, 124], [1, 72], [3, 134], [4, 112], [5, 98], [6, 98]], [[0, 58], [1, 54], [2, 84], [3, 150], [4, 72], [5, 62, 1]]];
+const MO = { plank: 0, giwa: 1, crack: 2, chest: 3, chestOpen: 4, pole: 5, lamp: 6, gate: 7 };
+function windDir(z) { const b = Math.floor(songPos / Music.beatLen), bar = Math.floor(b / 4) + z.ph; if (((b % 4) + 4) % 4 === 3) return 0; return bar % 2 ? 1 : -1; }   // the last beat of each bar is a lull, then it turns
+function crumbleRun(r, tx) { let a = tx, b = tx; while (LV.grid[r * LV.w + a - 1] === 6) a--; while (LV.grid[r * LV.w + b + 1] === 6) b++;
+  for (let x = a; x <= b; x++) if (!LV.crumb.has(r * LV.w + x)) LV.crumb.set(r * LV.w + x, { at: songPos + Music.beatLen, gone: false }); }
+function arenaWalls(a, on) {
+  if (on) { a.set = []; for (const x of [a.x0, a.x1]) for (let y = a.y0; y <= a.y1; y++) if (LV.grid[y * LV.w + x] === 0) { LV.grid[y * LV.w + x] = 1; a.set.push(y * LV.w + x); } }
+  else { for (const i of a.set || []) LV.grid[i] = 0; a.set = null; }
+  LV.gridVer = (LV.gridVer || 0) + 1;
+}
+const inArena = (a, e) => e.x + e.w / 2 > a.x0 * T && e.x + e.w / 2 < (a.x1 + 1) * T;
+function breakCrack(i) {
+  const x = i % LV.w, y = (i / LV.w) | 0;
+  for (const [j] of [...LV.cracks]) { const jx = j % LV.w, jy = (j / LV.w) | 0; if (jx === x && Math.abs(jy - y) <= 3) { LV.cracks.delete(j); LV.grid[j] = 0;
+    for (let k = 0; k < 5; k++) parts.push({ x: jx * T + 16 + (Math.random() - .5) * 24, y: jy * T + 16, vx: (Math.random() - .5) * 220, vy: -80 - Math.random() * 160, life: .8, max: .8, c: LV.pal.tile, s: 3 + Math.random() * 4 }); } }
+  LV.gridVer = (LV.gridVer || 0) + 1; shake = Math.max(shake, 5); Music.sfx("strike"); tipOnce("map_crack", "숨은 방", "금 간 바위는 베거나 쏘면 무너진다 · 안에 상자가 있다");
+}
+function openChest(c) {
+  c.open = true; Music.sfx("lantern"); seals.push({ x: c.x, y: c.y - 10, t: 0, rot: 0, ch: "寶" });
+  const r = (c.x * 7 + c.y) % 3;
+  if (r === 0 && run.breath < startBreath() + 1) { run.breath++; toast(`상자 · 숨 ${run.breath}`); }
+  else if (r === 1) { addQi(30); toast("상자 · 천고 기운이 차오른다"); }
+  else { run.honBonus = (run.honBonus || 0) + 15; toast("상자 · 혼 +15"); }
+  saveRun();
+}
+function fogTarget() { if (!LV || !LV.fogs || !P) return 0; const cx = P.x + P.w / 2; let k = 0; for (const z of LV.fogs) k = Math.max(k, Math.min(1, Math.max(0, (Math.min(cx - z.x0, z.x1 - cx) + 2 * T) / (4 * T)))); return k; }
+function stepTerrain(dt) {
+  if (!LV || LV.hub || !P) return;
+  const bl = Music.beatLen, cx = P.x + P.w / 2, cy = P.y + P.h / 2, feet = P.y + P.h;
+  if (P.onGround) { const r = Math.round(feet / T); if (Math.abs(feet - r * T) < 2) for (let tx = Math.floor(P.x / T); tx <= Math.floor((P.x + P.w - .01) / T); tx++) if (LV.grid[r * LV.w + tx] === 6 && !LV.crumb.has(r * LV.w + tx)) { crumbleRun(r, tx); tipOnce("map_giwa", "무너지는 기와", "밟으면 한 박 뒤 무너진다 · 네 박 뒤 돌아온다 — 멈추지 말 것"); } }
+  for (const [i, c] of LV.crumb) {
+    if (!c.gone && songPos >= c.at) { c.gone = true; c.back = songPos + bl * 4; const x = (i % LV.w) * T + 16, y = ((i / LV.w) | 0) * T;
+      for (let k = 0; k < 2; k++) parts.push({ x: x + (Math.random() - .5) * 20, y, vx: (Math.random() - .5) * 60, vy: 30 + Math.random() * 60, life: .8, max: .8, c: LV.pal.tile, s: 4 + Math.random() * 3 }); }
+    else if (c.gone && songPos >= c.back) { const tx = i % LV.w, ty = (i / LV.w) | 0; if (!overlap(P, { x: tx * T, y: ty * T - 2, w: T, h: 12 })) LV.crumb.delete(i); }
+  }
+  for (const z of LV.winds) if (cx > z.x0 && cx < z.x1) { tipOnce("map_wind", "바람", "마디마다 바람이 방향을 바꾼다 · 마지막 박은 잔잔하다 — 공중에서 더 밀린다");
+    const d = windDir(z); if (d && P.dashT <= 0 && !P.hook) moveX(P, d * (P.onGround ? 40 : 95) * dt); }
+  if (LV.fogs.length && fogTarget() > .5) tipOnce("map_fog", "안개", "청사초롱에 다가가면 불이 켜지고 그 둘레가 밝아진다");
+  for (const l of LV.lamps) if (!l.lit && Math.abs(cx - l.x) < 70 && Math.abs(feet - l.y) < 3 * T) { l.lit = true; Music.sfx("lantern"); }
+  for (const s of LV.shafts) {
+    const x0 = s.x0 * T, x1 = (s.x1 + 1) * T, top = s.yTop * T, bot = s.yBot * T, inside = cx > x0 && cx < x1 && feet > top - 4;
+    if (!s.ink && inside && feet < bot - T * 1.5) { s.ink = { y: bot + 24, drain: false }; tipOnce("map_ink", "차오르는 먹", "위로 — 먹물에 닿으면 숨을 잃는다"); }
+    if (!s.ink) continue;
+    if (!inside || (P.onGround && feet <= top + 2)) s.ink.drain = true;
+    if (s.ink.drain) { s.ink.y += 180 * dt; if (s.ink.y > bot + 30) s.ink = null; continue; }
+    s.ink.y = Math.max(top + T, s.ink.y - 44 * dt);
+    if (feet > s.ink.y + 6 && hurtsPlayer()) { P.hitBy = "먹물"; die(); if (state === "play") { P.vy = -780; P.onGround = false; } s.ink.y = Math.min(bot + 24, s.ink.y + 3 * T); }
+  }
+  for (const a of LV.arenas) {
+    if (a.st === 1 && (cx < a.x0 * T || cx > (a.x1 + 1) * T)) { a.st = 0; arenaWalls(a, false); }   // came back from a lantern outside: the gates stand open again
+    if (a.st === 0 && cx > (a.x0 + 2) * T && cx < (a.x1 - 1) * T) { if (!enemies.some(e => e.alive && inArena(a, e))) { a.st = 2; continue; }
+      a.st = 1; arenaWalls(a, true); shake = Math.max(shake, 6); Music.sfx("strike"); tipOnce("map_arena", "결진", "문이 닫혔다 · 이 안의 적을 모두 베어야 열린다"); }
+    else if (a.st === 1 && !enemies.some(e => e.alive && inArena(a, e))) { a.st = 2; arenaWalls(a, false); addQi(25); run.honBonus = (run.honBonus || 0) + 8; toast("결진을 뚫었다 · 혼 +8"); Music.sfx("lantern"); }
+  }
+  if (LV.cracks.size) {
+    const hit = (hx, hy, r) => { for (const [i] of LV.cracks) { const tx = (i % LV.w) * T + 16, ty = ((i / LV.w) | 0) * T + 16; if (Math.abs(tx - hx) < r && Math.abs(ty - hy) < r) { breakCrack(i); return true; } } return false; };
+    if (P.slashT > 0) hit(cx + P.slashDir.x * 30, cy + P.slashDir.y * 30, 40);
+    if (P.dashT > 0 && LV.cracks.size) hit(cx + (P.dashDir ? P.dashDir.x : P.face) * 18, cy, 30);
+    for (const b of bullets) if (b.friendly && b.life > 0 && LV.cracks.size && hit(b.x, b.y, 22)) b.life = 0;
+  }
+  for (const c of LV.chests) if (!c.open && Math.abs(cx - c.x) < 22 && feet > c.y - 40 && feet < c.y + 4) openChest(c);
+  if (!(META.tips && META.tips.map_plank)) { const tx = Math.floor(cx / T), ty = Math.floor(feet / T); for (let y = ty - 4; y <= ty + 2; y++) for (let x = tx - 5; x <= tx + 5; x++) { const v = x >= 0 && x < LV.w && y >= 0 && y < LV.h ? LV.grid[y * LV.w + x] : 0; if (v === 4 || v === 5) { tipOnce("map_plank", "장단 발판", "두 박 나타나고 두 박 사라진다 · 깜빡이면 곧 바뀐다"); y = 1e9; break; } } }
+}
+function drawTerrain(pal, x0, x1, y0, y1, tt) {
+  const im = n => SPR[n] ? (pal.night ? SPR[n].inv || SPR[n].img : SPR[n].img) : null, mo = im("mapobj"), F = SPR.mapobj && SPR.mapobj.f;
+  for (let ty = y0; ty <= y1; ty++) for (let tx = x0; tx <= x1; tx++) {   // the living ledges, one painted board per run
+    const v = LV.grid[ty * LV.w + tx]; if (v < 4 || LV.grid[ty * LV.w + tx - 1] === v) continue;
+    let n = 1; while (tx + n < LV.w && LV.grid[ty * LV.w + tx + n] === v) n++;
+    const px = tx * T, py = ty * T;
+    if (v === 6) { for (let k = 0; k < n; k++) { const i = ty * LV.w + tx + k, c = LV.crumb.get(i); if (c && c.gone) { if (c.back - songPos < Music.beatLen) { ctx.globalAlpha = .25; } else continue; }
+        const sh = c && !c.gone ? Math.sin(tt * 60 + k) * 1.5 : 0; ctx.save(); ctx.translate(px + k * T + sh, py);
+        if (mo && F[MO.giwa]) { const f = F[MO.giwa], seg = f.w / 4, s0 = ((tx + k) % 4) * seg; ctx.drawImage(mo, f.x + s0, f.y, seg, f.h, -1, -4, T + 2, 20); }
+        else { ctx.fillStyle = pal.tile; ctx.fillRect(0, -2, T, 9); ctx.fillStyle = pal.foe; ctx.fillRect(4 + (k % 3) * 6, 0, 1.5, 6); }
+        ctx.restore(); ctx.globalAlpha = 1; } continue; }
+    const on = plankOn(v), nx = plankNext(v), blink = nx !== 0 && Math.floor(performance.now() / 70) % 2;
+    ctx.globalAlpha = on ? (nx < 0 && blink ? .45 : 1) : nx > 0 ? (blink ? .7 : .35) : .16;
+    if (mo && F[MO.plank]) { const f = F[MO.plank]; ctx.drawImage(mo, f.x, f.y, f.w, f.h, px - 3, py - 4, n * T + 6, 22); }
+    else { ctx.fillStyle = v === 4 ? JJOK : SEAL; ctx.fillRect(px, py, n * T, 7); }
+    if (!on) { ctx.strokeStyle = v === 4 ? JJOK : SEAL; ctx.lineWidth = 1; ctx.setLineDash([4, 4]); ctx.strokeRect(px + 1, py - 2, n * T - 2, 10); ctx.setLineDash([]); }
+    ctx.globalAlpha = 1;
+  }
+  const vis = x => x > camView.x0 - 80 && x < camView.x1 + 80;
+  for (const [i] of LV.cracks) { const tx = i % LV.w, ty = (i / LV.w) | 0, px = tx * T, py = ty * T; if (!vis(px)) continue;
+    if (mo && F[MO.crack]) { ctx.globalAlpha = .92; ctx.drawImage(mo, F[MO.crack].x, F[MO.crack].y, F[MO.crack].w, F[MO.crack].h, px - 2, py - 2, T + 4, T + 4); ctx.globalAlpha = 1; }
+    const k = .5 + .5 * Math.sin(tt * 3 + ty); ctx.strokeStyle = `rgba(195,22,28,${.25 + .35 * k})`; ctx.lineWidth = 1.6; ctx.beginPath(); ctx.moveTo(px + 9, py + 3); ctx.lineTo(px + 15, py + 13); ctx.lineTo(px + 11, py + 19); ctx.lineTo(px + 19, py + 29); ctx.stroke(); }
+  for (const c of LV.chests) if (vis(c.x)) { if (!(mo && F && drawSprite("mapobj", c.open ? MO.chestOpen : MO.chest, c.x, c.y + 2, 30 / F[MO.chest].h, false, .5, pal.night))) { ctx.fillStyle = "#5a3b22"; ctx.fillRect(c.x - 13, c.y - 18, 26, 18); ctx.fillStyle = "#c79a3a"; ctx.fillRect(c.x - 2, c.y - 12, 4, 5); }
+    if (!c.open) { const k = .5 + .5 * Math.sin(tt * 4); ctx.globalAlpha = .25 + .25 * k; ctx.fillStyle = "#e8c06a"; ctx.beginPath(); ctx.arc(c.x, c.y - 26, 3 + k * 2, 0, 6.283); ctx.fill(); ctx.globalAlpha = 1; } }
+  for (const l of LV.lamps) if (vis(l.x)) { if (l.lit) { const g = ctx.createRadialGradient(l.x, l.y - 44, 3, l.x, l.y - 44, 46); g.addColorStop(0, "rgba(255,170,90,.5)"); g.addColorStop(1, "rgba(255,170,90,0)"); ctx.fillStyle = g; ctx.fillRect(l.x - 46, l.y - 90, 92, 92); }
+    ctx.globalAlpha = l.lit ? 1 : .7; if (!(F && drawSprite("mapobj", MO.lamp, l.x, l.y + 2, 66 / F[MO.lamp].h, false, .5, pal.night))) { ctx.fillStyle = pal.tile; ctx.fillRect(l.x - 1, l.y - 56, 2, 56); ctx.fillStyle = l.lit ? SEAL : pal.foe; ctx.fillRect(l.x - 6, l.y - 56, 12, 16); } ctx.globalAlpha = 1; }
+  for (const z of LV.winds) { const d = windDir(z); if (z.x1 < camView.x0 || z.x0 > camView.x1) continue;
+    if (z.py == null) { const tx = Math.floor(z.x0 / T) + 1; let y = 1; while (y < LV.h && LV.grid[y * LV.w + tx] === 0) y++; z.py = y * T; }
+    if (!(F && drawSprite("mapobj", MO.pole, z.x0 + T * 1.5, z.py + 2, 110 / F[MO.pole].h, d < 0, .5, pal.night))) { ctx.fillStyle = pal.tile; ctx.fillRect(z.x0 + T * 1.5 - 1, z.py - 100, 3, 100); }
+    ctx.strokeStyle = pal.night ? "rgba(236,230,216,.3)" : "rgba(40,36,40,.22)"; ctx.lineCap = "round";
+    const span = z.x1 - z.x0, top = camView.y0, hgt = camView.y1 - camView.y0;
+    for (let i = 0; i < 16; i++) { const yy = top + ((i * 61) % 100) / 100 * hgt, L = d ? 34 + (i % 3) * 16 : 10, xx = z.x0 + ((((tt * 260 * (d || .2) + i * 173) % span) + span) % span);
+      ctx.lineWidth = 1 + (i % 2); ctx.globalAlpha = d ? 1 : .4; ctx.beginPath(); ctx.moveTo(xx, yy); ctx.quadraticCurveTo(xx - (d || 1) * L * .5, yy - 3, xx - (d || 1) * L, yy + 1); ctx.stroke(); }
+    ctx.globalAlpha = 1; ctx.lineCap = "butt"; }
+  for (const a of LV.arenas) if (a.st === 1) for (const x of [a.x0, a.x1]) { const px = x * T + 16, py = (a.y1 + 1) * T;
+    if (!(F && drawSprite("mapobj", MO.gate, px, py + 2, 104 / F[MO.gate].h, x === a.x1, .5, pal.night))) { ctx.fillStyle = SEAL; ctx.fillRect(px - 8, py - 96, 16, 96); } }
+  for (const s of LV.shafts) if (s.ink) { const x0 = s.x0 * T - 2, x1 = (s.x1 + 1) * T + 2, y = s.ink.y, bot = s.yBot * T + 3 * T;
+    ctx.fillStyle = pal.night ? "rgba(6,6,8,.94)" : "rgba(18,16,20,.92)"; ctx.beginPath(); ctx.moveTo(x0, bot);
+    for (let x = x0; x <= x1; x += 8) ctx.lineTo(x, y + Math.sin(x * .07 + tt * 5) * 3 + Math.sin(x * .19 - tt * 3) * 2);
+    ctx.lineTo(x1, bot); ctx.closePath(); ctx.fill();
+    ctx.strokeStyle = "rgba(150,14,20,.45)"; ctx.lineWidth = 2; ctx.beginPath(); for (let x = x0; x <= x1; x += 8) { const yy = y + Math.sin(x * .07 + tt * 5) * 3 + Math.sin(x * .19 - tt * 3) * 2; x === x0 ? ctx.moveTo(x, yy) : ctx.lineTo(x, yy); } ctx.stroke(); }
+}
+let fogCv = null;
+function drawFogLayer(pal, amt) {   // mist over the screen with clear pockets: around the swordsman and every lit lamp
+  const s = 4, w = Math.ceil(cv.width / s), h = Math.ceil(cv.height / s); if (!fogCv) fogCv = document.createElement("canvas"); if (fogCv.width !== w || fogCv.height !== h) { fogCv.width = w; fogCv.height = h; }
+  const g = fogCv.getContext("2d"); if (!g) return; g.globalCompositeOperation = "source-over"; g.clearRect(0, 0, w, h);
+  g.fillStyle = pal.night ? "rgba(30,28,30,.93)" : "rgba(226,222,212,.94)"; g.fillRect(0, 0, w, h); g.globalCompositeOperation = "destination-out";
+  const hole = (wx, wy, r) => { const px = ((wx - cam.x) * SCALE * DPR + cv.width / 2) / s, py = ((wy - cam.y) * SCALE * DPR + cv.height / 2) / s, rr = r * SCALE * DPR / s; if (px < -rr || px > w + rr || py < -rr || py > h + rr) return;
+    const gr = g.createRadialGradient(px, py, rr * .3, px, py, rr); gr.addColorStop(0, "rgba(0,0,0,1)"); gr.addColorStop(1, "rgba(0,0,0,0)"); g.fillStyle = gr; g.fillRect(px - rr, py - rr, rr * 2, rr * 2); };
+  hole(P.x + P.w / 2, P.y + P.h / 2, 200);
+  for (const l of LV.lamps || []) if (l.lit) hole(l.x, l.y - 44, 240);
+  for (const c of LV.cps) if (c.on) hole(c.x, c.y - 30, 180);
+  ctx.globalAlpha = amt; ctx.drawImage(fogCv, 0, 0, cv.width, cv.height); ctx.globalAlpha = 1;
+}
+
 // ---------- enemies ----------
 // one hit point per cut 천고 beyond the first; a plain cut removes one, an 일격 kills outright
 function hurtEnemy(e, strike, kind) {
@@ -3034,7 +3264,7 @@ function frameBody(now) {
     if (state === "dead") ts = 0.3;
     const wdt = rdt * ts, n = Math.max(1, Math.ceil(wdt / (1 / 120))), sdt = wdt / n;
     for (let i = 0; i < n; i++) {
-      if (state === "play") { stepPlayer(sdt); if (LV) P.x = Math.max(0, Math.min(LV.w * T - P.w, P.x)); stepPet(sdt); P.slashT = Math.max(0, P.slashT - sdt); slashHits(); playerHazards(); }
+      if (state === "play") { stepPlayer(sdt); if (LV) P.x = Math.max(0, Math.min(LV.w * T - P.w, P.x)); stepPet(sdt); P.slashT = Math.max(0, P.slashT - sdt); slashHits(); stepTerrain(sdt); if (state === "play") playerHazards(); }
       if (state === "play" || state === "dead") { stepEnemies(sdt); stepBullets(sdt); if (state === "play") stepHazards(); }
       if (state !== "play" && state !== "dead") break;
     }
@@ -3202,7 +3432,10 @@ function render(rdt) {
     const lw = LV.w * T, lh = LV.h * T;
     cam.x = lw <= vw ? lw / 2 : Math.max(vw / 2, Math.min(lw - vw / 2, cam.x));
     const maxY = lh - vh / 2 + 8; cam.y = Math.min(maxY, Math.max(Math.min(maxY, vh / 2 - 96), cam.y));
-    if (PORTRAIT()) { const bottom = LV.hub ? hubRect().y + hubRect().h : lh; cam.y = bottom - (H / 2 - padH()) / (SCALE * zoom); }   // the ground line sits just above the thumbs
+    if (PORTRAIT()) { const bottom = LV.hub ? hubRect().y + hubRect().h : lh, off = (H / 2 - padH()) / (SCALE * zoom); cam.y = bottom - off;   // the ground line sits just above the thumbs
+      if (!LV.hub && lh > 17 * T) {   // a 마당 that climbs: follow the ground last stood on, so the thumbs keep the same line
+        const feet = P.y + P.h; if (LV.camG == null || P.onGround || feet > LV.camG + T) LV.camG = feet; LV.camGs = LV.camGs == null ? LV.camG : LV.camGs + (LV.camG - LV.camGs) * Math.min(1, rdt * 4);
+        cam.y = Math.min(cam.y, LV.camGs + 4 * T - off); if (P.y - 50 < cam.y - vh / 2) cam.y = P.y - 50 + vh / 2; } }
     if (LV.hub && PORTRAIT()) { const r = hubRect(); cam.x = Math.max(r.x + vw / 2, Math.min(r.x + r.w - vw / 2, cam.x)); }
     if (LV.hub && !PORTRAIT()) { const r = hubRect(); cam.x = r.w <= vw ? r.x + r.w / 2 : Math.max(r.x + vw / 2, Math.min(r.x + r.w - vw / 2, cam.x)); cam.y = r.h <= vh ? r.y + r.h / 2 : Math.max(r.y + vh / 2, Math.min(r.y + r.h - vh / 2, cam.y)); }   // the 거점: the screen never leaves the painting
   }
@@ -3302,6 +3535,7 @@ function render(rdt) {
     if (d.ay === 1 && d.sheet !== "pet") { const rw = Math.min(f.w * d.h / f.h * .42, 90); ctx.fillStyle = pal.night ? "rgba(0,0,0,.28)" : "rgba(40,34,30,.16)"; ctx.beginPath(); ctx.ellipse(d.x, d.y - 1, rw, Math.max(3, rw * .12), 0, 0, Math.PI * 2); ctx.fill(); }   // a wash of shadow seats them on the ground
     drawSprite(d.sheet, d.i, d.x, d.y, d.h / f.h, d.flip, .5, pal.night, d.ay);
   }
+  if (!LV.hub) drawTerrain(pal, x0, x1, y0, y1, tt);
   // ink stains
   for (const s of LV.stains) {
     if (!visible(s.x)) continue;
@@ -3505,11 +3739,7 @@ function render(rdt) {
   // screen space overlays
   ctx.setTransform(1, 0, 0, 1, 0, 0);
   if (!vignette) { vignette = ctx.createRadialGradient(cv.width / 2, cv.height / 2, Math.min(cv.width, cv.height) * .35, cv.width / 2, cv.height / 2, Math.max(cv.width, cv.height) * .75); vignette.addColorStop(0, "rgba(20,18,16,0)"); vignette.addColorStop(1, "rgba(20,18,16,.32)"); }
-  if (omen("angae") && P) { // 안개: only a pocket of paper around the swordsman stays clear
-    const px = (P.x + P.w / 2 - cam.x) * SCALE * DPR + cv.width / 2, py = (P.y + P.h / 2 - cam.y) * SCALE * DPR + cv.height / 2, r = 120 * SCALE * DPR;
-    const fg = ctx.createRadialGradient(px, py, r * .8, px, py, r * 2.6); fg.addColorStop(0, "rgba(226,222,212,0)"); fg.addColorStop(1, pal.night ? "rgba(30,28,30,.9)" : "rgba(226,222,212,.9)");
-    ctx.fillStyle = fg; ctx.fillRect(0, 0, cv.width, cv.height);
-  }
+  if (LV && P && !LV.hub) { LV.fogK = (LV.fogK || 0) + (fogTarget() - (LV.fogK || 0)) * Math.min(1, rdt * 3); const fa = omen("angae") ? 1 : LV.fogK; if (fa > .02) drawFogLayer(pal, fa); }   // 안개 (the omen, or 진양조's mist)
   if (!LITE()) { ctx.fillStyle = vignette; ctx.fillRect(0, 0, cv.width, cv.height); }
   const boss = enemies.find(e => e.type === "b" && e.alive && e.awake);
   if (boss && (state === "play" || state === "dead" || state === "pause")) { // 수문장's life as a brush bar along the top
@@ -4921,7 +5151,7 @@ $("bInstall").addEventListener("click", async () => { if (!installEvt) return; i
 const standalone = matchMedia("(display-mode: standalone)").matches || matchMedia("(display-mode: fullscreen)").matches || navigator.standalone;
 
 
-if (location.hash === "#debug" && /^(localhost|127\.0\.0\.1)$/.test(location.hostname)) window.__dbg = { get missing() { return ALL_SHEETS.filter(n => !LAZY_SHEETS.has(n) && !SPR[n]).concat(BASE_IMGS.filter(k => !IMG[k])); }, tp(tx, ty) { P.x = tx * T + 7; P.y = (ty + 1) * T - 30; P.vx = P.vy = 0; }, get state() { return state; }, get P() { return P; }, get LV() { return LV; }, get state2() { return state; }, get SC() { return LV.scenery; }, get E() { return enemies; }, get run() { return run; }, set hs(v) { hitstop = v; }, kill(e) { killEnemy(e); }, hurt(e, s, k) { hurtEnemy(e, s, k); }, die(k, d) { die(k, d); }, banner(a, b, c) { banner(a, b === "red" ? SEAL : JJOK, c); }, chungo() { chungo(); }, clear() { madangClear(); }, hubAct() { hubAct(); }, get hub() { return { hubOn, hubNear }; }, get songPos() { return songPos; }, get FLASH() { return FLASH; }, get hold() { return bulletHold; }, get bolts() { return bolts; }, get rings() { return rings; }, get B() { return bullets; }, get beams() { return beams; }, flashing: e => isFlashing(e), wipe: () => inkWipe(), branchEnd: id => branchEnd(CHOSIK_BY[id]), get chosik() { return CHOSIK; }, kickFx: (k, a, b, c) => k === "air" ? airKickFx(a, b, c) : wallKickFx(a, b, c), enlighten: f => enlighten(f), syncCombos: () => syncCombos(), has: id => has(id), get FL() { flashSync(); return FLASH; } };
+if (location.hash === "#debug" && /^(localhost|127\.0\.0\.1)$/.test(location.hostname)) window.__dbg = { get missing() { return ALL_SHEETS.filter(n => !LAZY_SHEETS.has(n) && !SPR[n]).concat(BASE_IMGS.filter(k => !IMG[k])); }, tp(tx, ty) { P.x = tx * T + 7; P.y = (ty + 1) * T - 30; P.vx = P.vy = 0; }, get state() { return state; }, get P() { return P; }, get LV() { return LV; }, get state2() { return state; }, get SC() { return LV.scenery; }, get E() { return enemies; }, get run() { return run; }, set hs(v) { hitstop = v; }, kill(e) { killEnemy(e); }, hurt(e, s, k) { hurtEnemy(e, s, k); }, die(k, d) { die(k, d); }, banner(a, b, c) { banner(a, b === "red" ? SEAL : JJOK, c); }, chungo() { chungo(); }, clear() { madangClear(); }, hubAct() { hubAct(); }, get hub() { return { hubOn, hubNear }; }, get songPos() { return songPos; }, get FLASH() { return FLASH; }, get hold() { return bulletHold; }, get bolts() { return bolts; }, get rings() { return rings; }, get B() { return bullets; }, get beams() { return beams; }, flashing: e => isFlashing(e), wipe: () => inkWipe(), branchEnd: id => branchEnd(CHOSIK_BY[id]), get chosik() { return CHOSIK; }, kickFx: (k, a, b, c) => k === "air" ? airKickFx(a, b, c) : wallKickFx(a, b, c), enlighten: f => enlighten(f), syncCombos: () => syncCombos(), has: id => has(id), get FL() { flashSync(); return FLASH; }, gen: (seed, m, len = 5) => buildMadangMap(seed, m, 0, null, false, 1, 0, len), loadGen(seed, m, len = 5) { loadMap(buildMadangMap(seed, m, 0, null, false, 1, 0, len), PAL[m]); spawnEnemies(); P.x = LV.start.x; P.y = LV.start.y; P.vx = P.vy = 0; }, get songPos() { return songPos; }, slashAt(dx, dy) { P.slashDir = { x: dx, y: dy }; P.slashT = .2; }, tileAt: (x, y) => tileAt(x, y) };
 window.addEventListener("pointerdown", () => Music.unlock(), { once: true, capture: true });   // first tap anywhere starts the sound
 resize();
 toMenu();
