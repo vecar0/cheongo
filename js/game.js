@@ -244,6 +244,9 @@ const schoolN = k => !run ? 0 : (run.perks || []).filter(id => SCHOOL_OF[id] ===
 const res = () => false;   // 공명 is gone
 const simb = k => !!(run && run.simbeop === k);
 const isGun = () => !!(run && WEAPONS[wpn()] && WEAPONS[wpn()].gun);
+let wdefC = { k: null, v: null };
+const wdef = () => { const b = WEAPONS[wpn()], F = run && run.form && FORMS[wpn()]; if (!F || run.form !== F.id) return b; if (wdefC.k !== F.id) wdefC = { k: F.id, v: { ...b, ...(F.ov || {}) } }; return wdefC.v; };   // the weapon as this run holds it (무기 형)
+const formF = f => { const F = run && run.form && FORMS[wpn()]; return !!(F && run.form === F.id && F.f === f); };
 const wpn = () => (run && run.weapon && WEAPONS[run.weapon]) ? run.weapon : "hwando";
 const wk = () => WEAPONS[wpn()].kind || wpn();   // the rules a weapon plays by
 const wrule = () => { const w = WEAPONS[wpn()]; return w.kind || (w.ch ? "hwando" : wpn()); };   // 장단 · 기세 · 내려베기 · 거합
@@ -586,7 +589,7 @@ function keyScreen() { // 키 바꾸기: one extra key per action, kept beside t
   board("키 바꾸기", remapFor ? "새 키를 눌러라 (Esc는 취소)" : "기본 키는 그대로 두고, 하나를 더 붙인다", KEY_ACTS.map(([a, nm, def]) => bdRow(nm, `기본 ${def}${ck[a] ? ` · 더한 키 ${keyName(ck[a])}` : ""}`, null, remapFor === a ? "누르는 중…" : "바꾸기", () => { remapFor = a; keyScreen(); })),
     [["처음대로", () => { settings.keys = {}; saveSettings(); keyScreen(); }], ["돌아가기", () => { remapFor = null; showScreen("settings"); state = "menu"; }, true]]);
 }
-const IAI_FULL = .32, IAI_MASTER = .75, iaiF = () => IAI_FULL * (has("bd_c1") ? .7 : 1), iaiM = () => IAI_MASTER * (has("bd_c1") ? .7 : 1);   // seconds of holding before the 발도 / 각궁 draw is full   // 발도: when the hand went to the hilt
+const IAI_FULL = .32, IAI_MASTER = .75, iaiF = () => IAI_FULL * (has("bd_c1") ? .7 : 1) * (formF("iaiFast") ? .6 : 1), iaiM = () => IAI_MASTER * (has("bd_c1") ? .7 : 1) * (formF("iaiFast") ? .6 : 1);   // seconds of holding before the 발도 / 각궁 draw is full   // 발도: when the hand went to the hilt
 window.addEventListener("blur", () => { for (const k in held) held[k] = 0; if (!hubOn && state === "play") pauseGame(); });   // another window took the focus: stop, as a hidden tab does
 function markTouch() { document.body.classList.add("touch"); }
 if (matchMedia("(pointer:coarse)").matches || "ontouchstart" in window) markTouch();
@@ -1078,7 +1081,9 @@ function startPicks(step = 0) {
   if (step === 1) { const own = run.char === "munyeo" || run.char === "posu" ? run.char : undefined;   // 무녀 and 포수 have their own arms
     const ws = Object.entries(WEAPONS).filter(([id, w]) => w.ch === own && (META.weapons.includes(id) || id === BASE_W[run.char])).map(([id, w]) => ({ id, ...w }));
     run.weapon = BASE_W[run.char] || "hwando"; if (ws.length < 2) return next();
-    return weaponPick(ws, w => { run.weapon = w.id; saveRun(); next(); }); }
+    return weaponPick(ws, w => { run.weapon = w.id; saveRun(); startPicks(1.5); }); }
+  if (step === 1.5 || (step === 2 && run.form === undefined)) { run.form = null; const F = FORMS[run.weapon]; if (F && (META.forms || []).includes(F.id)) { const W = WEAPONS[run.weapon];
+      return pickScreen("형을 골라라", `${josa(W.name, "을", "를")} 어떻게 쥘 것인가`, [{ id: null, name: "본형", han: "本形", desc: W.desc.split(" — ")[0] + " · 늘 쓰던 그대로", calm: true }, { ...F }], f => { run.form = f.id; saveRun(); startPicks(2); }); } step = 2; }
   if (false && step === 2 && !run.simbeop) {   // 심법 opens after two runs, 서약 after four: the first run is the weapon alone
  const pool = SIMBEOP.filter(m => META.simbeop.includes(m.id)), rs = mulberry(run.seed ^ 0x51B), drawn = [];
     while (drawn.length < 3 && pool.length) drawn.push(pool.splice((rs() * pool.length) | 0, 1)[0]);   // three at random, like the oaths
@@ -1543,6 +1548,7 @@ function nextGoal() { // the cheapest thing still locked in the 거점, and how 
   for (const B of BUILDINGS) { const nx = B.lv[META.bld[B.id] || 0]; if (nx && nx.hon && !nx.shard) c.push([nx.hon, `${B.name} · ${nx.desc}`]); }
   for (const w of WELL) if (!well(w.id) && (!w.need || well(w.need))) c.push([w.hon, `약수 · ${w.name}`]);
   { const w = WARES.find(o => o.hon && !wareOpen(o)); if (w) c.push([w.hon, `장터 물건 · ${w.name}`]); }
+  { const F = FORMS.hwando; if (!(META.forms || []).includes(F.id)) c.push([F.hon, `무기 형 · 환도 ${F.name}`]); }
   { const t = TREE_ALT[treeKey && run ? treeKey() : "hwando"] || TREE_ALT.hwando, nx = Object.values(t).flat().find(o => !(META.alts || []).includes(o.id)); if (nx) c.push([ALT_HON, `수련 후보 · ${nx.name}`]); }
   for (const [id, w] of Object.entries(WEAPONS)) if (w.cost && !w.ch && !META.weapons.includes(id)) c.push([w.cost, `무기 · ${w.name}`]);
   const t = TREE_OPEN[treeOpen()]; if (t) c.push([t.hon, `수련 · ${t.name}`]);
@@ -1552,7 +1558,7 @@ function nextGoal() { // the cheapest thing still locked in the 거점, and how 
 let lastKit = null;   // 같은 채비로 다시: the hand, weapon, 심법 and 서약 of the run just ended
 function endRun(won) {
   if (!won && run && mode !== "tutorial") logGate("dead");
-  if (run && !run.tower && mode !== "tutorial") lastKit = { char: run.char, weapon: run.weapon, simbeop: run.simbeop, oath: run.oath, perks: (run.perks || []).filter(id => SIMBEOP.some(m => startOf(m, run.char) === id)).slice(0, 1) };
+  if (run && !run.tower && mode !== "tutorial") lastKit = { char: run.char, weapon: run.weapon, form: run.form, simbeop: run.simbeop, oath: run.oath, perks: (run.perks || []).filter(id => SIMBEOP.some(m => startOf(m, run.char) === id)).slice(0, 1) };
   state = "result"; Music.stop();
   if (run.daily && !run.tower) { const d = META.daily && META.daily.key === run.daily ? META.daily : { key: run.daily, reached: -1, time: 0 }, rc = (run.cycle || 0) * (LAST_M + 1) + run.m + (won ? 1 : 0);
     if (rc > d.reached || (rc === d.reached && run.time < d.time)) { META.daily = { key: run.daily, reached: rc, time: run.time }; run.dailyBest = true; } }
@@ -1620,14 +1626,14 @@ function talismans(d) { // 부적 세 장: a fan of paper charms thrown along th
     bullets.push({ x: cx + vx * 16, y: cy + vy * 16, vx: vx * 720, vy: vy * 720, ang: Math.atan2(vy, vx), friendly: true, talisman: true, wind: true, strike: true, r: 14, life: .5, owner: null }); }
 }
 const GUN_AX = { gun1: [.5, .3, .25, .45, .28, .5, .5, .38, .3], gun2: [.42, .24, .45, .45, .25, .5, .45, .25, .5], grun: [.5, .5, .49, .44, .47, .46, .41, .41, .4], grun2: [.544, .551, .522, .510, .553, .573, .536, .522, .606, .629, .612, .609, .576, .623, .618, .605, .620, .603, .590, .591, .595, .601, .591, .591, .575, .567, .565, .583, .542, .559, .578, .577] };   // grun: the three heavy guns carried at a run
-const gunMag = () => (WEAPONS[wpn()].mag || 1) + treeStat("mag");
+const gunMag = () => (wdef().mag || 1) + treeStat("mag");
 function gunReload(n, why) { // a round goes back in (a bayonet that bit, a read blow, the slow match)
-  const G = WEAPONS[wpn()]; if (!G || !G.gun || !P) return;
+  const G = wdef(); if (!G || !G.gun || !P) return;
   if (G.heat) { P.heat = Math.max(0, (P.heat || 0) - 34 * n); if (P.overheat > 0 && n >= 3) P.overheat = 0; return; }
   const before = P.ammo ?? gunMag(); P.ammo = Math.min(gunMag(), before + n); if (P.ammo > before) { P.reloadT = .25; if (why !== "slow") Music.sfx("hook"); }
 }
 function blast(x, y, r, strike, opts = {}) { // a gun's explosion: ink and fire, everyone inside cut
-  r *= 1 + treeStat("blast");
+  r *= (1 + treeStat("blast")) * (formF("small") || formF("cool") ? .72 : 1);
   if (SPR.gfx) addFx("gfx", 3, x, y, r * 2.1, { life: .45, grow: .25, rot: Math.random() * 6.28 }); else fireFx(x, y, r);
   shake = Math.max(shake, Math.min(14, 4 + r / 12)); hitstop = Math.max(hitstop, .04); Music.sfx("shoot");
   for (const e of enemies) { if (!e.alive || ghostly(e)) continue; const dd = Math.hypot(e.x + e.w / 2 - x, e.y + e.h / 2 - y), rr = Math.max(e.w, e.h) / 2; if (dd >= r + rr) continue;
@@ -1639,9 +1645,9 @@ function blast(x, y, r, strike, opts = {}) { // a gun's explosion: ink and fire,
 function chainBlast(x, y, depth) { if (has("sj_c3") && depth) ougiArt(["ogB", 5], x, y, 110, { life: .4 }); blast(x, y, 48, false, { after: e => { if (!e.alive && has("sj_c3") && depth < 4) setTimeout(() => chainBlast(e.x + e.w / 2, e.y + e.h / 2, depth + 1), 90); } }); }   // 유폭 · 연쇄유폭
 let pfires = [];   // fire left on the ground by your own shots: it burns foes, never you
 function pfire(x, y, w, t) { pfires.push({ x, y, w, h: 20, until: songPos + t, tick: 0 }); }
-const gunReady = () => { if (!isGun()) return false; const G = WEAPONS[wpn()]; return G.heat ? !((P.overheat || 0) > 0 && !has("sg_b3")) : (P.ammo ?? gunMag()) > 0; };
+const gunReady = () => { if (!isGun()) return false; const G = wdef(); return G.heat ? !((P.overheat || 0) > 0 && !has("sg_b3")) : (P.ammo ?? gunMag()) > 0; };
 function gunShot(hip) { // 총: the aimed release is a shot, and the recoil is the dash; an empty gun lunges with the bayonet instead
-  const G = WEAPONS[wpn()], w = wpn();
+  const G = wdef(), w = wpn();
   if (G.heat) { if ((P.overheat || 0) > 0 && !has("sg_b3")) return false; }
   else if ((P.ammo ?? gunMag()) <= 0) return false;
   if (hip) return hipShot(G, w);
@@ -1660,8 +1666,8 @@ function gunShot(hip) { // 총: the aimed release is a shot, and the recoil is t
 
     k = has("jc_b1") ? 1.5 : 1; if (has("jc_b2") && d.y > .6) { k *= 1.6; gunReload(1); } }
   else if (w === "seungja") {   // 산탄: a cone, short; the closer the harder
-    const n = has("sj_a3") ? 7 : 4, sp = has("sj_a3") ? .5 : .32, once = new Set();   // each body takes one wound per shot, however many pellets find it
-    for (let i = 0; i < n; i++) aimRay(rot(-sp + 2 * sp * i / (n - 1)), 180, 8, 0, cx, cy, false, { pellet: true, once });
+    const slug = formF("slug"), n = slug ? 1 : has("sj_a3") ? 7 : 4, sp = slug ? 0 : has("sj_a3") ? .5 : .32, once = new Set();   // each body takes one wound per shot, however many pellets find it
+    if (slug) aimRay(rot(0), 520, 12, 0, cx, cy, true, {}); else for (let i = 0; i < n; i++) aimRay(rot(-sp + 2 * sp * i / (n - 1)), 180, 8, 0, cx, cy, false, { pellet: true, once });   // 철포형: one heavy shot
     if (has("sj_a3")) ougiArt(["ogB", 3], cx + d.x * 50, cy + d.y * 50, 100, { life: .3, rot: Math.atan2(d.y, Math.abs(d.x)) * Math.sign(d.x || 1), flip: d.x < 0 });
     if (has("sj_a3")) for (const b of bullets) if (!b.friendly && Math.hypot(b.x - cx, b.y - cy) < 200 && ((b.x - cx) * d.x + (b.y - cy) * d.y) > 0) b.life = 0;
     fxi = 1; k = (has("sj_b1") ? 1.35 : 1.25) * (has("sj_b2") && air && P.airShots >= 1 ? 2 : 1); if (air) P.airShots = (P.airShots || 0) + 1;
@@ -1720,11 +1726,11 @@ function stepEdge(dt) { if (!edgeOn()) return; if (P.edge == null) P.edge = edge
   P.edgeIdle = (P.edgeIdle || 0) + dt; if (P.edge < edgeMax() && P.edgeIdle > .35) { P.edgeT = (P.edgeT || 0) + dt; if (P.edgeT >= EDGE[wk()][1] / (momTier() >= 3 ? 2 : 1) / (1 + treeStat("edgeRate"))) { P.edgeT = 0; P.edge++; } } }
 function whet(n = 99) { if (P && edgeOn()) P.edge = Math.min(edgeMax(), (P.edge ?? edgeMax()) + n); }
 function stepGun(dt) { // the slow match: an empty gun refills by itself, a hot box cools
-  const G = WEAPONS[wpn()]; if (!G || !G.gun) return;
+  const G = wdef(); if (!G || !G.gun) return;
   if (P.onGround) { P.airFree = false; P.airShots = 0; }
   P.stillT = P.onGround && Math.abs(P.vx) < 20 ? (P.stillT || 0) + dt : 0;
   P.fireT = Math.max(0, (P.fireT || 0) - dt); P.reloadT = Math.max(0, (P.reloadT || 0) - dt); P.bayoT = Math.max(0, (P.bayoT || 0) - dt); P.cannonT = Math.max(0, (P.cannonT || 0) - dt);
-  if (G.heat) { P.heat = Math.max(0, (P.heat || 0) - dt * 30 * (has("sg_b1") ? 2 : 1) * (1 + treeStat("heat"))); if (P.overheat > 0) P.overheat -= dt * (has("sg_b1") ? 2 : 1); return; }
+  if (G.heat) { P.heat = Math.max(0, (P.heat || 0) - dt * 30 * (has("sg_b1") ? 2 : 1) * (1 + treeStat("heat")) * (formF("cool") ? 2 : 1)); if (P.overheat > 0) P.overheat -= dt * (has("sg_b1") ? 2 : 1); return; }
   if (P.ammo == null) P.ammo = gunMag();
   if (P.ammo < gunMag()) { P.slowRe = (P.slowRe || 0) + dt; if (P.slowRe > 2.4 / (1 + treeStat("reload"))) { P.slowRe = 0; gunReload(1, "slow"); } } else P.slowRe = 0;
   if (P.cannonT > 0) for (const e of enemies) if (e.alive && !ghostly(e) && overlap(e, P)) hurtEnemy(e, e.type !== "b");   // 포탄비행: the body itself is the shot
@@ -1839,7 +1845,7 @@ function shot(d, arrow) {
   let d = req.dir;
   if (!d) { const a = axis(), m = Math.hypot(a.x, a.y); d = m > 0.5 ? { x: a.x / m, y: a.y / m } : { x: P.face, y: 0 }; }
   const off = Music.offBeat(Music.posAt(req.ts));
-  const WP = WEAPONS[wpn()], onBeat = !!window.__forceStrike;   // the drum no longer judges the hand: an 일격 comes from 일섬, a full 거합 or a run of cuts
+  const WP = wdef(), onBeat = !!window.__forceStrike;   // the drum no longer judges the hand: an 일격 comes from 일섬, a full 거합 or a run of cuts
   let strike = onBeat;
   if (onBeat && false) P.chainT = .45;
   P.whiff = false;
@@ -2781,6 +2787,7 @@ function kanPerks(e) { // what the held 간파 비급 gives back for one read bl
   if (!P || state !== "play") return; const x = e.x + e.w / 2, y = e.y + e.h / 2, px = P.x + P.w / 2, py = P.y + P.h / 2;
   if (pet && !pet.act) pet.cd = Math.min(pet.cd, .05);   // the beast answers a read blow at once
   if (has("d_beat")) P.airDash++;
+  if (formF("quickKan")) P.slashCd = 0;   // 쾌검형
   if (treasure("bell")) addCoin(1);   // 풍경
   if (has("x_kanburst")) { inkFx("ring", x, y, 200, { life: .35, grow: .5 }); for (const o of enemies) if (o !== e && o.alive && !ghostly(o) && o.type !== "b" && Math.hypot(o.x + o.w / 2 - x, o.y + o.h / 2 - y) < 120) hurtEnemy(o, false); }   // 둘레까지
   if (has("x_airkan") && P && !P.onGround) { P.airDash++; P.vy = Math.min(P.vy, -280); }   // 공중 간파
@@ -3230,7 +3237,7 @@ function drumsInPlay() { return mode === "tutorial" || !LV.drums ? [] : LV.drums
 function slashHits() {
   if (P.slashT <= 0) return;
   if (!bossAlive()) for (const d of drumsInPlay()) { const cx = P.x + P.w / 2 + P.slashDir.x * 26, cy = P.y + P.h / 2 + P.slashDir.y * 26; if (Math.abs(cx - d.x) < 52 + (d.big ? 20 : 0) && cy > d.y - d.h - 24 && cy < d.y + 10) cutDrum(d); }
-  const WP = WEAPONS[wpn()];
+  const WP = wdef();
   if (P.whiff) return;
   let R = (P.strike ? 54 * (1) : 40) * (1) * ((1)) + (0); let reach = (P.strike ? 30 : 26) + (0);
   R *= WP.R * (1) * (oath("hyeon") ? 1.2 : 1) * (P.strike && oath("goyo2") ? 2.5 : 1); reach += WP.reach + (0);
@@ -5033,7 +5040,7 @@ function hubAct() {
   if (id === "gate") return menu("산문 山門", "어디로 갈 것인가", [["길 떠나기", "천고를 향한 한 바퀴", gateScreen], ["천고탑", "층마다 우두머리 · 무한", () => towerScreen(), cut ? null : "천고를 한 번 베면 열린다"], ["수련터", "조작을 다시 익힌다", () => { leaveHub(); Music.unlock(); loadGate(playSheets(), BASE_IMGS, startTutorial, "수련터를 그리는 중"); }]]);
   if (id === "well") return menu("약수터 藥水", "숨을 다스리고 영물을 키운다", [["약수", "혼으로 숨을 다스린다", wellScreen], ["둥지", "혼으로 영물을 키운다", petScreen, lockAt(2)]]);
   if (id === "hall") return menu("본당 本堂", "산중 암자의 중심", [["서약", "판에 거는 서약을 연다 — 걸수록 혼이 더 모인다", () => hermitScreen("seogo"), lockAt(3)], ...(META.books.length || META.firsts.cut ? [["비급각", "봉인한 수련 빌드", sealShelf]] : [])]);
-  if (id === "forge") return menu("대장간 鍛冶間", "벼리고 물들인다", [["무기", "새 무기를 벼린다", () => hermitScreen("daejang"), lockAt(1)], ["수련 후보", "혼으로 갈래의 2·4단 후보를 연다 — 판마다 그중 하나가 나온다", altScreen, lockAt(1)], ["장터 물건", "혼으로 보부상이 들고 올 물건을 늘린다", wareScreen, lockAt(1)], ["의방", "띠의 빛깔", () => hermitScreen("uibang"), lockAt(3)]]);
+  if (id === "forge") return menu("대장간 鍛冶間", "벼리고 물들인다", [["무기", "새 무기를 벼린다", () => hermitScreen("daejang"), lockAt(1)], ["수련 후보", "혼으로 갈래의 2·4단 후보를 연다 — 판마다 그중 하나가 나온다", altScreen, lockAt(1)], ["장터 물건", "혼으로 보부상이 들고 올 물건을 늘린다", wareScreen, lockAt(1)], ["무기 형", "같은 무기를 다르게 쥐는 법 — 판을 시작할 때 고른다", formScreen, lockAt(2)], ["의방", "띠의 빛깔", () => hermitScreen("uibang"), lockAt(3)]]);
   if (id === "drum") return menu("큰북 大鼓", "북 곁의 기록", [["수행", "오늘의 수행", questScreen, lockAt(1)], ["도감", "우두머리 · 수련 · 기억 · 호", () => codexScreen(), met ? null : "우두머리를 한 번 만나면 열린다"], ["플레이 기록", "최근 판·관문 시간·자주 쓰러진 곳·기기 성능", logScreen]]);
   if (id === "gate") return gateScreen();
   if (id === "dummy") { leaveHub(); Music.unlock(); loadGate(playSheets(), BASE_IMGS, startTutorial, "수련터를 그리는 중"); return; }
@@ -5068,6 +5075,13 @@ function decoScreen(slot) {
     rows.push(bdRow(d.name + (cur === d.id ? " · 놓여 있음" : ""), own ? "이미 들였다" : `혼 ${d.hon}`, null, cur === d.id ? null : own ? "놓기" : "들이기", () => {
       if (!own) { META.hon -= d.hon; dk.own.push(d.id); } dk.slots[slot] = d.id; saveMeta(); enterHub(); toast(`${d.name}을(를) 놓았다`); }, !own && META.hon < d.hon)); }
   board("거점 꾸미기", "들인 것은 어느 터에든 다시 놓을 수 있다", rows, [["돌아가기", resumeHub]]);
+}
+function formScreen() { // 무기 형: one more way to hold each weapon you own
+  const rows = [curLine()]; META.forms = META.forms || [];
+  for (const [w, F] of Object.entries(FORMS)) { if (w !== "hwando" && !(META.weapons || []).includes(w)) continue; const W = WEAPONS[w], got = META.forms.includes(F.id);
+    rows.push(bdRow(`${W.name} · ${F.name} ${F.han}`, F.desc + (got ? " · 열림 (판을 시작할 때 고른다)" : ` — 혼 ${F.hon}`), null, got ? null : "열기", () => {
+      META.hon -= F.hon; META.forms.push(F.id); saveMeta(); hubHud(); Music.sfx("lantern"); toast(`${W.name} ${F.name} · 다음 판부터 고를 수 있다`); formScreen(); }, !got && META.hon < F.hon)); }
+  board("무기 형", "강해지는 것이 아니라 손이 달라진다", rows, [["돌아가기", resumeHub]]);
 }
 function wareScreen() { // 장터 물건: what the peddlers may carry
   const rows = [curLine()]; META.wares = META.wares || [];
@@ -5218,6 +5232,7 @@ function pauseBuild() { // the build so far: hand and weapon, 심법, 서약, �
     d.querySelector(".pb-k").textContent = label; const b = d.querySelector("b"); b.textContent = name; if (col) b.style.setProperty("--sc", col), b.classList.add("bead"); d.querySelector("small").textContent = desc || ""; box.appendChild(d); };
   const ch = CHARS.find(c => c.id === (run.char || "mumyeong")), w = WEAPONS[wpn()];
   line("검객", `${ch ? ch.name : "무명"} · ${w.name}`, w.desc);
+  { const F = run.form && FORMS[run.weapon]; if (F && run.form === F.id) line("형", F.name, F.desc); }
   for (const id of run.oaths || []) { const o = OATHS.find(x => x.id === id); if (o) line("서약", o.name, `${o.desc} · 대가: ${o.cost}`); }
   const oa = OATHS.find(o => o.id === run.oath); line("서약", oa ? oa.name : "없음", oa ? `${oa.desc} — 대가 · ${oa.cost}` : "");
   { const T = TREES[treeKey()], mine = new Set(run.perks || []);   // the weapon's tree, branch by branch
@@ -5298,7 +5313,7 @@ $("bHelp").addEventListener("click", () => { // the controls and the hidden rule
     : [["이동", "← → (↑ ↓ 조준)"], ["베기", "J 또는 X"], ["점프", "Space · 벽에 붙어 누르면 벽차기"], ["대시", "K/C/Shift 짧게 = 돌진 · 길게 = 무아경 → 떼면 일섬"], ["연", "L"], ["멈춤", "Esc"]];
   const R2 = [["간파", "적 몸의 원이 점으로 닫히는 순간 베면 무조건 쓰러지고 기세·날·탄이 돌아온다"], ["일격", "북이 울리는 박에 맞춰 베면 붉은 일격"], ["총", "탭 = 허리 사격(가까이·한 발) · 길게 = 걸으며 조준 → 떼면 조준 사격 · 번쩍이는 적을 쏘면 탄이 가득"], ["방패", "등패수는 정면을, 북잡이는 모든 방향을 막는다 — 간파·일섬·일격으로 벤다 (총은 뚫는다)"], ["붉은 탄", "가시 테두리 탄은 되받아칠 수 없다 — 피하거나 쏘기 전에 간파"], ["숨", "맞으면 하나 잃는다 · 관문을 넘으면 셋까지 하나 돌아온다"], ["기력 (왼쪽 위 붓줄)", "무아경을 버티는 힘 · 땅을 밟으면 찬다"], ["기세 (왼쪽 위 다섯 칸)", "베고 간파할수록 오른다 · 5단이면 무아지경 · 맞으면 한 단 내려간다"], ["천고 기운 (아래 북)", "북이 다 차면 천고난무 한 번 (갈래 3단이면 오의)"], ["날 · 탄 (머리 위)", "칼은 날이 무디면 튕기고, 총은 탄이 비면 찌른다 — 쉬거나 간파하면 돌아온다"]];
   board("조작법", "멈춘 동안 읽어 둔다", [...T2, ...R2].map(([a, b]) => bdRow(a, b)), [["돌아가기", () => { state = "pause"; showScreen("pause"); }]]); });
-$("bSame").addEventListener("click", () => { if (!lastKit) return newRun(); const k = lastKit; newRun(true); Object.assign(run, { char: k.char, weapon: k.weapon, simbeop: k.simbeop, oath: k.oath, perks: k.perks.slice(), picking: false }); if (k.oath === "pi") run.breath = Math.min(run.breath, 2); run.breath = Math.min(run.breath, breathCap()); saveRun(); Music.stop(); showInterlude(); });
+$("bSame").addEventListener("click", () => { if (!lastKit) return newRun(); const k = lastKit; newRun(true); Object.assign(run, { char: k.char, weapon: k.weapon, form: k.form || null, simbeop: k.simbeop, oath: k.oath, perks: k.perks.slice(), picking: false }); if (k.oath === "pi") run.breath = Math.min(run.breath, 2); run.breath = Math.min(run.breath, breathCap()); saveRun(); Music.stop(); showInterlude(); });
 $("bResMenu").addEventListener("click", () => showMemories(toMenu));
 $("bShare").addEventListener("click", async () => {
   const text = shareText();
@@ -5314,7 +5329,7 @@ $("bInstall").addEventListener("click", async () => { if (!installEvt) return; i
 const standalone = matchMedia("(display-mode: standalone)").matches || matchMedia("(display-mode: fullscreen)").matches || navigator.standalone;
 
 
-if (location.hash === "#debug" && /^(localhost|127\.0\.0\.1)$/.test(location.hostname)) window.__dbg = { get missing() { return ALL_SHEETS.filter(n => !LAZY_SHEETS.has(n) && !SPR[n]).concat(BASE_IMGS.filter(k => !IMG[k])); }, tp(tx, ty) { P.x = tx * T + 7; P.y = (ty + 1) * T - 30; P.vx = P.vy = 0; }, get state() { return state; }, get P() { return P; }, get LV() { return LV; }, get state2() { return state; }, get SC() { return LV.scenery; }, get E() { return enemies; }, get run() { return run; }, set hs(v) { hitstop = v; }, kill(e) { killEnemy(e); }, hurt(e, s, k) { hurtEnemy(e, s, k); }, die(k, d) { die(k, d); }, banner(a, b, c) { banner(a, b === "red" ? SEAL : JJOK, c); }, chungo() { chungo(); }, clear() { madangClear(); }, hubAct() { hubAct(); }, get hub() { return { hubOn, hubNear }; }, get songPos() { return songPos; }, get FLASH() { return FLASH; }, get hold() { return bulletHold; }, get bolts() { return bolts; }, get rings() { return rings; }, get B() { return bullets; }, get beams() { return beams; }, flashing: e => isFlashing(e), wipe: () => inkWipe(), branchEnd: id => branchEnd(CHOSIK_BY[id]), get chosik() { return CHOSIK; }, kickFx: (k, a, b, c) => k === "air" ? airKickFx(a, b, c) : wallKickFx(a, b, c), enlighten: f => enlighten(f), syncCombos: () => syncCombos(), has: id => has(id), get FL() { flashSync(); return FLASH; }, gen: (seed, m, len = 5) => buildMadangMap(seed, m, 0, null, false, 1, 0, len), loadGen(seed, m, len = 5) { loadMap(buildMadangMap(seed, m, 0, null, false, 1, 0, len), PAL[m]); spawnEnemies(); P.x = LV.start.x; P.y = LV.start.y; P.vx = P.vy = 0; }, get songPos() { return songPos; }, slashAt(dx, dy) { P.slashDir = { x: dx, y: dy }; P.slashT = .2; }, tileAt: (x, y) => tileAt(x, y), omenScreen: () => showOmen(), get META() { return META; }, groupPick: g => groupPick(g), get clones() { return clones; }, set clones(v) { clones = v; }, oathN: () => oathN(), petScreen: () => petScreen() };
+if (location.hash === "#debug" && /^(localhost|127\.0\.0\.1)$/.test(location.hostname)) window.__dbg = { get missing() { return ALL_SHEETS.filter(n => !LAZY_SHEETS.has(n) && !SPR[n]).concat(BASE_IMGS.filter(k => !IMG[k])); }, tp(tx, ty) { P.x = tx * T + 7; P.y = (ty + 1) * T - 30; P.vx = P.vy = 0; }, get state() { return state; }, get P() { return P; }, get LV() { return LV; }, get state2() { return state; }, get SC() { return LV.scenery; }, get E() { return enemies; }, get run() { return run; }, set hs(v) { hitstop = v; }, kill(e) { killEnemy(e); }, hurt(e, s, k) { hurtEnemy(e, s, k); }, die(k, d) { die(k, d); }, banner(a, b, c) { banner(a, b === "red" ? SEAL : JJOK, c); }, chungo() { chungo(); }, clear() { madangClear(); }, hubAct() { hubAct(); }, get hub() { return { hubOn, hubNear }; }, get songPos() { return songPos; }, get FLASH() { return FLASH; }, get hold() { return bulletHold; }, get bolts() { return bolts; }, get rings() { return rings; }, get B() { return bullets; }, get beams() { return beams; }, flashing: e => isFlashing(e), wipe: () => inkWipe(), branchEnd: id => branchEnd(CHOSIK_BY[id]), get chosik() { return CHOSIK; }, kickFx: (k, a, b, c) => k === "air" ? airKickFx(a, b, c) : wallKickFx(a, b, c), enlighten: f => enlighten(f), syncCombos: () => syncCombos(), has: id => has(id), get FL() { flashSync(); return FLASH; }, gen: (seed, m, len = 5) => buildMadangMap(seed, m, 0, null, false, 1, 0, len), loadGen(seed, m, len = 5) { loadMap(buildMadangMap(seed, m, 0, null, false, 1, 0, len), PAL[m]); spawnEnemies(); P.x = LV.start.x; P.y = LV.start.y; P.vx = P.vy = 0; }, get songPos() { return songPos; }, slashAt(dx, dy) { P.slashDir = { x: dx, y: dy }; P.slashT = .2; }, tileAt: (x, y) => tileAt(x, y), omenScreen: () => showOmen(), gunShot: h => gunShot(h), picks: st => startPicks(st), wdef: () => wdef(), get META() { return META; }, groupPick: g => groupPick(g), get clones() { return clones; }, set clones(v) { clones = v; }, oathN: () => oathN(), petScreen: () => petScreen() };
 window.addEventListener("pointerdown", () => Music.unlock(), { once: true, capture: true });   // first tap anywhere starts the sound
 resize();
 toMenu();

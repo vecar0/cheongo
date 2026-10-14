@@ -295,6 +295,18 @@ cheonja: {
 };
 const ALT_HON = 80;   // 혼 to open one 수련 후보
 
+// 무기 형(形): another way to hold the same weapon — opened at the 대장간 with 혼, chosen when a run starts.
+// ov: the weapon's numbers it changes; f: the one rule it bends
+const FORMS = {
+hwando: { id: "hwando_f", name: "쾌검형", han: "快劍形", desc: "베기가 빠르고 짧다 · 간파하면 곧바로 다시 벨 수 있다", ov: { cd: .12, dur: .11, R: .85 }, f: "quickKan", hon: 150 },
+ssang: { id: "ssang_f", name: "회전형", han: "回轉形", desc: "모든 베기가 몸을 돌려 둘레를 벤다 · 범위는 조금 좁다", ov: { ring: true, R: .9 }, hon: 150 },
+woldo: { id: "woldo_f", name: "장창형", han: "長槍形", desc: "훨씬 멀리 닿는다 · 대신 느리다", ov: { reach: 40, R: 1.3, cd: .5 }, hon: 150 },
+baldo: { id: "baldo_f", name: "거합형", han: "居合形", desc: "모으기가 4할 빠르다 · 그냥 베기는 범위가 좁다", ov: { R: .6 }, f: "iaiFast", hon: 150 },
+jochong: { id: "jochong_f", name: "연사형", han: "連射形", desc: "탄 여섯, 빨리 쏜다 · 한 발 한 발은 그대로", ov: { mag: 6, cd: .14 }, hon: 150 },
+seungja: { id: "seungja_f", name: "철포형", han: "鐵砲形", desc: "산탄 대신 묵직한 한 발이 일격으로 꿰뚫는다 · 탄 셋", ov: { mag: 3 }, f: "slug", hon: 150 },
+singi: { id: "singi_f", name: "연노형", han: "連弩形", desc: "열이 두 배 빨리 식는다 · 폭발은 작다", f: "cool", hon: 150 },
+cheonja: { id: "cheonja_f", name: "산포형", han: "散砲形", desc: "포탄 둘을 지닌다 · 폭발은 작다", ov: { mag: 2 }, f: "small", hon: 150 } };
+
 // shared 비급 come in three grades; pairs held together reveal a 조합
 const RARITY = { d_janmyeong: 3, d_freeze: 3, d_breath: 3, d_cheonbo: 3, d_myeong: 2, d_beat: 2, d_zanshin: 2, d_tan: 2, d_ward: 2, d_breathe: 2, d_ganggi: 2, d_gihyeol: 2, d_jump: 2, d_bisang: 2, d_jilbo: 2, d_calm: 2 };
 
