@@ -309,7 +309,7 @@ const OATHS = [
 { id: "hyeon", name: "현의 서약", han: "玄誓", desc: "더 높이 뛰고, 두 배 빠르게 넓게 벤다", cost: "대시를 쓸 수 없다" },
 { id: "jilpung2", name: "질풍의 서약", han: "疾風誓", desc: "더 빨리 달린다", cost: "베기 범위가 30% 줄어든다" },
 { id: "geommu", name: "칼춤의 서약", han: "劍舞誓", desc: "쉬지 않고 이어 벨수록 베기가 커진다 (최대 두 배)", cost: "한 박자 넘게 쉬면 베기가 반으로 줄어든다" },
-{ id: "godok", name: "고독의 서약", han: "孤獨誓", desc: "비급 카드가 한 장 더 나온다", cost: "숨 비급이 나오지 않고, 관문을 넘어도 숨이 차지 않는다" }
+{ id: "godok", name: "고독의 서약", han: "孤獨誓", desc: "관문을 넘을 때마다 수련점 하나 더", cost: "관문을 넘어도 숨이 차지 않는다" }
 ]
 
 // 오의: the full drum looses the weapon's own secret art — each hand ends a fight its own way
