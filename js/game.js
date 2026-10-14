@@ -2,7 +2,7 @@
 (() => {
 "use strict";
 const T = 32;
-const ASSET_V = "138";   // bump when any picture changes: the service worker then fetches the new json and webp together
+const ASSET_V = "139";   // bump when any picture changes: the service worker then fetches the new json and webp together
 const $ = id => document.getElementById(id);
 const cv = $("cv"); let ctx = cv.getContext("2d", { alpha: false });   // let: the ground is baked by pointing ctx at an offscreen canvas for a moment   // opaque canvas: cheaper to composite on phones
 let W = 0, H = 0, DPR = 1, SCALE = 1;
@@ -4859,6 +4859,7 @@ let hubOn = false, hubNear = null;
 // the 거점 is one painted courtyard: a yard, a stone terrace (축대) with the main hall on it, and five places to go
 const HUB_W = 40, HUB_UP = 10, HUB_K = 40 * 32 / 1344, HUB_Y = 12 * 32 - 490 * (40 * 32 / 1344);   // the painting spans the map exactly   // the painting's ground line (y 490) sits on row 12; its terrace top lands on row 10
 const HUBIMG = new Image(); HUBIMG.src = `assets/hubscene.webp?v=${ASSET_V}`;
+const HUBGROUND = new Image(); HUBGROUND.src = `assets/hubground.webp?v=${ASSET_V}`;
 const HUB_ST = [
   { id: "gate", tx: 4, lx: -27, ty: 12, h: 150, name: "산문", han: "山門", act: "길 떠나기 · 천고탑 · 수련터" },
   { id: "well", tx: 9, lx: -24, ty: 12, h: 80, name: "약수터", han: "藥水", act: "숨 다스리기 · 영물" },
@@ -4900,8 +4901,12 @@ function drawHubScene(pal) { // the painting itself is the place; the yard below
   ctx.fillStyle = E.earth; ctx.fillRect(x - 900, top + h - 2, w + 1800, 1400);
   ctx.fillStyle = E.left; ctx.fillRect(x - 900, top, 902, h); ctx.fillStyle = E.right; ctx.fillRect(x + w - 2, top, 902, h);
   ctx.drawImage(I, x, top, w, h);
-  const fade = (y0, y1, col) => { const gr = ctx.createLinearGradient(0, y0, 0, y1); gr.addColorStop(0, "rgba(0,0,0,0)"); gr.addColorStop(1, col); return gr; };
-  ctx.fillStyle = fade(top + h - 60, top + h, E.earth); ctx.fillRect(x, top + h - 60, w, 61);
+  const G = HUBGROUND; if (G.complete && G.naturalWidth) {   // the yard in front: painted earth, stone slabs, grass and rocks toward the viewer, mirrored tile by tile so no seam shows
+    const gy = top + 492 * HUB_K, gw = w, gh = Math.max(gw * G.naturalHeight / G.naturalWidth, camView.y1 - gy + 8);   // a tall phone screen: the yard reaches its bottom edge
+    for (let k = -1; k <= 1; k++) { const gx = x + k * gw; ctx.save(); ctx.translate(gx + (k % 2 ? gw : 0), gy); if (k % 2) ctx.scale(-1, 1); ctx.drawImage(G, 0, 0, gw, gh); ctx.restore(); }
+    ctx.fillStyle = "rgba(60,54,46,.18)"; ctx.fillRect(x - gw, gy + gh - 2, gw * 3, 1400);   // below the painted yard, earth a shade darker
+  } else { const fade = (y0, y1, col) => { const gr = ctx.createLinearGradient(0, y0, 0, y1); gr.addColorStop(0, "rgba(0,0,0,0)"); gr.addColorStop(1, col); return gr; };
+    ctx.fillStyle = fade(top + h - 60, top + h, E.earth); ctx.fillRect(x, top + h - 60, w, 61); }
 }
 function enterHub() {
   hubOn = true; mode = "tutorial"; Music.menuBgm(true);
