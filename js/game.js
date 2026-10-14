@@ -2,7 +2,7 @@
 (() => {
 "use strict";
 const T = 32;
-const ASSET_V = "143";   // bump when any picture changes: the service worker then fetches the new json and webp together
+const ASSET_V = "144";   // bump when any picture changes: the service worker then fetches the new json and webp together
 const $ = id => document.getElementById(id);
 const cv = $("cv"); let ctx = cv.getContext("2d", { alpha: false });   // let: the ground is baked by pointing ctx at an offscreen canvas for a moment   // opaque canvas: cheaper to composite on phones
 let W = 0, H = 0, DPR = 1, SCALE = 1;
@@ -1311,7 +1311,10 @@ function madangClear() {
 // 수련: a real skill tree. Each cleared gate gives 수련점; spend them on the weapon's tree (a node opens the next along its branch),
 // or on a shared 비급 for the 방어·간파·이동 slots. Unspent points are kept.
 const SP_GAIN = TUNING.SP_GAIN;
-const spCost = c => c.merge ? 3 : [1, 1, 2, 2, 3][c.tier] || 1;   // deeper steps cost more: a branch to its end is 8 points, the whole tree 31 — a run walks one branch out and a little more
+// deeper steps cost more, and every other branch already opened adds one to each step of a new one:
+// the first branch to its 오의 is 8 points as before, a second 12, a third 16, the joins 4 — the whole tree about 45, so a run must choose
+const brOrder = tree => { const o = []; for (const id of (run && run.perks) || []) { const c = CHOSIK_BY[id]; if (c && c.tree === tree && c.tier >= 1 && !c.merge && !c.ougi && !o.includes(c.br)) o.push(c.br); } return o; };   // perks are kept in the order learned
+const spCost = c => { if (c.merge) return 4; if (!c.tier) return 1; const o = brOrder(c.tree), i = o.indexOf(c.br); return ([1, 1, 2, 2, 3][c.tier] || 1) + (c.br == null ? 0 : i < 0 ? o.length : i); };
 function showChoice(kind) {   // kind: "madang" after a cleared gate, "cycle" after cutting 천고, "bonus", "tower", or "pause" (spending from the pause menu)
   const done = () => {
     run.choosing = null; $("choice").classList.remove("tree");
@@ -1338,7 +1341,7 @@ function showChoice(kind) {   // kind: "madang" after a cleared gate, "cycle" af
   $("chTitle").textContent = "수련"; $("choice").classList.remove("route", "wpick"); $("choice").classList.add("tree"); document.querySelectorAll(".route-trail,.ch-held").forEach(o => o.remove());
   $("chMadang").textContent = kind === "pause" ? "멈춤 · 수련" : kind === "tower" ? `천고탑 ${run.floor - 1}층을 넘었다` : kind === "cycle" ? `천고를 베었다 · ${(run.cycle || 0) + 1}번째` : kind === "bonus" ? "징조의 대가" : run.cleared === "rest" ? "쉼터 · 수련" : run.cleared === "event" ? "기연" : `${josa(stageOf(run.m - 1).ko, "을", "를")} 넘었다`;
   const box = $("cards"); box.innerHTML = "";
-  const sp = document.createElement("div"); sp.className = "tr-sp"; sp.innerHTML = `수련점 <b>${"●".repeat(run.sp || 0) || "－"}</b><small>뿌리·1단 1점 · 2·3단 2점 · 4단·합류 3점 · 갈래 끝(4단)을 익히면 천고난무가 오의로</small>`; box.appendChild(sp);
+  const sp = document.createElement("div"); sp.className = "tr-sp"; sp.innerHTML = `수련점 <b>${"●".repeat(run.sp || 0) || "－"}</b><small>뿌리·1단 1점 · 2·3단 2점 · 4단 3점 · 합류 4점 · 갈래를 새로 열 때마다 그 갈래는 한 점씩 더 · 갈래 끝(4단)을 익히면 천고난무가 오의로</small>`; box.appendChild(sp);
   const wrap = document.createElement("div"); wrap.className = "tr-wrap"; box.appendChild(wrap);
   const graph = document.createElement("div"); graph.className = "tr-graph"; const side = document.createElement("div"); side.className = "tr-side"; wrap.append(graph, side);
   let sel = null;
@@ -1436,7 +1439,7 @@ function setupRoad() { // the small road stage: set dressing, one person to talk
   const put = (sheet, i, tx, h, flip) => LV.dress.push({ sheet, i, x: tx * T + 16, y: 12 * T + 2, h, flip: !!flip, ay: 1 });
   let who;
   if (run.node === "rest") { put("npc", 6, 9, 112); put("npc", 7, 26, 52); put("npc", 9, 19, 74); put("props2", P2.brazier, 5, 34); put("props2", P2.sacks, 17, 34); put("props2", P2.rack, 21, 44);   // 쉼터: no free rest now — the 보부상 sells breath for 엽전
-    LV.stations = [{ id: "shop", tx: 19, h: 48, name: "보부상", act: "장터" }]; return; }
+    LV.stations = [{ id: "shop", tx: 19, h: 84, name: "보부상", act: "장터" }]; return; }
   else { const ev = run.eventId || "well"; who = EVENT_NPC[ev]; put("npc", 8, 11, 100); put("props", PROP.stoneLantern, 25, 44); if (who !== "spring") put("props", PROP.jars, 6, 30); }
   const n = NPC[who]; put("npc", n.i, 19, who === "spring" ? 54 : 64, n.flip); LV.stations = [{ id: "npc", who, tx: 19, h: 64, name: n.name, act: run.talked ? "인사" : "이야기" }];
 
@@ -2890,10 +2893,10 @@ function stepChungo(rdt) {
     P.aimDash = true; P.aimedUntil = songPos + .6; for (const e of c.ts) { hurtEnemy(e, c.plain && e.type === "b" ? false : 2); if (!e.alive) bleed(e.x + e.w / 2, e.y + e.h / 2, { x: (Math.random() - .5) * 2, y: -.5 }, true); } P.aimDash = false;
     const last = c.ts[c.ts.length - 1], side = Math.sign(last.x + last.w / 2 - c.pts[0].x) || P.face, nx = last.x + last.w / 2 + side * (last.w / 2 + 16) - P.w / 2, ny = last.y + last.h - P.h - .01;
     if (!rectSolid(nx, ny, P.w, P.h)) { P.x = nx; P.y = ny; P.face = -side; } P.vy = -200; regainAir();
-    if (c.w === "woldo") for (const e of c.ts) addFx("wfx", WF2.quake, e.x + e.w / 2, e.y + e.h + 4, 70, { life: .5, grow: .2, ay: 1 });   // 낙월: each lands like a blow from above
-    if (!c.plain) { const o = ougiOf(), sc = 1; for (const e of c.ts) ougiArt(o.art, e.x + e.w / 2, e.y + e.h / 2, (c.w === "baldo" ? 150 : 110) * sc, { life: .55, rot: c.w === "woldo" ? 0 : Math.random() * .5 - .25, ay: c.w === "woldo" ? .85 : .5 }); }
+    if (c.w === "woldo") for (const e of c.ts) addFx("wfx", WF2.quake, e.x + e.w / 2, e.y + e.h + 4, c.plain ? 40 : 54, { life: .45, grow: .15, ay: 1 });   // 낙월: each lands like a blow from above
+    if (!c.plain) { const o = ougiOf(), sc = 1; for (const e of c.ts) ougiArt(o.art, e.x + e.w / 2, e.y + e.h / 2, (c.w === "baldo" ? 120 : 84) * sc, { life: .55, rot: c.w === "woldo" ? 0 : Math.random() * .5 - .25, ay: c.w === "woldo" ? .85 : .5 }); }
     if (c.plain) for (const e of c.ts) addFx("wfx", WF2.mark, e.x + e.w / 2, e.y + e.h / 2, 40, { life: .3, grow: .4 });
-    else for (const e of c.ts) addFx("wfx", c.w === "ssang" ? WF2.xcut : WF2.burst, e.x + e.w / 2, e.y + e.h / 2, c.w === "ssang" ? 90 : 76, { life: .4, grow: .3, rot: Math.random() * 6.28 });
+    else for (const e of c.ts) addFx("wfx", c.w === "ssang" ? WF2.xcut : WF2.burst, e.x + e.w / 2, e.y + e.h / 2, c.w === "ssang" ? 72 : 58, { life: .4, grow: .2, rot: Math.random() * 6.28 });
     if (c.plain) { shake = 6; Music.sfx("strike"); } else { shake = c.w === "woldo" ? 22 : 18; flash = c.w === "baldo" ? .5 : .35; killCam = Math.max(killCam, .7); Music.jing(); Music.sfx("strike"); } }
   if (c.t > n * lay + .9) chungoFx = null;
 }
@@ -2902,16 +2905,15 @@ function drawChungo(tt) { // painted, laid in order — each weapon writes its o
   const mark = (x, y) => { if (!S || !drawSprite("wfx", WF2.mark, x, y, (20 + Math.sin(tt * 30) * 2) / S.f[WF2.mark].h, false, .5, false, .5)) { ctx.fillStyle = SEAL; ctx.beginPath(); ctx.arc(x, y, 3, 0, 7); ctx.fill(); } };
   const line = (fr, x0, y0, x1, y1, h, sd) => { if (!wfxLine(fr, x0, y0, x1, y1, h)) inkLine(x0, y0, x1, y1, h / 6, sd); };
   ctx.save(); ctx.globalAlpha = fade;
-  if (c.plain) { for (let i = 0; i < n; i++) { const k = Math.max(0, Math.min(1, (c.t - i * lay) / lay)); if (!k) break; const a = c.pts[i], b = c.pts[i + 1]; inkLine(a.x, a.y, a.x + (b.x - a.x) * k, a.y + (b.y - a.y) * k, 3, i * 7 + 3); }   // 천고난무: a plain ink line, foe to foe
-    ctx.restore(); ctx.globalAlpha = 1; return; }
+  const sc = c.plain ? .7 : 1; if (c.plain) ctx.globalAlpha = fade * .8;   // 천고난무 (before a branch's end): the weapon's own form, smaller and lighter
   if (w === "baldo") {   // 일도: marks only, then a single drawn cut through them all
     for (let i = 0; i < n && c.t >= i * lay; i++) if (!c.done) mark(c.pts[i + 1].x, c.pts[i + 1].y);
     if (c.done) { const a = c.pts[0], far = c.pts.reduce((m, q) => Math.hypot(q.x - a.x, q.y - a.y) > Math.hypot(m.x - a.x, m.y - a.y) ? q : m, a), dx = far.x - a.x, dy = far.y - a.y, L = Math.hypot(dx, dy) || 1;
-      line(WF2.iai, a.x - dx / L * 60, a.y - dy / L * 60, far.x + dx / L * 90, far.y + dy / L * 90, 70, 31); }
+      line(WF2.iai, a.x - dx / L * 60, a.y - dy / L * 60, far.x + dx / L * 90, far.y + dy / L * 90, 70 * sc, 31); }
   } else for (let i = 0; i < n; i++) { const k = Math.max(0, Math.min(1, (c.t - i * lay) / lay)); if (!k) break; const a = c.pts[i], b = c.pts[i + 1];
-    if (w === "woldo") { if (S) { const f = S.f[WF2.fall], hh = 190; ctx.save(); ctx.globalAlpha = fade * k; drawSprite("wfx", WF2.fall, b.x, b.y + 30 - (1 - k) * 80, hh / f.h, false, .5, false, 1); ctx.restore(); } else inkLine(b.x, b.y - 170, b.x, b.y + 24, 6, i); }   // 낙월: from the sky straight down
-    else { line(WF2.streak, a.x, a.y, a.x + (b.x - a.x) * k, a.y + (b.y - a.y) * k, c.done ? 34 : 24, i * 13 + 5);
-      if (w === "ssang" && k >= 1 && S) drawSprite("wfx", WF2.xcut, b.x, b.y, 70 / S.f[WF2.xcut].h, i % 2 === 1, .5, false, .5); }   // 쌍검: each one crossed
+    if (w === "woldo") { if (S) { const f = S.f[WF2.fall], hh = 150 * sc; ctx.save(); ctx.globalAlpha = fade * k * (c.plain ? .8 : 1); drawSprite("wfx", WF2.fall, b.x, b.y + 24 - (1 - k) * 70, hh / f.h, false, .5, false, 1); ctx.restore(); } else inkLine(b.x, b.y - 170, b.x, b.y + 24, 6, i); }   // 낙월: from the sky straight down
+    else { line(WF2.streak, a.x, a.y, a.x + (b.x - a.x) * k, a.y + (b.y - a.y) * k, (c.done ? 34 : 24) * sc, i * 13 + 5);
+      if (w === "ssang" && k >= 1 && S) drawSprite("wfx", WF2.xcut, b.x, b.y, 70 * sc / S.f[WF2.xcut].h, i % 2 === 1, .5, false, .5); }   // 쌍검: each one crossed
     if (k >= 1 && !c.done) mark(b.x, b.y); }
   ctx.restore(); ctx.globalAlpha = 1;
 }
@@ -5344,7 +5346,7 @@ $("bInstall").addEventListener("click", async () => { if (!installEvt) return; i
 const standalone = matchMedia("(display-mode: standalone)").matches || matchMedia("(display-mode: fullscreen)").matches || navigator.standalone;
 
 
-if (location.hash === "#debug" && /^(localhost|127\.0\.0\.1)$/.test(location.hostname)) window.__dbg = { get missing() { return ALL_SHEETS.filter(n => !LAZY_SHEETS.has(n) && !SPR[n]).concat(BASE_IMGS.filter(k => !IMG[k])); }, tp(tx, ty) { P.x = tx * T + 7; P.y = (ty + 1) * T - 30; P.vx = P.vy = 0; }, get state() { return state; }, get P() { return P; }, get LV() { return LV; }, get state2() { return state; }, get SC() { return LV.scenery; }, get E() { return enemies; }, get run() { return run; }, set hs(v) { hitstop = v; }, kill(e) { killEnemy(e); }, hurt(e, s, k) { hurtEnemy(e, s, k); }, die(k, d) { die(k, d); }, banner(a, b, c) { banner(a, b === "red" ? SEAL : JJOK, c); }, chungo() { chungo(); }, clear() { madangClear(); }, hubAct() { hubAct(); }, get hub() { return { hubOn, hubNear }; }, get songPos() { return songPos; }, get FLASH() { return FLASH; }, get hold() { return bulletHold; }, get bolts() { return bolts; }, get rings() { return rings; }, get B() { return bullets; }, get beams() { return beams; }, flashing: e => isFlashing(e), wipe: () => inkWipe(), branchEnd: id => branchEnd(CHOSIK_BY[id]), get chosik() { return CHOSIK; }, kickFx: (k, a, b, c) => k === "air" ? airKickFx(a, b, c) : wallKickFx(a, b, c), enlighten: f => enlighten(f), syncCombos: () => syncCombos(), has: id => has(id), get FL() { flashSync(); return FLASH; }, gen: (seed, m, len = 5) => buildMadangMap(seed, m, 0, null, false, 1, 0, len), loadGen(seed, m, len = 5) { loadMap(buildMadangMap(seed, m, 0, null, false, 1, 0, len), PAL[m]); spawnEnemies(); P.x = LV.start.x; P.y = LV.start.y; P.vx = P.vy = 0; }, get songPos() { return songPos; }, slashAt(dx, dy) { P.slashDir = { x: dx, y: dy }; P.slashT = .2; }, tileAt: (x, y) => tileAt(x, y), omenScreen: () => showOmen(), gunShot: h => gunShot(h), picks: st => startPicks(st), wdef: () => wdef(), get META() { return META; }, groupPick: g => groupPick(g), get clones() { return clones; }, set clones(v) { clones = v; }, oathN: () => oathN(), petScreen: () => petScreen() };
+if (location.hash === "#debug" && /^(localhost|127\.0\.0\.1)$/.test(location.hostname)) window.__dbg = { get missing() { return ALL_SHEETS.filter(n => !LAZY_SHEETS.has(n) && !SPR[n]).concat(BASE_IMGS.filter(k => !IMG[k])); }, tp(tx, ty) { P.x = tx * T + 7; P.y = (ty + 1) * T - 30; P.vx = P.vy = 0; }, get state() { return state; }, get P() { return P; }, get LV() { return LV; }, get state2() { return state; }, get SC() { return LV.scenery; }, get E() { return enemies; }, get run() { return run; }, set hs(v) { hitstop = v; }, kill(e) { killEnemy(e); }, hurt(e, s, k) { hurtEnemy(e, s, k); }, die(k, d) { die(k, d); }, banner(a, b, c) { banner(a, b === "red" ? SEAL : JJOK, c); }, chungo() { chungo(); }, clear() { madangClear(); }, hubAct() { hubAct(); }, get hub() { return { hubOn, hubNear }; }, get songPos() { return songPos; }, get FLASH() { return FLASH; }, get hold() { return bulletHold; }, get bolts() { return bolts; }, get rings() { return rings; }, get B() { return bullets; }, get beams() { return beams; }, flashing: e => isFlashing(e), wipe: () => inkWipe(), branchEnd: id => branchEnd(CHOSIK_BY[id]), get chosik() { return CHOSIK; }, kickFx: (k, a, b, c) => k === "air" ? airKickFx(a, b, c) : wallKickFx(a, b, c), enlighten: f => enlighten(f), syncCombos: () => syncCombos(), has: id => has(id), get FL() { flashSync(); return FLASH; }, gen: (seed, m, len = 5) => buildMadangMap(seed, m, 0, null, false, 1, 0, len), loadGen(seed, m, len = 5) { loadMap(buildMadangMap(seed, m, 0, null, false, 1, 0, len), PAL[m]); spawnEnemies(); P.x = LV.start.x; P.y = LV.start.y; P.vx = P.vy = 0; }, get songPos() { return songPos; }, slashAt(dx, dy) { P.slashDir = { x: dx, y: dy }; P.slashT = .2; }, tileAt: (x, y) => tileAt(x, y), omenScreen: () => showOmen(), gunShot: h => gunShot(h), picks: st => startPicks(st), wdef: () => wdef(), get META() { return META; }, groupPick: g => groupPick(g), get clones() { return clones; }, set clones(v) { clones = v; }, oathN: () => oathN(), petScreen: () => petScreen(), spCost: id => spCost(CHOSIK_BY[id]) };
 window.addEventListener("pointerdown", () => Music.unlock(), { once: true, capture: true });   // first tap anywhere starts the sound
 resize();
 toMenu();

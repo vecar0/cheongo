@@ -25,7 +25,7 @@ def cut(name, maxh=240):
   safe = np.maximum(np.maximum(cta, inner), 1e-3)[..., None]
   col = np.clip((a - 255 * (1 - safe)) / safe, 0, 255)
   # ink-wash grade that still reads: colour kept at 45%, blacks stay ink-dark, whites pressed to paper, a warm wash over all
-  lum = col.mean(2, keepdims=True); L2 = 30 + lum * .78
+  lum = col.mean(2, keepdims=True); L2 = 28 + lum * .66   # white tops out a shade under the stage paper: a white cloth reads as cloth, never as a hole
   col = (L2 + (col - lum) * .45) * np.array([1.0, .97, .91])
   big = ndimage.binary_dilation(alpha > .05, iterations=5); lab, n = ndimage.label(big)
   objs = ndimage.find_objects(lab); areas = ndimage.sum(alpha > .05, lab, range(1, n + 1))
@@ -45,4 +45,4 @@ def cut(name, maxh=240):
   json.dump({"f": fr} if False else fr, open(f'/home/user/akane/assets/sprites/{name}.json', 'w'), separators=(',', ':'))
   pap = Image.new('RGBA', sheet.size, (200, 190, 170, 255)); pap.alpha_composite(sheet); pap.convert('RGB').save(f'{sys.argv[1]}/c_{name}.jpg')
   print(name, len(fr), [(f['w'], f['h']) for f in fr])
-for n in ['md0', 'md1', 'md2', 'md3', 'md4']: cut(n)
+for n in (sys.argv[2:] or ['md0', 'md1', 'md2', 'md3', 'md4']): cut(n)

@@ -560,10 +560,8 @@ body.portrait #hCoin { order: 4; } body.portrait.ui-ready #hCoin { padding-inlin
 .seal-pt span { font-size: clamp(10px, 1.9vmin, 13px); padding: 0 4px; background: rgba(236,230,216,.8); border-radius: 3px; white-space: nowrap; }
 .seal-lore { margin: 4px 0 8px; font-size: 13px; line-height: 1.5; color: var(--ink); min-height: 2.6em; }
 /* HUD 패: 먹 테두리를 두른 한지 패 위에 글씨를 올려 어떤 배경(바위·안개·밤)에서도 읽히게 */
-.ui-ready #hud > .hl, .ui-ready #hud .t, .ui-ready #hBreath, .ui-ready #hCut, .ui-ready #hCoin { background: none; border: 6px solid transparent; border-image: url("assets/ui-plate.webp") 12 fill / 6px stretch; border-radius: 0; padding: 1px 8px; color: #17161a; }
-.night #hud > .hl, .night #hud .t, .night #hBreath b, .night #hCut, .night #hCoin { color: #17161a; }
-.night #hBreath i { filter: none; } .night #hBreath i.lost { background: rgba(60,56,50,.35); }
-.night #hCut.open b, .night #hCut.open small, .night #hCoin small { color: #17161a; } .night #hCoin b { color: #7a5508; }
+.ui-ready #hud > .hl { background: none; border: 6px solid transparent; border-image: url("assets/ui-plate.webp") 12 fill / 6px stretch; border-radius: 0; padding: 1px 8px; color: #17161a; }
+.night #hud > .hl { color: #17161a; }
 body.inhub #hud .hl { border: 0; border-left: 3px solid #c3161c; border-image: none; }
 @media (max-height: 500px) { .seal-map { width: min(100%, calc(40vh * 16 / 9)); } .seal-lore { min-height: 0; margin: 2px 0 4px; } }
 .seal-pt:not(.on) span { display: none; }   /* 봉인 못 한 자리는 낙관 칸만: 이름표 ？？？가 서로 겹치지 않게 */
