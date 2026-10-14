@@ -20,14 +20,13 @@ def cut(name, maxh=240):
   shape = np.clip((ndimage.gaussian_filter(fg.astype(np.float32), .7) - .15) / .7, 0, 1)
   # colour-to-alpha against the white paper: light paint lets the game's paper through, ink stays solid — no white rims or white pockets left
   d = (255 - a.min(2)) / 255; cta = np.clip(d / .12, 0, 1)   # only paper-white goes clear: painted greys stay solid, like the game's own pines and rocks
-  alpha = shape * cta
-  safe = np.maximum(cta, 1e-3)[..., None]
+  inner = ndimage.gaussian_filter(ndimage.binary_erosion(fg, iterations=6).astype(np.float32), 2)   # inside the outline the object is solid: no see-through ghost posts
+  alpha = shape * np.maximum(cta, inner)
+  safe = np.maximum(np.maximum(cta, inner), 1e-3)[..., None]
   col = np.clip((a - 255 * (1 - safe)) / safe, 0, 255)
-  # ink-wash grade: most of the colour drained to warm grey ink, a little kept, contrast eased so they sit in the painted world
-  # ink-wash grade, like the painted pines and rocks of the stage: almost all colour drained to warm grey ink,
-  # values pressed into the mid range so nothing glares white against the paper or the dark rock
-  lum = col.mean(2, keepdims=True); L2 = 58 + lum * .56; ink = L2 * np.array([1.0, .965, .9])
-  col = col * .12 * (L2 / np.maximum(lum, 1)) + ink * .88
+  # ink-wash grade that still reads: colour kept at 45%, blacks stay ink-dark, whites pressed to paper, a warm wash over all
+  lum = col.mean(2, keepdims=True); L2 = 30 + lum * .78
+  col = (L2 + (col - lum) * .45) * np.array([1.0, .97, .91])
   big = ndimage.binary_dilation(alpha > .05, iterations=5); lab, n = ndimage.label(big)
   objs = ndimage.find_objects(lab); areas = ndimage.sum(alpha > .05, lab, range(1, n + 1))
   keep = sorted([i for i in range(n) if areas[i] > 1500], key=lambda i: objs[i][1].start)

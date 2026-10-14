@@ -2,7 +2,7 @@
 (() => {
 "use strict";
 const T = 32;
-const ASSET_V = "142";   // bump when any picture changes: the service worker then fetches the new json and webp together
+const ASSET_V = "143";   // bump when any picture changes: the service worker then fetches the new json and webp together
 const $ = id => document.getElementById(id);
 const cv = $("cv"); let ctx = cv.getContext("2d", { alpha: false });   // let: the ground is baked by pointing ctx at an offscreen canvas for a moment   // opaque canvas: cheaper to composite on phones
 let W = 0, H = 0, DPR = 1, SCALE = 1;
@@ -181,7 +181,6 @@ CHOSIK_BY = Object.fromEntries(CHOSIK.map(c => [c.id, c]));
 const nodeOf = id => CHOSIK.find(c => c.id === id && c.tree);
 const treeNodesHeld = () => (run.perks || []).filter(id => nodeOf(id));
 // 서고 수련: 0 → 3단까지, 1 → 4단까지, 2 → 합류까지 (META.treeOpen[weapon] counts what has been learned)
-const TREE_OPEN = [{ hon: TUNING.TREE_OPEN_HON[0], ms: 0, name: "3단 깨치기", desc: "모든 무기의 갈래마다 둘 중 하나를 고르는 3단이 열린다" }, { hon: TUNING.TREE_OPEN_HON[1], ms: 1, name: "4단 깨치기", desc: "모든 무기의 3단 뒤 4단이 열린다 (어느 무기든 숙련 1)" }, { hon: TUNING.TREE_OPEN_HON[2], ms: 2, name: "합류 깨치기", desc: "모든 무기에서 이웃한 두 갈래를 잇는 합류가 열린다 (어느 무기든 숙련 2)" }];
 const treeOpen = () => 3;   // every step of every tree is open from the first run (the 서고 that sold them is gone)   // learned once for every weapon (older saves: the furthest any weapon got)
 // 천고난무-오의: taking a branch's last step (4단) in this run turns the plain 천고난무 into the weapon's 오의 (and grants that branch's 오의 node)
 const ougiOpen = () => !!(run && run.ougiId);
@@ -350,7 +349,7 @@ function bossSheets(kind) { const B = BOSSES[kind]; if (!B) return []; const out
 // 로딩: nothing starts until the pictures it needs are in — a bar fills while they arrive, and a word of advice turns over
 const LD_TIPS = ["원이 점으로 닫히는 순간 베면 간파 — 무엇이든 한 번에 쓰러진다", "벽에 붙어 점프하면 벽차기, 벽차기 뒤엔 한 번 더 뛸 수 있다", "대시를 길게 누르면 무아경 — 시간이 느려지고 겨눈 곳으로 벤다",
   "북 다섯이 차면 천고난무 — 한 갈래를 끝(4단)까지 익히면 오의가 된다", "우두머리가 반짝이면 틈이다 — 그때 몰아쳐라", "땅이 붉게 갈라지면 곧 무언가 솟는다", "낭떠러지에 떨어져도 관문마다 한 번은 딛던 곳으로 돌아온다",
-  "막 휘두르면 날이 무뎌진다 — 손을 잠깐 쉬면 돌아온다", "총은 탄이 있으면 언제든 나간다 — 간파로 맞히면 탄이 다시 찬다", "쉼터에서는 숨을 고를 수 있다", "기세가 오를수록 장단도 빨라진다", "관문 과제를 이루면 등급이 오른다"];
+  "막 휘두르면 날이 무뎌진다 — 손을 잠깐 쉬면 돌아온다", "총은 탄이 있으면 언제든 나간다 — 간파로 맞히면 탄이 다시 찬다", "쉼터의 보부상에게 엽전으로 숨을 살 수 있다", "적을 여섯 할 넘게 베어야 출구 결계가 풀린다", "기세가 오를수록 장단도 빨라진다", "관문 과제를 이루면 등급이 오른다"];
 let ldTipT = null;
 function ldShow(el) { el.classList.remove("out"); el.hidden = false; const tip = $("ldTip"); if (!tip || ldTipT) return; let i = (Math.random() * LD_TIPS.length) | 0;
   const next = () => { tip.classList.add("fade"); setTimeout(() => { tip.textContent = LD_TIPS[i++ % LD_TIPS.length]; tip.classList.remove("fade"); }, 350); };
@@ -1427,7 +1426,7 @@ function routeTrail() { // the road so far drawn as a line of seals above the ca
 }
 function stepOn() { run.m++; run.choosing = null; saveRun(); nextStep(); }
 // the people on the road: who stands in the 쉼터 or the 기연, and what they say
-const NPC = { jumo: { i: 0, name: "주모", flip: true, line: "어서 오시오. 먼 길 오셨구려, 쉬었다 가시오." }, monk: { i: 1, name: "노승", line: "검이 무겁구나. 시험 하나 받아 보겠느냐." },
+const NPC = { monk: { i: 1, name: "노승", line: "검이 무겁구나. 시험 하나 받아 보겠느냐." },
   dok: { i: 2, name: "도깨비", line: "히히, 한 판 걸어 보련? 숨 내기다!" }, mudang: { i: 3, name: "무당", line: "저 무덤에 칼 한 자루가 잠들어 있소. 주인을 기다리지." },
   seonbi: { i: 4, name: "떠돌이 선비", line: "피로 쓴 글이오. 숨 하나면 이 비결을 다 읽을 수 있지." }, spring: { i: 7, name: "약수", line: "맑은 물이 솟는다." } };
 const EVENT_NPC = { blood: "seonbi", dok: "dok", grave: "mudang", monk: "monk", well: "spring", market: "dok" };
@@ -1436,7 +1435,7 @@ function buildRoadMap() { const rows = []; for (let y = 0; y < 16; y++) rows.pus
 function setupRoad() { // the small road stage: set dressing, one person to talk to, a gate out on the right
   const put = (sheet, i, tx, h, flip) => LV.dress.push({ sheet, i, x: tx * T + 16, y: 12 * T + 2, h, flip: !!flip, ay: 1 });
   let who;
-  if (run.node === "rest") { put("npc", 6, 9, 112); put("npc", 7, 26, 52); put("props2", P2.brazier, 5, 34); put("props2", P2.sacks, 17, 34); put("props2", P2.rack, 21, 44);   // 쉼터: no free rest now — the 보부상 sells breath for 엽전
+  if (run.node === "rest") { put("npc", 6, 9, 112); put("npc", 7, 26, 52); put("npc", 9, 19, 74); put("props2", P2.brazier, 5, 34); put("props2", P2.sacks, 17, 34); put("props2", P2.rack, 21, 44);   // 쉼터: no free rest now — the 보부상 sells breath for 엽전
     LV.stations = [{ id: "shop", tx: 19, h: 48, name: "보부상", act: "장터" }]; return; }
   else { const ev = run.eventId || "well"; who = EVENT_NPC[ev]; put("npc", 8, 11, 100); put("props", PROP.stoneLantern, 25, 44); if (who !== "spring") put("props", PROP.jars, 6, 30); }
   const n = NPC[who]; put("npc", n.i, 19, who === "spring" ? 54 : 64, n.flip); LV.stations = [{ id: "npc", who, tx: 19, h: 64, name: n.name, act: run.talked ? "인사" : "이야기" }];
@@ -1446,17 +1445,8 @@ function resumeStage() { state = "play"; showScreen(null); Music.resume(); hubNe
 function stageAct(st) {
   if (st.id === "shop") return shopScreen("보부상 장터", "엽전은 이 판에서만 쓴다", 1, resumeStage);
   const n = NPC[st.who];
-  if (run.talked) { toast(`${n.name} · ${run.node === "rest" ? "또 오시오." : "갈 길 가시오."}`); return; }
+  if (run.talked) { toast(`${n.name} · 갈 길 가시오.`); return; }
   run.talked = true; saveRun();
-  if (run.node === "rest") return pickScreen(n.name, n.line, [
-    { id: "breath", name: "숨 고르기", han: "息", desc: "숨 하나를 되찾는다" },
-    { id: "qi", name: "북 다듬기", han: "鼓", desc: "다음 관문을 천고 기운 가득 차서 시작한다" },
-    { id: "hon", name: "주막 일손", han: "役", desc: "혼 +15 · 대신 숨은 고르지 못한다" }], it => {
-    run.gather = 1;   // while you rest, the road ahead gathers guards
-    if (it.id === "hon") { run.honBonus = (run.honBonus || 0) + 15; toast("혼 +15 · 그사이 다음 관문에 적이 모였다"); saveRun(); resumeStage(); return; }
-    if (it.id === "breath") { run.breath = Math.min(breathCap(), run.breath + TUNING.REST_BREATH + (META.well && META.well.includes("rest1") ? 1 : 0)); toast(`숨 ${run.breath} · 그사이 다음 관문에 적이 모였다`); saveRun(); setHud(); resumeStage(); }
-    else if (it.id === "qi") { run.qiStart = 100; saveRun(); toast("북을 다듬었다 · 다음 관문은 기운 가득"); resumeStage(); }
-    else { run.cleared = "rest"; saveRun(); showChoice("stage"); } });
   const ev = EVENTS.find(e => e.id === run.eventId) || EVENTS[4];
   pickScreen(n.name, n.line, [ev.ok() ? ev : { ...ev, desc: "지금은 할 수 없다", go: () => resumeStage() }, { id: "pass", name: "지나친다", han: "行", desc: "아무것도 하지 않는다", calm: true, go: () => resumeStage() }], it => it.go());
 }
@@ -1474,7 +1464,7 @@ function addCoin(n, x, y) { if (!run || mode === "tutorial" || run.hub || !n) re
 const treasure = id => !!(run && run.treasure === id);
 // wares: consumables act at once; one 보물 is carried for the rest of the run (a new one replaces it). `hon` = opened at the 대장간 first
 const WARES = [
-  { id: "pill", name: "환약", han: "丸藥", desc: "숨 하나를 되찾는다 (살 때마다 비싸진다)", price: () => 25 + 15 * (run.pillN || 0), ok: () => run.breath < breathCap(), go: () => { run.breath++; run.pillN = (run.pillN || 0) + 1; setHud(); } },
+  { id: "pill", name: "환약", han: "丸藥", desc: "숨 하나를 되찾는다 (살 때마다 비싸진다)", price: () => 25 + 15 * (run.pillN || 0) - (META.well && META.well.includes("rest1") ? 10 : 0), ok: () => run.breath < breathCap(), go: () => { run.breath++; run.pillN = (run.pillN || 0) + 1; setHud(); } },
   { id: "charm", name: "부적", han: "符", desc: "다음 한 대를 막는다 (둘까지 지닌다)", price: 22, ok: () => (run.charm || 0) < 2, go: () => { run.charm = (run.charm || 0) + 1; } },
   { id: "sp", name: "수련서", han: "修鍊書", desc: "수련점 하나 (살 때마다 비싸진다)", price: () => 60 + 30 * (run.spBought || 0), ok: () => true, go: () => { run.sp = (run.sp || 0) + 1; run.spBought = (run.spBought || 0) + 1; } },
   { id: "powder", name: "화약통", han: "火藥", desc: "다음 관문을 천고 기운 가득 차서 시작한다", price: 25, hon: 60, ok: () => !run.qiStart, go: () => { run.qiStart = 100; } },
@@ -1559,7 +1549,6 @@ function nextGoal() { // the cheapest thing still locked in the 거점, and how 
   if (sealedN() < 10) c.push([0, `봉인 지도 ${sealedN()} / 10 · 산문에서 봉인할 수문장을 고른다`]);
   { const t = TREE_ALT[treeKey && run ? treeKey() : "hwando"] || TREE_ALT.hwando, nx = Object.values(t).flat().find(o => !(META.alts || []).includes(o.id)); if (nx) c.push([ALT_HON, `수련 후보 · ${nx.name}`]); }
   for (const [id, w] of Object.entries(WEAPONS)) if (w.cost && !w.ch && !META.weapons.includes(id)) c.push([w.cost, `무기 · ${w.name}`]);
-  const t = TREE_OPEN[treeOpen()]; if (t) c.push([t.hon, `수련 · ${t.name}`]);
   c.sort((a, b) => a[0] - b[0]); const g = c[0]; if (!g) return null;
   return META.hon >= g[0] ? `${g[1]} — 지금 거점에서 열 수 있다` : `${g[1]} — 혼 ${g[0] - META.hon} 더`;
 }
@@ -3562,6 +3551,14 @@ function bakeGround(gc, key, c, CW, top, hh, k, pal, ssn) { // paint one chunk o
   gc.set(key + "#" + c, { cv: cvs, used: performance.now() });
   while (gc.size > (MOBILE ? 4 : 10)) { let old = null; for (const [kk, v] of gc) if (!old || v.used < old[1].used) old = [kk, v]; old[1].cv.width = old[1].cv.height = 0; gc.delete(old[0]); }   // iOS frees canvas memory only when the canvas is emptied   // keep memory small: drop the stalest
 }
+const PLATE = new Image(); PLATE.src = `assets/ui-plate.webp?v=${ASSET_V}`; const INK_T = "#17161a";   // the HUD's hanji plate: ink border, paper inside — the HTML chips use the same picture
+let plateC = null;
+function plate9(x, y, w, h, b = 6) { const I = PLATE, iw = I.naturalWidth, ih = I.naturalHeight, s = 12, k = DPR;   // nine-slice: corners kept, edges and paper stretched — baked once per size
+  if (!plateC || plateC.key !== `${w}x${h}x${k}`) { const c = document.createElement("canvas"); c.width = Math.ceil(w * k); c.height = Math.ceil(h * k); const g = c.getContext("2d"); g.scale(k, k);
+    const sx = [0, s, iw - s, iw], sy = [0, s, ih - s, ih], dx = [0, b, w - b, w], dy = [0, b, h - b, h];
+    for (let i = 0; i < 3; i++) for (let j = 0; j < 3; j++) g.drawImage(I, sx[i], sy[j], sx[i + 1] - sx[i], sy[j + 1] - sy[j], dx[i], dy[j], dx[i + 1] - dx[i], dy[j + 1] - dy[j]);
+    plateC = c; plateC.key = `${w}x${h}x${k}`; }
+  ctx.drawImage(plateC, x, y, w, h); }
 const camView = { x0: 0, y0: 0, x1: 0, y1: 0 }; let padFadeT = 0;
 function render(rdt) {
   if (!paperPat) makePaper();
@@ -3574,7 +3571,7 @@ function render(rdt) {
     cam.x += (tx - cam.x) * f; cam.y += (ty - cam.y) * f;
     const lw = LV.w * T, lh = LV.h * T;
     cam.x = lw <= vw ? lw / 2 : Math.max(vw / 2, Math.min(lw - vw / 2, cam.x));
-    const maxY = lh - vh / 2 + 8; cam.y = Math.min(maxY, Math.max(Math.min(maxY, vh / 2 - 96), cam.y));
+    const maxY = lh - vh / 2; cam.y = Math.min(maxY, Math.max(Math.min(maxY, vh / 2 - 96), cam.y));
     if (PORTRAIT()) { const bottom = LV.hub ? hubRect().y + hubRect().h : lh, off = (H / 2 - padH()) / (SCALE * zoom); cam.y = bottom - off;   // the ground line sits just above the thumbs
       if (!LV.hub && lh > 17 * T) {   // a 마당 that climbs: follow the ground last stood on, so the thumbs keep the same line
         const feet = P.y + P.h; if (LV.camG == null || P.onGround || feet > LV.camG + T) LV.camG = feet; LV.camGs = LV.camGs == null ? LV.camG : LV.camGs + (LV.camG - LV.camGs) * Math.min(1, rdt * 4);
@@ -4405,16 +4402,16 @@ function drawCombatHud(pal) { // 기력 under the 숨, the chain's numeral at th
   drawOugiName(1 / 60);
   const hk = settings.hudK || 1; ctx.setTransform(DPR * hk, 0, 0, DPR * hk, 0, 0);   // 글자·HUD 크기
   if (mode !== "tutorial") { const top = Math.max(50, hudBottom() + 4) / hk, hh = momOn() ? 46 : 24;   // a wash of paper (or night) behind 기력 and 기세, so they read on any ground
-    ctx.fillStyle = pal.night ? "rgba(23,22,26,.55)" : "rgba(230,226,215,.8)"; ctx.beginPath(); if (ctx.roundRect) ctx.roundRect(8, top, 150, hh, 8); else ctx.rect(8, top, 150, hh); ctx.fill(); }
+    if (PLATE.complete && PLATE.naturalWidth) plate9(8, top, 150, hh + 6); else { ctx.fillStyle = "rgba(230,226,215,.85)"; ctx.fillRect(8, top, 150, hh); } }
   if (momOn()) { const v = run.mom || 0, t = momTier(), bx = 52, by = Math.max(72, hudBottom() + 30) / hk, sw = 19, tr = (run.trance || 0) > 0;   // 기세: five brush cells, the tier's numeral beside them
-    ctx.font = `400 ${t ? 17 : 14}px "Song Myung", serif`; ctx.textAlign = "left"; ctx.textBaseline = "middle"; ctx.fillStyle = tr ? SEAL : pal.text; ctx.globalAlpha = .85; ctx.fillText(t ? `${t}단` : "기세", 18, by + 5);
-    for (let i = 0; i < 5; i++) { const fill = Math.max(0, Math.min(1, (v - i * 100) / 100)); ctx.globalAlpha = .18; ctx.fillStyle = pal.text; ctx.fillRect(bx + i * (sw + 2), by, sw, 10);
-      if (fill > 0) { ctx.globalAlpha = .9; ctx.fillStyle = tr ? (Math.floor(performance.now() / 80) % 2 ? SEAL : "#f3c35a") : i >= 3 ? SEAL : pal.text; ctx.fillRect(bx + i * (sw + 2), by, sw * fill, 10); } }
+    ctx.font = `400 ${t ? 17 : 14}px "Song Myung", serif`; ctx.textAlign = "left"; ctx.textBaseline = "middle"; ctx.fillStyle = tr ? SEAL : INK_T; ctx.globalAlpha = .85; ctx.fillText(t ? `${t}단` : "기세", 18, by + 5);
+    for (let i = 0; i < 5; i++) { const fill = Math.max(0, Math.min(1, (v - i * 100) / 100)); ctx.globalAlpha = .18; ctx.fillStyle = INK_T; ctx.fillRect(bx + i * (sw + 2), by, sw, 10);
+      if (fill > 0) { ctx.globalAlpha = .9; ctx.fillStyle = tr ? (Math.floor(performance.now() / 80) % 2 ? SEAL : "#f3c35a") : i >= 3 ? SEAL : INK_T; ctx.fillRect(bx + i * (sw + 2), by, sw * fill, 10); } }
     ctx.globalAlpha = 1;
     if (t >= 4 || tr) { const g = ctx.createRadialGradient(W / 2, H / 2, Math.min(W, H) * .45, W / 2, H / 2, Math.max(W, H) * .7); g.addColorStop(0, "rgba(195,22,28,0)"); g.addColorStop(1, `rgba(195,22,28,${tr ? .32 : .16})`); ctx.fillStyle = g; ctx.fillRect(0, 0, W, H); } }   // 四 and up: red ink at the edges
   if (mode !== "tutorial") { const ki = Math.max(0, Math.min(1, P.ki ?? 1)), bx = 18, by = Math.max(54, hudBottom() + 10) / hk, bw = 100, bh = 12, f = SPR.mech && SPR.mech.f[MECH.bar];
     const low = ki < .25 && Math.sin(performance.now() / 90) > 0;
-    ctx.font = `400 13px "Song Myung", serif`; ctx.fillStyle = pal.text; ctx.globalAlpha = .8; ctx.fillText("기력", bx, by + bh - 1);
+    ctx.font = `400 13px "Song Myung", serif`; ctx.fillStyle = INK_T; ctx.globalAlpha = .8; ctx.fillText("기력", bx, by + bh - 1);
     const x0 = bx + 30;
     if (f) { ctx.globalAlpha = .2; ctx.drawImage(SPR.mech.img, f.x, f.y, f.w, f.h, x0, by, bw, bh);
       ctx.globalAlpha = low ? .5 : 1; ctx.save(); ctx.beginPath(); ctx.rect(x0, by - 4, bw * ki, bh + 8); ctx.clip(); ctx.drawImage(SPR.mech.img, f.x, f.y, f.w, f.h, x0, by, bw, bh); ctx.restore();
@@ -4577,13 +4574,6 @@ function bdRow(title, desc, pic, btnLabel, onBtn, disabled) {
   r.querySelector("b").textContent = title; r.querySelector("small").textContent = desc;
   if (btnLabel) { const b = document.createElement("button"); b.className = "btn"; b.textContent = btnLabel; b.disabled = !!disabled; b.addEventListener("click", onBtn); r.appendChild(b); } else r.appendChild(document.createElement("span"));
   return r;
-}
-function treeOpenScreen() { // 서고: learn the deeper steps of the trees with 혼, once for every weapon (gated by your best mastery)
-  const lv = treeOpen(), nx = TREE_OPEN[lv], ms = Math.max(0, ...Object.keys(WEAPONS).map(w => masteryLv(w)));
-  const rows = [curLine(), ...TREE_OPEN.map((o, i) => bdRow(`${i < lv ? "✓ " : ""}${o.name}`, `${o.desc} — 혼 ${o.hon}`))];
-  rows.push(bdRow(nx ? `다음 · ${nx.name}` : "모두 깨쳤다", nx ? `혼 ${nx.hon}${nx.ms ? ` · 가장 익숙한 무기 숙련 ${ms}/${nx.ms}` : ""}` : "3단·4단·합류가 모든 무기에 열려 있다", null, nx ? "깨치기" : null, () => {
-    META.hon -= nx.hon; META.treeOpen = { ...(META.treeOpen || {}), all: lv + 1 }; saveMeta(); Music.sfx("lantern"); toast(`${nx.name.replace(" 깨치기", "")}을 깨쳤다 · 모든 무기`); treeOpenScreen(); }, !nx || META.hon < nx.hon || ms < nx.ms));
-  board("수련 깨치기", "판에서 수련점으로 익히기 전에, 여기서 먼저 깨쳐 둔다", rows, [["돌아가기", resumeHub]]);
 }
 const curLine = () => { const d = document.createElement("div"); d.className = "bd-cur"; d.innerHTML = `<span><i></i> 혼 ${META.hon}</span><span>천고 조각 ${META.shard}</span>`; return d; };
 const bookCap = () => PERK_MAX;         // 비급 a 비급첩 can hold
@@ -4979,7 +4969,7 @@ const hubDeco = () => (META.deco = META.deco || { own: [], slots: {} });
 const WELL = [
   { id: "start1", name: "맑은 숨", desc: "판을 시작할 때 숨 +1", hon: 90 },
   { id: "cap1", name: "깊은 숨", desc: "숨을 담을 수 있는 그릇 +1", hon: 140 },
-  { id: "rest1", name: "고른 숨", desc: "쉼터에서 숨을 고르면 하나 더", hon: 110 },
+  { id: "rest1", name: "고른 숨", desc: "보부상의 환약이 엽전 10 싸다", hon: 110 },
   { id: "boss1", name: "결전의 숨", desc: "천고대 앞에서 숨을 넷까지 채운다", hon: 160 },
   { id: "start2", name: "트인 숨", desc: "판을 시작할 때 숨 +1 (맑은 숨 다음)", hon: 220, need: "start1" }];
 const well = id => !!(META.well && META.well.includes(id));
@@ -5152,7 +5142,7 @@ function logScreen() { // 플레이 기록: what the last runs looked like, so t
 }
 function hubReady(id) { // a red dot on the board where something can be opened right now
   const bld = b => { const B = BUILDINGS.find(o => o.id === b), nx = B && B.lv[META.bld[b] || 0]; return nx && META.hon >= (nx.hon || 0) && META.shard >= (nx.shard || 0); };
-  if (id === "hall") { const t = TREE_OPEN[treeOpen()], ms = Math.max(0, ...Object.keys(WEAPONS).map(w => masteryLv(w))); return bld("seogo") || bld("sadang") || bld("bigeup") || !!(t && META.hon >= t.hon && ms >= t.ms); }
+  if (id === "hall") return bld("seogo") || bld("bigeup");
   if (id === "forge") return bld("daejang") || bld("uibang") || Object.entries(WEAPONS).some(([w, o]) => o.cost && !o.ch && !META.weapons.includes(w) && META.hon >= o.cost);
   if (id === "well") { const nx = petNextNeed && petNextNeed(); return WELL.some(w => !well(w.id) && (!w.need || well(w.need)) && META.hon >= w.hon) || !!(META.pet && nx && nx.fed && META.pet.fed < nx.fed && (META.sum || 0) > 0); }
   return false;

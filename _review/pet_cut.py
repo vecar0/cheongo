@@ -27,5 +27,8 @@ lum = col.mean(2, keepdims=True)
 paper = np.array([236, 226, 204.])
 t = np.clip((lum - 200) / 55, 0, 1)
 col = col * (1 - t) + (col * paper / 255) * t
+# ink-wash grade like the stage: colour at 55%, blacks to soft ink, a warm paper wash, so the beast sits in the painting
+lum = col.mean(2, keepdims=True)
+col = np.clip((24 + lum * .86 + (col - lum) * .55) * np.array([1.0, .97, .92]), 0, 255)
 out = np.dstack([col, np.clip(na, 0, 1) * 255]).astype(np.uint8)
 Image.fromarray(out, 'RGBA').save('assets/sprites/pet.webp', 'WEBP', quality=92, method=6)
