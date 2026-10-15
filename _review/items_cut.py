@@ -14,6 +14,8 @@ for k, name in enumerate(ids):
   fg = ~clear; l2, n2 = ndimage.label(fg); s2 = ndimage.sum(fg, l2, range(1, n2 + 1)); fg = np.isin(l2, [i + 1 for i, s in enumerate(s2) if s > 60])
   al = np.clip((ndimage.gaussian_filter(fg.astype(np.float32), .8) - .1) / .8, 0, 1)
   if name == "hon": al *= np.clip((255 - mn) / 60, .35, 1)   # the wisp is pale: let its light parts thin out instead of a white blob
+  # ink-wash grade like the stage props: colour at 55%, values pressed toward the paper, a warm wash — they sit in the painting, not on it
+  lum = cell.mean(2, keepdims=True); cell = np.clip((26 + lum * .74 + (cell - lum) * .55) * np.array([1.0, .96, .9]), 0, 255)
   ys, xs = np.where(al > .05); y0, y1, x0, x1 = ys.min(), ys.max() + 1, xs.min(), xs.max() + 1
   im = Image.fromarray(np.dstack([cell, al * 255]).astype(np.uint8)[y0:y1, x0:x1], 'RGBA')
   s = 96 / max(im.size); im = im.resize((max(1, round(im.width * s)), max(1, round(im.height * s))), Image.LANCZOS)
