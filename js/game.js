@@ -4419,19 +4419,19 @@ function drawCombatHud(pal) { // 기력 under the 숨, the chain's numeral at th
   if (flashDim > 0) { ctx.fillStyle = `rgba(20,10,12,${flashDim * (settings.calm ? 1 : 3)})`; ctx.fillRect(0, 0, W, H); flashDim = Math.max(0, flashDim - 1 / 60); }   // the screen draws a breath as a glint opens
   drawOugiName(1 / 60);
   const hk = settings.hudK || 1; ctx.setTransform(DPR * hk, 0, 0, DPR * hk, 0, 0);   // 글자·HUD 크기
-  const gy = Math.max(50, hudBottom() + 4, enemies.some(e => e.type === "b" && e.alive && e.awake) ? 78 : 0) / hk, gx = Math.round(W / hk / 2 - 75);   // 기력·기세 sit at the top middle (clear of the notch on the left), under the guardian's bar in a fight
-  if (mode !== "tutorial") { const top = gy, hh = momOn() ? 46 : 24;   // a wash of paper (or night) behind 기력 and 기세, so they read on any ground
-    if (PLATE.complete && PLATE.naturalWidth) plate9(gx, top, 150, hh + 6); else { ctx.fillStyle = "rgba(230,226,215,.85)"; ctx.fillRect(gx, top, 150, hh); } }
-  if (momOn()) { const v = run.mom || 0, t = momTier(), bx = gx + 44, by = gy + 26, sw = 19, tr = (run.trance || 0) > 0;   // 기세: five brush cells, the tier's numeral beside them
-    ctx.font = `400 ${t ? 17 : 14}px "Song Myung", serif`; ctx.textAlign = "left"; ctx.textBaseline = "middle"; ctx.fillStyle = tr ? SEAL : INK_T; ctx.globalAlpha = .85; ctx.fillText(t ? `${t}단` : "기세", gx + 10, by + 5);
-    for (let i = 0; i < 5; i++) { const fill = Math.max(0, Math.min(1, (v - i * 100) / 100)); ctx.globalAlpha = .18; ctx.fillStyle = INK_T; ctx.fillRect(bx + i * (sw + 2), by, sw, 10);
-      if (fill > 0) { ctx.globalAlpha = .9; ctx.fillStyle = tr ? (Math.floor(performance.now() / 80) % 2 ? SEAL : "#f3c35a") : i >= 3 ? SEAL : INK_T; ctx.fillRect(bx + i * (sw + 2), by, sw * fill, 10); } }
+  // 기력·기세 on their hanji plate, top left; the two rows (label 26 + gap 4 + bar 100) sit in the middle of the 150 plate, both ways
+  const gy = Math.max(50, hudBottom() + 4) / hk, gx = 8, ph = momOn() ? 52 : 30, cx0 = gx + 10, bar0 = gx + 40;
+  if (mode !== "tutorial") { if (PLATE.complete && PLATE.naturalWidth) plate9(gx, gy, 150, ph); else { ctx.fillStyle = "rgba(230,226,215,.85)"; ctx.fillRect(gx, gy, 150, ph); } }
+  if (momOn()) { const v = run.mom || 0, t = momTier(), bx = bar0, by = gy + 31, sw = 18, tr = (run.trance || 0) > 0;   // 기세: five brush cells, the tier's numeral beside them
+    ctx.font = `400 ${t ? 14 : 13}px "Song Myung", serif`; ctx.textAlign = "left"; ctx.textBaseline = "middle"; ctx.fillStyle = tr ? SEAL : INK_T; ctx.globalAlpha = .85; ctx.fillText(t ? `${t}단` : "기세", cx0, by + 5);
+    for (let i = 0; i < 5; i++) { const fill = Math.max(0, Math.min(1, (v - i * 100) / 100)); ctx.globalAlpha = .18; ctx.fillStyle = INK_T; ctx.fillRect(bx + i * (sw + 2.5), by, sw, 10);
+      if (fill > 0) { ctx.globalAlpha = .9; ctx.fillStyle = tr ? (Math.floor(performance.now() / 80) % 2 ? SEAL : "#f3c35a") : i >= 3 ? SEAL : INK_T; ctx.fillRect(bx + i * (sw + 2.5), by, sw * fill, 10); } }
     ctx.globalAlpha = 1;
     if (t >= 4 || tr) { const g = ctx.createRadialGradient(W / 2, H / 2, Math.min(W, H) * .45, W / 2, H / 2, Math.max(W, H) * .7); g.addColorStop(0, "rgba(195,22,28,0)"); g.addColorStop(1, `rgba(195,22,28,${tr ? .32 : .16})`); ctx.fillStyle = g; ctx.fillRect(0, 0, W, H); } }   // 四 and up: red ink at the edges
-  if (mode !== "tutorial") { const ki = Math.max(0, Math.min(1, P.ki ?? 1)), bx = gx + 10, by = gy + 6, bw = 100, bh = 12, f = SPR.mech && SPR.mech.f[MECH.bar];
+  if (mode !== "tutorial") { const ki = Math.max(0, Math.min(1, P.ki ?? 1)), bx = cx0, by = gy + (momOn() ? 11 : 9), bw = 100, bh = 12, f = SPR.mech && SPR.mech.f[MECH.bar];
     const low = ki < .25 && Math.sin(performance.now() / 90) > 0;
-    ctx.font = `400 13px "Song Myung", serif`; ctx.fillStyle = INK_T; ctx.globalAlpha = .8; ctx.fillText("기력", bx, by + bh - 1);
-    const x0 = bx + 30;
+    ctx.font = `400 13px "Song Myung", serif`; ctx.textAlign = "left"; ctx.textBaseline = "middle"; ctx.fillStyle = INK_T; ctx.globalAlpha = .8; ctx.fillText("기력", bx, by + bh / 2 + 1);
+    const x0 = bar0;
     if (f) { ctx.globalAlpha = .2; ctx.drawImage(SPR.mech.img, f.x, f.y, f.w, f.h, x0, by, bw, bh);
       ctx.globalAlpha = low ? .5 : 1; ctx.save(); ctx.beginPath(); ctx.rect(x0, by - 4, bw * ki, bh + 8); ctx.clip(); ctx.drawImage(SPR.mech.img, f.x, f.y, f.w, f.h, x0, by, bw, bh); ctx.restore();
       if (P.focus) { ctx.globalAlpha = .5; ctx.fillStyle = JJOK; ctx.fillRect(x0, by + bh / 2 - 1, bw * ki, 2); } }
