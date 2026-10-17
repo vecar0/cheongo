@@ -12,7 +12,7 @@ namespace Cheongo
     public static class Booth
     {
         public static bool On;
-        public const string BUILD = "부스판 2026-10-17 · 연·즉시 대시";   // shown on the title, so staff can see the build is the new one
+        public const string BUILD = "부스판 2026-10-17 · 연·마우스 무아경";   // shown on the title, so staff can see the build is the new one
         public const int GATES = 2;            // 관문 before 천고대 (each a short web-made gate of three pieces)
         public const float LIMIT = 300;        // seconds for the whole journey
         public const float IDLE_MENU = 45, IDLE_PLAY = 60;   // no hands on the controls this long → back to the title
@@ -25,7 +25,7 @@ namespace Cheongo
             Apply();
         }
         public static void Toggle() { On = !On; PlayerPrefs.SetInt("cheongo.booth.v2", On ? 1 : 0); PlayerPrefs.Save(); Apply(); }
-        static void Apply() { Sim.CutRatio = On ? CUT : .6f; Sim.InstantDash = On; Debug.Log($"[천고] {(On ? BUILD : "긴 판")} · 웹 관문 {Maps.Count}개"); }
+        static void Apply() { Sim.CutRatio = On ? CUT : .6f; Debug.Log($"[천고] {(On ? BUILD : "긴 판")} · 웹 관문 {Maps.Count}개"); }
     }
 
     [Serializable] public class BoothEntry { public string n, d; public int s; public string g; public float t; public bool won; }
@@ -57,7 +57,7 @@ namespace Cheongo
         }
         void BoothKeys()
         {
-            var s = new Screen { title = "조작", sub = "게임패드를 권합니다", note = "이동 ←→ / 왼쪽 스틱  ·  점프 Space / A  ·  베기 J / X\n대시 K / B — 누르는 순간 방향키 쪽으로 일섬\n연 L / LB — 파란 원이 뜬 연으로 날아오른다 (공중에서 점프를 한 번 더 눌러도 된다)\n적의 원이 점으로 닫히는 순간 베면 간파 — 무엇이든 한 번에 쓰러진다\n북이 다 차면 천고난무 Q / Y" };
+            var s = new Screen { title = "조작", sub = "게임패드를 권합니다", note = "이동 ←→ / 왼쪽 스틱  ·  점프 Space / A  ·  베기 J / X\n대시 K / B / 오른쪽 클릭 — 짧게 누르면 방향키 쪽으로, 누르고 있으면 무아경(시간이 느려지고 마우스 쪽을 겨눈다), 놓으면 일섬\n연 L / LB — 파란 원이 뜬 연으로 날아오른다 (공중에서 점프를 한 번 더 눌러도 된다)\n적의 원이 점으로 닫히는 순간 베면 간파 — 무엇이든 한 번에 쓰러진다\n북이 다 차면 천고난무 Q / Y" };
             s.items.Add(new Item { label = "시작하기", act = BoothStart }); s.items.Add(new Item { label = "돌아가기", act = ShowBoothTitle }); s.back = ShowBoothTitle; Show(s);
         }
 
@@ -165,14 +165,14 @@ namespace Cheongo
                 float left = Mathf.Max(0, Booth.LIMIT - (Time.unscaledTime - boothT0)); int lm = Mathf.FloorToInt(left / 60);
                 Txt(new Rect(VW - 232, 40, 220, 22), $"남은 시간 {lm}:{left - lm * 60:00}", 14, left < 60 ? SEAL : new Color(INK.r, INK.g, INK.b, .8f), TextAnchor.MiddleRight);
                 { var kc = new Color(INK.r, INK.g, INK.b, .6f); float kw = VW / 2 - 230;   // the keys, always in the corner (left of the 장단 board)
-                  Txt(new Rect(12, 668, kw, 18), "←→ 이동 · Space 점프 · J 베기 · K 대시 · L 연 · Q 천고난무", 11, kc, TextAnchor.MiddleLeft);
+                  Txt(new Rect(12, 668, kw, 18), "←→ 이동 · Space 점프 · J 베기 · K 대시(누르고 있으면 마우스로 겨눔) · L 연 · Q 천고난무", 11, kc, TextAnchor.MiddleLeft);
                   Txt(new Rect(12, 688, kw, 18), "패드  A 점프 · X 베기 · B 대시 · LB 연 · Y 천고난무", 11, kc, TextAnchor.MiddleLeft); }
                 if (sim.kite != null && sim.state == "play") { var kr = new Rect(VW / 2 - 90, 500, 180, 30); Plate(kr, .92f); Txt(kr, "L · LB  연", 16, new Color(.18f, .35f, .48f), TextAnchor.MiddleCenter, true); }
                 if (run.m == 0 && stageCardT < 28 && stageCardT > 2.2f)   // the first gate: how the hands go, laid over the ground until the player has it
                 {
                     float a = Mathf.Clamp01((28 - stageCardT) / 2); var r = new Rect(VW / 2 - 330, 548, 660, 66);
                     Fill(r, new Color(.93f, .9f, .85f, .88f * a)); Fill(new Rect(r.x, r.y, 4, r.height), new Color(SEAL.r, SEAL.g, SEAL.b, a));
-                    Txt(new Rect(r.x + 16, r.y + 6, r.width - 24, 26), "이동 ←→ · 점프 Space/A · 베기 J/X · 대시 K/B (방향키 쪽으로) · 연 L/LB", 15, new Color(INK.r, INK.g, INK.b, a), TextAnchor.MiddleLeft);
+                    Txt(new Rect(r.x + 16, r.y + 6, r.width - 24, 26), "이동 ←→ · 점프 Space/A · 베기 J/X · 대시 K/B (누르고 있으면 무아경 · 마우스로 겨눔) · 연 L/LB", 15, new Color(INK.r, INK.g, INK.b, a), TextAnchor.MiddleLeft);
                     Txt(new Rect(r.x + 16, r.y + 34, r.width - 24, 26), "적의 원이 점으로 닫히는 순간 베면 간파 — 무엇이든 한 번에 쓰러진다", 15, new Color(SEAL.r, SEAL.g, SEAL.b, a), TextAnchor.MiddleLeft);
                 }
             }

@@ -214,7 +214,7 @@ namespace Cheongo
             if (Input.GetKey(KeyCode.RightArrow) || Input.GetKey(KeyCode.D)) x += 1;
             if (Input.GetKey(KeyCode.UpArrow) || Input.GetKey(KeyCode.W)) y -= 1;
             if (Input.GetKey(KeyCode.DownArrow) || Input.GetKey(KeyCode.S)) y += 1;
-            float jx = Input.GetAxisRaw("Horizontal"), jy = -Input.GetAxisRaw("Vertical"); if (x == 0 && Mathf.Abs(jx) > .3f) x = jx; if (y == 0 && Mathf.Abs(jy) > .3f) y = jy;
+            float kx = x, ky = y; float jx = Input.GetAxisRaw("Horizontal"), jy = -Input.GetAxisRaw("Vertical"); if (x == 0 && Mathf.Abs(jx) > .3f) x = jx; if (y == 0 && Mathf.Abs(jy) > .3f) y = jy;
             inp.x = x; inp.y = y;
             bool lmb = meta.mouseAim && Input.GetMouseButtonDown(0), rmb = meta.mouseAim && Input.GetMouseButton(1);
             inp.jumpPressed |= Input.GetKeyDown(KeyCode.Space) || Input.GetKeyDown(KeyCode.Z) || PadDown(0);
@@ -225,7 +225,10 @@ namespace Cheongo
             inp.slashPressed |= Input.GetKeyDown(KeyCode.J) || Input.GetKeyDown(KeyCode.X) || PadDown(2) || lmb;
             inp.drumPressed |= Input.GetKeyDown(KeyCode.Q) || PadDown(3);
             // the mouse aims while one of its buttons is the one in use
-            inp.hasAim = lmb || rmb;
+            // 무아경 held past a tap: the mouse picks the way (unless a pad stick is pushed); a quick tap still goes the way the keys hold
+            bool padStick = Input.GetJoystickNames().Length > 0 && kx == 0 && ky == 0 && (Mathf.Abs(jx) > .3f || Mathf.Abs(jy) > .3f);
+            bool focusAim = (meta.mouseAim || booth) && sim != null && sim.P.focus && sim.P.focusT >= DB.Tuning.TAP_T && !padStick;
+            inp.hasAim = lmb || rmb || focusAim;
             if (inp.hasAim && sim != null) { var w = cam.ScreenToWorldPoint(Input.mousePosition); inp.aim = new Vector2(w.x * World.T - sim.P.b.cx, -w.y * World.T - sim.P.b.cy); }
         }
 
