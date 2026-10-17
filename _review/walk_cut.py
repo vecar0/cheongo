@@ -21,8 +21,16 @@ def grade(a, al):
   w = np.clip((lum - 150) / 105, 0, 1); col = (col * (1 - w * .8) + (col / 255 * PAPER) * (w * .8)) * .94
   band = (al > 0) & (al < .99); col[band] *= .85
   return col
-def frames(name, cols, rows, h_out):
+def frames(name, cols, rows, h_out, pick=None, extra=None):
+  # pick: which cells, in order; extra: (cells, masks) from another sheet appended after scaling to this one's figure height
   cs = cells(name, cols, rows); ms = [mask(c) for c in cs]
+  if pick is not None: cs = [cs[i] for i in pick]; ms = [ms[i] for i in pick]
+  if extra is not None:
+    ec, em, order = extra
+    hA = np.median([np.ptp(np.where(m.any(1))[0]) for m in ms]); hB = np.median([np.ptp(np.where(m.any(1))[0]) for m in em]); k = hA / hB
+    rs = lambda a, mode: np.asarray(Image.fromarray(a).resize((round(a.shape[1] * k), round(a.shape[0] * k)), mode))
+    ec = [rs(c.astype(np.uint8), Image.LANCZOS).astype(np.float32) for c in ec]; em = [rs((m * 255).astype(np.uint8), Image.NEAREST) > 127 for m in em]
+    allc, allm = cs + ec, ms + em; cs = [allc[i] for i in order]; ms = [allm[i] for i in order]
   # common box: same size for every frame; each frame keeps its own feet line (bottom) and is centred on its own body
   boxes = [ndimage.find_objects(m.astype(int))[0] for m in ms]
   bw = max(b[1].stop - b[1].start for b in boxes) + 8; bh = max(b[0].stop - b[0].start for b in boxes) + 6
@@ -48,7 +56,10 @@ def sheet(name, ims):
   p = Image.new('RGBA', sh.size, (205, 198, 182, 255)); p.alpha_composite(sh); p.convert('RGB').save(f'{sys.argv[1]}/{name}.png')
   return fr
 # 무명's run: 8 frames, the hat's centre recorded so the head rides level (MV_AX)
-hero = frames('walk-hero', 4, 2, 190); sheet('mvrun', hero)
+# the first sheet only ever put the dark (near) leg forward; the second has the grey (far) leg forward. Stride order:
+# dark leg strikes (A1 A2), grey leg swings through (B3 B4), grey leg strikes (B1 B2), dark leg swings through (A3 A4)
+bc = cells('walk-hero-b', 4, 1); bm = [mask(c) for c in bc]
+hero = frames('walk-hero', 4, 2, 190, pick=[0, 1, 2, 3], extra=(bc, bm, [0, 1, 6, 7, 4, 5, 2, 3])); sheet('mvrun', hero)
 ax = []
 for im in hero:
   a = np.asarray(im)[..., 3] > 100; ys = np.where(a.any(1))[0]; top = a[ys[0]:ys[0] + max(6, int(im.height * .1))]
