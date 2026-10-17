@@ -37,7 +37,7 @@ write("Data/game.json", clean(G));
 
 // pictures: sheets keep their frame json (wrapped so Unity's JsonUtility can read it), images become png
 const CORE = ["hero3", "herofx", "slashfx", "hud", "hudsolid", "fx", "props", "props2", "ui", "foes", "foes3", "kfx", "kring", "perkfx", "vis", "mech", "wfx"];
-const IMGS = ["far", "mid", "tex-paper", "tex-stone", "tex-giwa", "tex-granite", "tex-slab"];
+const IMGS = ["far", "mid", "mid2", "tex-paper", "tex-stone", "tex-giwa", "tex-granite", "tex-slab", "ui-plate", "hubground", "sealmap", "title"];
 const all = process.argv.includes("--all");
 const sheets = all ? fs.readdirSync(path.join(ROOT, "assets/sprites")).filter(f => f.endsWith(".json")).map(f => f.slice(0, -5)) : CORE;
 const toPng = (src, dst) => execFileSync("python3", ["-I", "-c", "import sys\nfrom PIL import Image\nImage.open(sys.argv[1]).save(sys.argv[2], optimize=True)", src, dst]);

@@ -9,14 +9,16 @@ namespace Cheongo
         const int SF_FWD = 0, SF_UP = 1, SF_DOWN = 2, SF_ARC = 3, SF_ARC_RED = 4; const float SLASH_K = 1.18f;   // the lunge reads at ~80% of standing height
         static readonly float[] SF_AX = { .44f, .55f, .6f };
 
-        Sim sim; SpriteRenderer sr, arc, arcBack, aimLine, reticle, dim; Sheet sheet, slash; float k;
+        Sim sim; SpriteRenderer sr, arc, arcBack, aimLine, reticle, dim; Sheet sheet, slash, run8; float k;
+        // the redrawn run (mvrun, eight steps, the legs alternating): its anchor is the hat, so the head rides level (js/game.js MV_AX.mvrun)
+        static readonly float[] RUN8_AX = { .794f, .783f, .792f, .789f, .8f, .797f, .792f, .803f };
         HeroFrames H; float[] AX; readonly SpriteRenderer[] notch = new SpriteRenderer[8];
 
         public static PlayerView Create(Sim sim, Transform parent)
         {
             var go = new GameObject("Mumyeong"); go.transform.SetParent(parent, false);
             var v = go.AddComponent<PlayerView>(); v.sim = sim; v.sr = go.AddComponent<SpriteRenderer>(); v.sr.sortingOrder = 10;
-            v.sheet = Sheet.Get("hero3"); v.slash = Sheet.Get("slashfx"); v.H = DB.Tables.H3; v.AX = DB.Tables.H3_AX;
+            v.sheet = Sheet.Get("hero3"); v.slash = Sheet.Get("slashfx"); v.run8 = Sheet.Get("mvrun"); v.H = DB.Tables.H3; v.AX = DB.Tables.H3_AX;
             if (v.sheet != null) v.k = World.ScaleFor(DB.Tables.HERO_H * 1.08f, v.sheet.FrameH(v.H.idle));
             v.arc = Child("Cut", parent, 12); v.arcBack = Child("CutBehind", parent, 11);
             for (int i = 0; i < v.notch.Length; i++) { v.notch[i] = Child("Edge", parent, 30); v.notch[i].sprite = Fx.Dot(); }
@@ -60,6 +62,8 @@ namespace Cheongo
             bool onWall = !cut && f == H.wall; int face = onWall ? p.wall : p.face;
             sr.sprite = cut ? slash.Frame(f, SF_AX[f], 1f) : sheet.Frame(f, f < AX.Length ? AX[f] : .5f, 1f); sr.flipX = face < 0;
             float breathe = !cut && f == H.idle ? 1 + Mathf.Sin(Time.time / .38f) * .012f : 1, s = cut ? k * SLASH_K : k;
+            if (!cut && run8 != null && System.Array.IndexOf(H.run, f) >= 0)   // on the ground and running: the eight-step run, sized to hero3's first run frame as on the web
+            { int rf = Mathf.FloorToInt(p.run / 1.05f) % 8; sr.sprite = run8.Frame(rf, RUN8_AX[rf], 1f); s = k * sheet.FrameH(H.run[0]) / run8.FrameH(rf); }
             Sheet gs = null; int gf = 0; float gax = .5f; bool gun = sim.IsGun && sim.state != "dead" && GunPose(p, out gs, out gf, out gax);
             if (gun) { sr.sprite = gs.Frame(gf, gax, 1f); sr.flipX = p.face < 0; s = k * SLASH_K * .75f / .8f; breathe = 1; cut = true; }
             transform.localPosition = World.ToUnity(cx, p.b.y + p.b.h + 1, 0); transform.localScale = new Vector3(s, s * breathe, 1);

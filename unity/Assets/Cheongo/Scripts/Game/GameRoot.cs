@@ -8,7 +8,7 @@ using UnityEngine;
 
 namespace Cheongo
 {
-    public class GameRoot : MonoBehaviour
+    public partial class GameRoot : MonoBehaviour
     {
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         static void Boot()
@@ -33,7 +33,7 @@ namespace Cheongo
             if (cam == null) { var go = new GameObject("Main Camera") { tag = "MainCamera" }; cam = go.AddComponent<Camera>(); go.AddComponent<AudioListener>(); }
             cam.orthographic = true; cam.clearFlags = CameraClearFlags.SolidColor; cam.transform.position = new Vector3(0, 0, -10);
             if (DB.Tables == null) { enabled = false; return; }
-            music = Music.I; meta = Meta.I; ApplySettings();
+            music = Music.I; meta = Meta.I; ApplySettings(); Booth.Init();
             ShowTitle();
         }
         void ApplySettings()
@@ -45,6 +45,7 @@ namespace Cheongo
         // ---------- the journey ----------
         void ShowTitle()
         {
+            if (booth) { ShowBoothTitle(); return; }   // 부스판: its own title, board and short journey (GameRoot.Booth.cs)
             ClearWorld(); music.StopSong(); cam.backgroundColor = DB.Hex("#e6e2d7"); sim = null;
             var s = new Screen { title = "천고", sub = "天鼓 · 북을 베러 가는 길", art = Sheet.Image("title"), note = "방향키·마우스로 고르고 Enter · 클릭" };
             var saved = meta.LoadRun();
@@ -80,12 +81,13 @@ namespace Cheongo
             sim = new Sim(lv, run, fx, music); sim.P.Fx = fx.Hero;
             fight = FightView.Create(sim, worldRoot); view = PlayerView.Create(sim, worldRoot);
             camX = sim.P.b.cx + 24; camY = sim.P.b.cy - 24; stageCardT = 0;
-            meta.SaveRun(run);
+            if (!booth) meta.SaveRun(run);   // a booth journey is never continued
         }
         string StageName => run.Arena ? $"천고대 天鼓臺 · {Boss.For(run.seed, run.cycle).name}" : (run.node == "elite" ? "험로 · " : "") + Content.STAGE[Mathf.Min(run.m, Run.LAST_M)];
 
         void GateCleared()
         {
+            if (booth && BoothGateCleared()) return;
             music.Sfx("strike"); int hon;
             if (run.Arena)   // the drum is cut: a turn of the road is done, and the next begins harder
             {
@@ -118,6 +120,7 @@ namespace Cheongo
         // 길 고르기: which road to the next gate
         void ShowRoute()
         {
+            if (booth) { run.node = "gate"; LoadGate(); return; }   // 부스판: straight on to the next gate
             if (run.Arena) { ShowTree("천고대 앞", "우두머리가 기다린다 — 들어서기 전에 닦은 것을 가다듬는다", true); return; }
             var s = new Screen { title = "길을 고른다", sub = $"{run.cycle + 1}번째 바퀴 · 다음은 {Content.STAGE[run.m]}", cards = true, note = $"숨 {run.breath} · 수련점 {run.sp} · 혼 {meta.hon}" };
             s.items.Add(new Item { label = "관문", tag = "關門", sub = "늘 가던 길. 지키는 이들을 넘어 문을 지난다.", act = () => { run.node = "gate"; LoadGate(); } });
@@ -247,6 +250,9 @@ namespace Cheongo
         {
             fade = Mathf.Min(1, fade + Time.unscaledDeltaTime * 3);
             if (Input.GetKeyDown(KeyCode.F11)) { meta.fullscreen = !meta.fullscreen; ApplySettings(); meta.Save(); }
+            if (Input.GetKeyDown(KeyCode.F9) && sim == null && screen != null && screen.title == "천고") { Booth.Toggle(); ShowTitle(); return; }   // staff: booth mode on/off on the title
+            if (booth && BoothTick()) return;
+            if (booth && naming) { NameInput(); return; }
             if (screen != null) { MenuInput(); if (sim != null && screen != null) return; }   // a menu over the fight holds it still
             if (sim == null || lv == null) return;
             if (screen != null) return;
@@ -254,7 +260,7 @@ namespace Cheongo
             ReadInput();
             float rdt = Mathf.Min(Time.unscaledDeltaTime, .05f); stageCardT += rdt;
             music.Tick(); sim.Frame(rdt, inp);
-            if (sim.state == "over") { ShowOver(); return; }
+            if (sim.state == "over") { if (booth) BoothOver(); else ShowOver(); return; }
             if (sim.cleared && sim.killCam <= 0) { GateCleared(); return; }
             var p = sim.P; view.Sync(); fight.Sync();
 
@@ -295,6 +301,7 @@ namespace Cheongo
             float sc = UnityEngine.Screen.height / 720f; VW = UnityEngine.Screen.width / sc; GUI.matrix = Matrix4x4.Scale(new Vector3(sc, sc, 1));
             if (sim != null && lv != null) DrawHud(sc);
             if (screen != null) DrawScreen();
+            if (booth) DrawBooth();
             if (fade < 1) Fill(new Rect(0, 0, VW, 720), new Color(.05f, .045f, .06f, (1 - fade) * (sim != null && screen == null ? .9f : .5f)));
         }
 

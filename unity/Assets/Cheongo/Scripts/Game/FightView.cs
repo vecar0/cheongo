@@ -29,6 +29,15 @@ namespace Cheongo
 
         SpriteRenderer Sprite(string name, Transform parent, int order) { var go = new GameObject(name); go.transform.SetParent(parent, false); var s = go.AddComponent<SpriteRenderer>(); s.sortingOrder = order; return s; }
         LineRenderer Line(string name, Transform parent, int order) { var go = new GameObject(name); go.transform.SetParent(parent, false); var lr = go.AddComponent<LineRenderer>(); lr.sharedMaterial = Fx.LineMat(); lr.sortingOrder = order; lr.useWorldSpace = false; lr.numCapVertices = 2; return lr; }
+        static readonly System.Collections.Generic.Dictionary<string, int> WALK_ROW = new System.Collections.Generic.Dictionary<string, int> { { "gumiho", 0 }, { "dokkaebi", 1 }, { "haetae", 2 }, { "bulgasari", 3 }, { "baekho", 4 }, { "talchum", 5 }, { "sumun", 6 } };
+        static readonly System.Collections.Generic.Dictionary<string, float> walkK = new System.Collections.Generic.Dictionary<string, float>();
+        static float WalkK(Boss B, Sheet idle, Sheet bw, int row)   // world units per pixel of the walk frames: the idle's size, matched by area (gaits stretch the outline)
+        {
+            if (walkK.TryGetValue(B.key, out var k)) return k;
+            var i0 = idle.Frames[B.idle]; float a0 = Mathf.Sqrt(i0.w * i0.h), a1 = 0;
+            for (int i = 0; i < 4; i++) { var f = bw.Frames[row * 4 + i]; a1 += Mathf.Sqrt(f.w * f.h) / 4; }
+            return walkK[B.key] = B.draw / idle.FrameH(B.idle) * a0 / a1 * .95f;
+        }
         static void Put(SpriteRenderer r, Sheet sh, int frame, float x, float y, float h, float ax = .5f, float ay = 1, bool flip = false, float a = 1, float z = 0)
         {
             if (sh == null) { r.enabled = false; return; }
@@ -95,6 +104,9 @@ namespace Cheongo
                         else if (e.swingT > 0) fr = B.sheet == "foes2" ? 6 : B.atk; else if (e.act != null || e.air || e.chargeT > 0 || e.danceT > 0) fr = B.atk;
                         float hh = use == sh ? B.draw * sh.FrameH(fr) / sh.FrameH(B.idle) : baseH; float a = e.hidden ? 0 : e.invisT > 0 ? .12f : 1;
                         float bob = e.walkT > 0 ? Mathf.Abs(Mathf.Sin(e.wph * Mathf.PI)) * 3 : 0;
+                        // walking: the redrawn four-step loop (bwalk), its legs alternating, sized by area to the idle painting (js/game.js animScale)
+                        if (use == sh && fr == B.idle && e.walkT > 0 && WALK_ROW.TryGetValue(B.key, out int row) && Sheet.Get("bwalk") is Sheet bw)
+                        { int wf = row * 4 + ((Mathf.FloorToInt(e.wph) % 4) + 4) % 4; use = bw; fr = wf; hh = bw.FrameH(wf) * WalkK(B, sh, bw, row); bob = 0; }
                         Put(v.body, use, fr, cx, feet - bob, hh, .5f, 1, e.face < 0, a); if (e.raged && e.hitT <= 0) v.body.color = new Color(1, .82f, .8f, a);
                         break;
                     }
