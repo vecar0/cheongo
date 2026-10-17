@@ -2,7 +2,7 @@
 (() => {
 "use strict";
 const T = 32;
-const ASSET_V = "144";   // bump when any picture changes: the service worker then fetches the new json and webp together
+const ASSET_V = "145";   // bump when any picture changes: the service worker then fetches the new json and webp together
 const $ = id => document.getElementById(id);
 const cv = $("cv"); let ctx = cv.getContext("2d", { alpha: false });   // let: the ground is baked by pointing ctx at an offscreen canvas for a moment   // opaque canvas: cheaper to composite on phones
 let W = 0, H = 0, DPR = 1, SCALE = 1;
@@ -341,7 +341,7 @@ const CAL = { title: 0, death: 1, madang: [2, 3, 4, 5, 6], end: 7, clear: 8 };  
 const PROP = { rope: 0, aim: 1, reticle: 2, pine: 3, stoneLantern: 4, jars: 5, banner: 6, sotdae: 7, palisade: 8 };
 const DRESS = [[PROP.pine, 74, 3], [PROP.stoneLantern, 34, 2], [PROP.jars, 26, 1], [PROP.banner, 80, 3], [PROP.sotdae, 84, 3], [PROP.palisade, 28, 1]]; // [frame, world height, headroom tiles]
 const OBJ = { lanternOn: 0, lanternOff: 1, kite: 2, thorns: 3, seal: 4, emitter: 5, slash: 6, slashRed: 7, splat: 8 };
-const LAZY_SHEETS = new Set(["bfx2", "bfx3", "gun1", "gun2", "grun2", "mv0", "mvrun", "weapons", "mu", "mv1", "mfx", "po", "mv2", "pfx", "arms", "bossA", "bossB", "bossC", "bossD", "bossE", "bossF", "bossfx", "bname", "md0", "md1", "md2", "md3", "md4"]);
+const LAZY_SHEETS = new Set(["bfx2", "bfx3", "gun1", "gun2", "grun2", "mv0", "mvrun", "weapons", "mu", "mv1", "mfx", "po", "mv2", "pfx", "arms", "bossA", "bossB", "bossC", "bossD", "bossE", "bossF", "bwalk", "bossfx", "bname", "md0", "md1", "md2", "md3", "md4"]);
 const CHAR_SHEETS = { mumyeong: ["mv0", "mvrun", "weapons"], munyeo: ["mu", "mv1", "mfx", "arms"], posu: ["po", "mv2", "pfx", "arms"] };
 const sheetLoading = new Set();
 function loadSheet(n) { // one atlas: frames JSON + image (ink-inverted copy for the night palette where needed)
@@ -403,7 +403,7 @@ function playSheets() { const ch = (run && run.char) || "mumyeong", out = ALL_SH
   if (run && mode !== "tutorial" && (run.tower || run.m === LAST_M)) out.push(...bossSheets(bossKindOf(run)));
   return [...new Set(out)]; }
 function needSheets(list) { for (const n of list) loadSheet(n); }   // phones: only the hand being played and the guardian being fought are held in memory
-const ALL_SHEETS = ["hero", "hero2", "foes", "objects", "ui", "fx", "hud", "hudsolid", "props", "props2", "rocks", "pines", "slabs", "pillars", "rogue", "roguea", "rogue2", "rogue3", "rogue4", "foes2", "bossA", "bossB", "bossfx", "bossC", "bossD", "bossE", "bossF", "hero3", "herofx", "slashfx", "perkfx", "weapons", "chars", "misc", "arms", "ic0", "ic1", "ic2", "ic3", "ic4", "ic5", "ic6", "ic7", "ic8", "ic9", "ic10", "ic11", "ic12", "ic13", "ic14", "ic15", "mu", "po", "mfx", "pfx", "vis", "guide", "mv0", "mv1", "mv2", "bcal", "bvfx", "bname", "mvrun", "mech", "foes3", "kfx", "kring", "wfx", "ic16", "gfx", "swm", "gun1", "gun2", "grun2", "muz", "ogA", "ogB", "hub", "pet", "npc", "bfx2", "bfx3", "mapobj", "md0", "md1", "md2", "md3", "md4"];
+const ALL_SHEETS = ["hero", "hero2", "foes", "objects", "ui", "fx", "hud", "hudsolid", "props", "props2", "rocks", "pines", "slabs", "pillars", "rogue", "roguea", "rogue2", "rogue3", "rogue4", "foes2", "bossA", "bossB", "bossfx", "bossC", "bossD", "bossE", "bossF", "hero3", "herofx", "slashfx", "perkfx", "weapons", "chars", "misc", "arms", "ic0", "ic1", "ic2", "ic3", "ic4", "ic5", "ic6", "ic7", "ic8", "ic9", "ic10", "ic11", "ic12", "ic13", "ic14", "ic15", "mu", "po", "mfx", "pfx", "vis", "guide", "mv0", "mv1", "mv2", "bcal", "bvfx", "bname", "mvrun", "mech", "foes3", "kfx", "kring", "wfx", "ic16", "gfx", "swm", "gun1", "gun2", "grun2", "muz", "ogA", "ogB", "hub", "pet", "npc", "bfx2", "bfx3", "mapobj", "md0", "md1", "md2", "md3", "md4", "bwalk"];
 for (const n of ALL_SHEETS) if (!LAZY_SHEETS.has(n)) loadSheet(n);
 function inkInverted(img) { // night palette: grey ink becomes bone white, coloured accents stay as they are
   const c = document.createElement("canvas"); c.width = img.width; c.height = img.height; const g = c.getContext("2d"); g.drawImage(img, 0, 0);
@@ -3019,7 +3019,8 @@ const BOSS_POSE = {
 };
 // 4-frame loops (bossE/bossF, one boss per row): walk/run cycles advance with distance, 원귀's drift with time
 const cyc4 = (sh, r) => [0, 1, 2, 3].map(i => [sh, r * 4 + i]);
-const BOSS_ANIM = { gumiho: cyc4("bossE", 0), dokkaebi: cyc4("bossE", 1), haetae: cyc4("bossE", 2), bulgasari: cyc4("bossE", 3), baekho: cyc4("bossF", 0), talchum: cyc4("bossF", 1), sumun: cyc4("bossF", 2), wongwi: cyc4("bossF", 3) };
+// bwalk (redrawn): the legs truly alternate — gumiho · dokkaebi · haetae · bulgasari · baekho · talchum · sumun, four frames each; 원귀 still drifts on bossF
+const BOSS_ANIM = { gumiho: cyc4("bwalk", 0), dokkaebi: cyc4("bwalk", 1), haetae: cyc4("bwalk", 2), bulgasari: cyc4("bwalk", 3), baekho: cyc4("bwalk", 4), talchum: cyc4("bwalk", 5), sumun: cyc4("bwalk", 6), wongwi: cyc4("bossF", 3) };
 const animK = {};
 function animScale(kind) { // size a loop so its frames match the boss's idle painting (by area, since gaits stretch the outline)
   if (animK[kind]) return animK[kind];
@@ -4199,7 +4200,7 @@ function drawPlayer(pal) {
   }
   const h3wall = (sheet === "hero3" || sheet === "mu" || sheet === "po") && fr === H3.wall, f3 = h3wall ? P.wall : face, breathe = (sheet === "hero3" || sheet === "mu" || sheet === "po") && fr === H3.idle ? 1 + Math.sin(performance.now() / 380) * .012 : 1;
   const ram = sheet === "gun2" && P.slashT > 0 && isGun() ? Math.sin(Math.PI * Math.min(1, 1 - P.slashT / (P.slashDur || .13))) * 10 * (face < 0 ? -1 : 1) : 0;   // the barrel-ram lunges a step forward
-  ctx.save(); ctx.translate(cx + ram, P.y + P.h + 1 + (sheet === "mvrun" ? RUN_BOB[fr] : sheet === "grun2" ? RUN_BOB[fr % 8] : 0)); ctx.scale(1, breathe);
+  ctx.save(); ctx.translate(cx + ram, P.y + P.h + 1 + (sheet === "mvrun" ? 0 : sheet === "grun2" ? RUN_BOB[fr % 8] : 0)); ctx.scale(1, breathe);
   drawSprite(sheet, fr, 0, 0, k, f3 < 0, GUN_AX[sheet] ? GUN_AX[sheet][fr] : sheet === "swm" ? SWM_AX[fr] : MV_BASE[sheet] ? (MV_AX[sheet][fr] ?? .5) : sheet === "mu" ? MU_AX[fr] : sheet === "po" ? PO_AX[fr] : sheet === "arms" ? AF_AX[fr] : sheet === "chars" ? CF_AX[fr] : sheet === "weapons" ? WF_AX[fr] : sheet === "slashfx" ? SF_AX[fr] : sheet === "hero3" ? H3_AX[fr] : sheet === "hero" ? (HERO_AX[fr] ?? .55) : (wallPose ? .62 : .5), !!LV.pal.night);
   ctx.restore();
   ctx.globalAlpha = 1;
@@ -4865,7 +4866,7 @@ function codexScreen() {
 // 숙련: each weapon grows with the foes it fells; the fifth step gilds its stroke
 const masteryLv = w => Math.min(5, Math.floor(Math.sqrt((META.mastery[w] || 0) / 25)));
 const chr = id => !!(run && (id === "posu" ? isGun() : run.char === id));   // 포수 is no longer a person: "posu" now means "holding a gun"
-const MV_AX = { mvrun: [.627, .694, .688, .694, .604, .692, .689, .695],   // the run sheet, aligned on the hat so the head rides level
+const MV_AX = { mvrun: [.794, .783, .792, .789, .8, .797, .792, .803],   // the run sheet (redrawn: legs alternate, the far leg in grey), aligned on the hat so the head rides level
   mv0: [.52, .6, .64, .62, .61, .61, .55, .61, .54, .48, .44, .59, .58, .61, .43, .45],   // body axis of each frame, so the feet stay put
   mv1: [.53, .62, .62, .62, .57, .6, .57, .59, .63, .57, .44, .53, .54, .64, .46, .44], mv2: [.46, .5, .52, .49, .48, .5, .49, .46, .52, .41, .41, .44, .39, .45, .42, .42] };
 const VIS = { cut: 0, splat: 1, ring: 2, drum: 3, bigDrum: 4, burst: 5, stroke: 6, seal: 7, drops: 8 };   // blood, stamps and the beat bar, painted to read at a glance
