@@ -338,7 +338,11 @@ namespace Cheongo
             // 기력 under the 숨: what 무아경 spends
             Plate(new Rect(8, 44, 150, 52), plate.a); ink = INK;   // 기력 · 기세 on their own plate, the two rows in its middle (label 26 + gap 4 + bar 100)
             Txt(new Rect(18, 55, 40, 12), "기력", 11, new Color(ink.r, ink.g, ink.b, .8f), TextAnchor.MiddleLeft);
-            Fill(new Rect(48, 55, 100, 10), new Color(ink.r, ink.g, ink.b, .2f)); Fill(new Rect(48, 55, 100 * Mathf.Clamp01(p.ki), 10), p.ki < .25f && Mathf.Sin(Time.unscaledTime * 11) > 0 ? new Color(ink.r, ink.g, ink.b, .5f) : ink); if (p.focus) Fill(new Rect(48, 59, 100 * Mathf.Clamp01(p.ki), 2), new Color(.153f, .275f, .416f, .5f));
+            { var mech = Sheet.Get("mech"); float ki = Mathf.Clamp01(p.ki); bool low = p.ki < .25f && Mathf.Sin(Time.unscaledTime * 11) > 0;
+              if (mech != null) { var mf = mech.Frames[11]; var src = new Rect((float)mf.x / mech.Tex.width, 1 - (float)(mf.y + mf.h) / mech.Tex.height, (float)mf.w / mech.Tex.width, (float)mf.h / mech.Tex.height);
+                GUI.color = new Color(1, 1, 1, .2f); GUI.DrawTextureWithTexCoords(new Rect(48, 55, 100, 10), mech.Tex, src); GUI.color = new Color(1, 1, 1, low ? .5f : 1); GUI.DrawTextureWithTexCoords(new Rect(48, 55, 100 * ki, 10), mech.Tex, new Rect(src.x, src.y, src.width * ki, src.height)); GUI.color = Color.white; }   // the painted gauge stroke, revealed as far as 기력 reaches
+              else { Fill(new Rect(48, 55, 100, 10), new Color(ink.r, ink.g, ink.b, .2f)); Fill(new Rect(48, 55, 100 * ki, 10), ink); }
+              if (p.focus) Fill(new Rect(48, 59, 100 * ki, 2), new Color(.153f, .275f, .416f, .5f)); }
             // 기세: five brush cells, the tier's numeral beside them
             int tier = sim.MomTier; bool tr = run.trance > 0;
             Txt(new Rect(18, 71, 40, 16), tier > 0 ? $"{tier}단" : "기세", tier > 0 ? 13 : 11, tr ? SEAL : new Color(ink.r, ink.g, ink.b, .85f), TextAnchor.MiddleLeft, true);
@@ -347,7 +351,7 @@ namespace Cheongo
             {
                 Txt(new Rect(18, 88, 40, 16), sim.W.heat ? "열" : "탄", 11, new Color(ink.r, ink.g, ink.b, .8f), TextAnchor.MiddleLeft);
                 if (sim.W.heat) { Fill(new Rect(48, 92, 104, 8), new Color(ink.r, ink.g, ink.b, .2f)); Fill(new Rect(48, 92, 104 * Mathf.Clamp01(p.heat / 100), 8), p.overheat > 0 ? SEAL : p.heat > 70 ? GOLD : ink); }
-                else for (int i = 0; i < sim.GunMag; i++) { GUI.color = i < p.ammo ? ink : new Color(ink.r, ink.g, ink.b, .2f); GUI.DrawTexture(new Rect(48 + i * 16, 90, 12, 12), dot); }
+                else for (int i = 0; i < sim.GunMag; i++) { Frame(ui, i < p.ammo ? 3 : 4, new Rect(48 + i * 14, 88, 10, 14), i < p.ammo ? 1 : .55f); }
                 GUI.color = Color.white;
             }
             // 결계: how many of the gate's guards are cut, and how many open the way out
@@ -430,10 +434,10 @@ namespace Cheongo
                     Color edge = sel ? SEAL : new Color(.09f, .086f, .1f, .55f); float t = sel ? 3 : 1.5f; Fill(new Rect(r.x, r.y, r.width, t), edge); Fill(new Rect(r.x, r.yMax - t, r.width, t), edge); Fill(new Rect(r.x, r.y, t, r.height), edge); Fill(new Rect(r.xMax - t, r.y, t, r.height), edge);
                     Color c = it.enabled ? INK : new Color(.09f, .086f, .1f, .4f);
                     float dy = 0; if (it.icon >= 0 && Icons.Get(it.icon, out var ish, out int ifr)) { var f = ish.Frames[ifr]; float ih = 64, iw = ih * f.w / f.h; Frame(ish, ifr, new Rect(r.x + r.width / 2 - iw / 2, r.y + 18, iw, ih), it.enabled ? 1 : .45f); dy = 64; }   // the 비급's painted icon, as on the web's cards
-                    Txt(new Rect(r.x, r.y + 34 + dy * .75f, r.width, 54), it.label, it.label.Length > 5 ? 30 : 38, c, TextAnchor.MiddleCenter, true);
-                    if (!string.IsNullOrEmpty(it.tag)) Txt(new Rect(r.x, r.y + 92 + dy * .75f, r.width, 22), it.tag, 13, it.enabled ? SEAL : c);
-                    Fill(new Rect(r.x + 40, r.y + 126 + dy * .75f, r.width - 80, 1), new Color(.09f, .086f, .1f, .3f));
-                    if (!string.IsNullOrEmpty(it.sub)) Txt(new Rect(r.x + 22, r.y + 140 + dy * .75f, r.width - 44, 220 - dy * .75f), it.sub, 15, c, TextAnchor.UpperCenter, false, true);
+                    Txt(new Rect(r.x, r.y + 34 + dy, r.width, 54), it.label, it.label.Length > 5 ? 30 : 38, c, TextAnchor.MiddleCenter, true);
+                    if (!string.IsNullOrEmpty(it.tag)) Txt(new Rect(r.x, r.y + 92 + dy, r.width, 22), it.tag, 13, it.enabled ? SEAL : c);
+                    Fill(new Rect(r.x + 40, r.y + 126 + dy, r.width - 80, 1), new Color(.09f, .086f, .1f, .3f));
+                    if (!string.IsNullOrEmpty(it.sub)) Txt(new Rect(r.x + 22, r.y + 140 + dy, r.width - 44, 220 - dy), it.sub, 15, c, TextAnchor.UpperCenter, false, true);
                 }
             }
             else
@@ -443,9 +447,9 @@ namespace Cheongo
                 {
                     Shadowed(new Rect(lx - 8, 70, 600, 170), s.title, 150, INK, new Color(.93f, .9f, .85f, .7f), TextAnchor.MiddleLeft, true);
                     Txt(new Rect(lx, 232, 600, 26), s.sub, 17, SEAL, TextAnchor.MiddleLeft, true);
-                    Fill(new Rect(lx - 26, y - 20, lw + 40, s.items.Count * 52 + 34), new Color(.93f, .9f, .85f, .82f));
+                    if (s.items.Count > 0) { Fill(new Rect(lx - 26, y - 20, lw + 40, s.items.Count * 52 + 34), new Color(.93f, .9f, .85f, .82f)); }
                 }
-                else { Txt(new Rect(0, 96, VW, 70), s.title, 54, ink, TextAnchor.MiddleCenter, true); if (!string.IsNullOrEmpty(s.sub)) Txt(new Rect(0, 172, VW, 26), s.sub, 17, new Color(ink.r, ink.g, ink.b, .8f)); if (s.art != null && !s.dark) Fill(new Rect(lx - 26, y - 20, lw + 52, s.items.Count * 52 + 34), new Color(.93f, .9f, .85f, .85f)); }
+                else { Txt(new Rect(0, 96, VW, 70), s.title, 54, ink, TextAnchor.MiddleCenter, true); if (!string.IsNullOrEmpty(s.sub)) Txt(new Rect(0, 172, VW, 26), s.sub, 17, new Color(ink.r, ink.g, ink.b, .8f)); if (s.items.Count > 0) { if (s.art != null && !s.dark) Fill(new Rect(lx - 26, y - 20, lw + 52, s.items.Count * 52 + 34), new Color(.93f, .9f, .85f, .85f)); } }
                 Color li = title || (s.art != null && !s.dark) ? INK : ink;
                 for (int i = 0; i < s.items.Count; i++)
                 {
@@ -457,7 +461,7 @@ namespace Cheongo
                     Txt(new Rect(r.x + 6, r.y, 240, r.height), it.label, 24, c, TextAnchor.MiddleLeft, true);
                     string right = it.value != null ? "‹ " + it.value() + " ›" : it.sub; if (!string.IsNullOrEmpty(right)) Txt(new Rect(r.x + 150, r.y, lw - 160, r.height), right, 13, new Color(c.r, c.g, c.b, it.value != null ? 1 : .75f), TextAnchor.MiddleRight);
                 }
-                var cur = s.items[s.sel]; if (cur.value != null && !string.IsNullOrEmpty(cur.sub)) Txt(new Rect(lx, y + s.items.Count * 52 + 4, lw, 22), cur.sub, 13, new Color(li.r, li.g, li.b, .7f), TextAnchor.MiddleLeft);
+                var cur = s.items.Count > 0 ? s.items[Mathf.Clamp(s.sel, 0, s.items.Count - 1)] : null; if (cur != null && cur.value != null && !string.IsNullOrEmpty(cur.sub)) Txt(new Rect(lx, y + s.items.Count * 52 + 4, lw, 22), cur.sub, 13, new Color(li.r, li.g, li.b, .7f), TextAnchor.MiddleLeft);
             }
             if (!string.IsNullOrEmpty(s.note)) { bool many = s.note.Contains("\n"); var r = many ? new Rect(VW / 2 - 420, 250 + s.items.Count * 52 + 30, 840, 130) : new Rect(0, 660, VW, 26); if (title) { Fill(new Rect(0, 656, VW, 34), new Color(.93f, .9f, .85f, .7f)); } Txt(r, s.note, many ? 15 : 13, title ? INK : new Color(ink.r, ink.g, ink.b, .75f), many ? TextAnchor.UpperCenter : TextAnchor.MiddleCenter); }
         }

@@ -16,7 +16,7 @@ namespace Cheongo.EditorTools
             // the paper, the panoramas and the rock columns are reworked in code at load (grain, blur, brightness), so their pixels must be readable
             string n = System.IO.Path.GetFileNameWithoutExtension(assetPath); ti.isReadable = n == "tex-paper" || n == "far" || n == "mid" || n == "pillars";
             ti.alphaIsTransparency = true;
-            ti.maxTextureSize = 4096;
+            ti.maxTextureSize = 16384;   // the widest sheets (bwalk: 8150px) must keep every pixel, or their frame rectangles miss
             ti.textureCompression = TextureImporterCompression.Uncompressed;
             ti.wrapMode = assetPath.Contains("/tex-") ? UnityEngine.TextureWrapMode.Repeat : UnityEngine.TextureWrapMode.Clamp;
         }

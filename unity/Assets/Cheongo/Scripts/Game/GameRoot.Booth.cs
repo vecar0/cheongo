@@ -170,7 +170,7 @@ namespace Cheongo
                 if (sim.kite != null && sim.state == "play") { var kr = new Rect(VW / 2 - 90, 500, 180, 30); Plate(kr, .92f); Txt(kr, "L · LB  연", 16, new Color(.18f, .35f, .48f), TextAnchor.MiddleCenter, true); }
                 if (run.m == 0 && stageCardT < 28 && stageCardT > 2.2f)   // the first gate: how the hands go, laid over the ground until the player has it
                 {
-                    float a = Mathf.Clamp01((28 - stageCardT) / 2); var r = new Rect(VW / 2 - 330, 548, 660, 66);
+                    float a = Mathf.Clamp01((28 - stageCardT) / 2); var r = new Rect(VW / 2 - Mathf.Min(430, VW / 2 - 12), 548, Mathf.Min(860, VW - 24), 66);   // wide enough for the longer first line
                     Fill(r, new Color(.93f, .9f, .85f, .88f * a)); Fill(new Rect(r.x, r.y, 4, r.height), new Color(SEAL.r, SEAL.g, SEAL.b, a));
                     Txt(new Rect(r.x + 16, r.y + 6, r.width - 24, 26), "이동 ←→ · 점프 Space/A · 베기 J/X · 대시 K/B (누르고 있으면 무아경 · 마우스로 겨눔) · 연 L/LB", 15, new Color(INK.r, INK.g, INK.b, a), TextAnchor.MiddleLeft);
                     Txt(new Rect(r.x + 16, r.y + 34, r.width - 24, 26), "적의 원이 점으로 닫히는 순간 베면 간파 — 무엇이든 한 번에 쓰러진다", 15, new Color(SEAL.r, SEAL.g, SEAL.b, a), TextAnchor.MiddleLeft);

@@ -299,8 +299,8 @@ namespace Cheongo
                 for (int k = 1; k <= Mathf.CeilToInt(hh / T); k++) if (Tile(tx, ty - k) != 0) return false;
                 used.Add((tx, ty)); float x = tx * T + 16, y = ty * T + 2; var f = sh.Frames[i];
                 float rw = Mathf.Min(f.w * hh / f.h * .42f, 90);   // a wash of shadow seats them on the ground
-                var sgo = new GameObject("Shadow"); sgo.transform.SetParent(transform, false); var ss = sgo.AddComponent<SpriteRenderer>(); ss.sprite = Fx.Dot(); ss.color = new Color(40 / 255f, 34 / 255f, 30 / 255f, .16f); ss.sortingOrder = 2;
-                sgo.transform.localPosition = World.ToUnity(x, y - 1); sgo.transform.localScale = new Vector3(rw * 2 / T, Mathf.Max(3, rw * .12f) * 2 / T, 1);
+                var sgo = new GameObject("Shadow"); sgo.transform.SetParent(transform, false); var ss = sgo.AddComponent<SpriteRenderer>(); var muz = Sheet.Get("muz"); ss.sprite = muz != null ? muz.Frame(4, .5f, .5f) : Fx.Dot(); ss.color = new Color(.4f, .36f, .33f, .35f); ss.sortingOrder = 2;
+                sgo.transform.localPosition = World.ToUnity(x, y - 1); { float sw = rw * 2.2f, shh = Mathf.Max(5, rw * .3f); if (muz != null) { var mf = muz.Frames[4]; sgo.transform.localScale = new Vector3(sw / T / (mf.w / World.PPU), shh / T / (mf.h / World.PPU), 1); } else sgo.transform.localScale = new Vector3(sw / T, shh / T, 1); }
                 Spr("Prop", sh, i, x, y, hh, 3, flip); return true;
             }
             { int sx = Mathf.FloorToInt(lv.start.x / T), sy = Mathf.FloorToInt((lv.start.y + 31) / T); PutProp(props, PROP_SOTDAE, sx - 1, sy, 84); PutProp(props2, P2_HAETAE, sx + 3, sy, 34); }

@@ -21,7 +21,7 @@ namespace Cheongo
             v.sheet = Sheet.Get("hero3"); v.slash = Sheet.Get("slashfx"); v.run8 = Sheet.Get("mvrun"); v.H = DB.Tables.H3; v.AX = DB.Tables.H3_AX;
             if (v.sheet != null) v.k = World.ScaleFor(DB.Tables.HERO_H * 1.08f, v.sheet.FrameH(v.H.idle));
             v.arc = Child("Cut", parent, 12); v.arcBack = Child("CutBehind", parent, 11);
-            for (int i = 0; i < v.notch.Length; i++) { v.notch[i] = Child("Edge", parent, 30); v.notch[i].sprite = Fx.Dot(); }
+            for (int i = 0; i < v.notch.Length; i++) { v.notch[i] = Child("Edge", parent, 30); var mech = Sheet.Get("mech"); v.notch[i].sprite = mech != null ? mech.Frame(11, .5f, .5f) : Fx.Dot(); }
             v.aimLine = Child("AimLine", parent, 24); v.reticle = Child("Reticle", parent, 25); v.dim = Child("Hush", parent, 6); v.dim.sprite = FightView.Box();
             return v;
         }
@@ -86,8 +86,8 @@ namespace Cheongo
             for (int n = 0; n < notch.Length; n++)
             {
                 notch[n].enabled = show && n < max; if (!notch[n].enabled) continue;
-                notch[n].transform.localPosition = World.ToUnity(cx - (max - 1) * 4 + n * 8, p.b.y - 12, -1); notch[n].transform.localRotation = Quaternion.Euler(0, 0, 28);
-                notch[n].transform.localScale = new Vector3(2.6f / World.T, 9f / World.T, 1); notch[n].color = n < p.edge ? new Color(.09f, .086f, .1f, 1) : p.edge < 1 ? new Color(.76f, .09f, .11f, .45f) : new Color(.09f, .086f, .1f, .2f);
+                notch[n].transform.localPosition = World.ToUnity(cx - (max - 1) * 4 + n * 8, p.b.y - 12, -1); notch[n].transform.localRotation = Quaternion.Euler(0, 0, 62);
+                { var mech = Sheet.Get("mech"); var mf = mech != null ? mech.Frames[11] : null; notch[n].transform.localScale = mf != null ? new Vector3(10f / World.T / (mf.w / World.PPU), 4f / World.T / (mf.h / World.PPU), 1) : new Vector3(2.6f / World.T, 9f / World.T, 1); } notch[n].color = n < p.edge ? new Color(.09f, .086f, .1f, 1) : p.edge < 1 ? new Color(.76f, .09f, .11f, .45f) : new Color(.09f, .086f, .1f, .2f);
             }
         }
 

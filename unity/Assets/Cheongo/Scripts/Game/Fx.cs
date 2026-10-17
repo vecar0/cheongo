@@ -74,14 +74,20 @@ namespace Cheongo
         public void Part(float x, float y, float vx, float vy, float life, string col, float s)
         {
             if (drops.Count > 400) { drops[0].sr.gameObject.SetActive(false); dropPool.Push(drops[0].sr); drops.RemoveAt(0); }   // oldest drops go first
-            SpriteRenderer sr; if (dropPool.Count > 0) sr = dropPool.Pop(); else { sr = NewRenderer("drop", 19); sr.sprite = Dot(); }
+            SpriteRenderer sr; if (dropPool.Count > 0) sr = dropPool.Pop(); else { sr = NewRenderer("drop", 19); sr.sprite = Splat(); }
             sr.gameObject.SetActive(true); sr.color = Rgb(col);
             drops.Add(new Drop { sr = sr, x = x, y = y, vx = vx, vy = vy, life = life, max = life, s = s });
         }
 
+        // a drop of ink: the painted splat (objects 8), tinted to the ink it is thrown in
+        static Sprite splat; static float splatK = 1;
+        static Sprite Splat() { if (splat != null) return splat; var sh = Sheet.Get("objects"); if (sh == null) return splat = Dot(); splat = sh.Frame(8, .5f, .5f); splatK = World.PPU / sh.FrameH(8); return splat; }
+        // a ring spreading out: the painted rings (kring: vermilion 3, indigo 5, rayed 8; bfx3 0 for ink), from a third of its size to all of it
         public void Ring(float x, float y, float r, Color col, float life)
         {
-            var o = new RingOne { x = x, y = y, r = r, life = life, c = col, ink = NewLine("ring", 17), col = NewLine("ring", 18) }; rings.Add(o); ShapeRing(o);
+            bool blue = col.b > col.r + .1f, gold = col.r > .7f && col.g > .5f, ink = col.r < .3f && col.g < .3f && col.b < .3f;
+            string sheet = ink ? "bfx3" : "kring"; int fr = ink ? 0 : blue ? 5 : gold ? 8 : 3;
+            Add(sheet, fr, x, y, r * 2 * .675f, life: life, grow: .963f, a: Mathf.Clamp01(col.a * 1.2f));
         }
         void ShapeRing(RingOne o)
         {
@@ -142,7 +148,7 @@ namespace Cheongo
                 if (p.life <= 0) { p.sr.gameObject.SetActive(false); dropPool.Push(p.sr); drops.RemoveAt(i); continue; }
                 // round drops of ink, stretched a little along their flight — never square specks
                 float k = p.life / p.max, sp = Mathf.Sqrt(p.vx * p.vx + p.vy * p.vy), d = p.s * (.6f + .4f * k) / World.T, st = Mathf.Min(2.2f, 1 + sp / 500);
-                p.sr.transform.localPosition = World.ToUnity(p.x, p.y, -1); p.sr.transform.localScale = new Vector3(d * st, d, 1);
+                p.sr.transform.localPosition = World.ToUnity(p.x, p.y, -1); p.sr.transform.localScale = new Vector3(d * st * splatK, d * splatK, 1);
                 p.sr.transform.localRotation = Quaternion.Euler(0, 0, sp > 20 ? -Mathf.Atan2(p.vy, p.vx) * Mathf.Rad2Deg : 0); var c = p.sr.color; c.a = k; p.sr.color = c;
             }
             for (int i = rings.Count - 1; i >= 0; i--) { var o = rings[i]; o.t += dt; if (o.t >= o.life) { Destroy(o.ink.gameObject); Destroy(o.col.gameObject); rings.RemoveAt(i); continue; } ShapeRing(o); }

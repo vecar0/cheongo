@@ -59,7 +59,7 @@ namespace Cheongo
                 SpriteRenderer G(int x, bool flip) { var r = Sr("ArenaGate", 4); r.sprite = mo.Frame(MO_GATE, .5f, 1); r.flipX = flip; float k = World.ScaleFor(104, mo.FrameH(MO_GATE)); r.transform.localPosition = World.ToUnity(x * T + 16, (a.y1 + 1) * T + 2); r.transform.localScale = new Vector3(k, k, 1); r.enabled = false; return r; }
                 gates.Add((a, G(a.x0, false), G(a.x1, true)));
             }
-            if (lv.exit.width > 0 && !lv.hasDrum) { seal = Sr("ExitSeal", 5); seal.sprite = FightView.Box(); Fit(seal, lv.exit.x - 6, lv.exit.y - 2.5f * T, lv.exit.width + 12, lv.exit.height + 2.5f * T, 4, 4); }
+            if (lv.exit.width > 0 && !lv.hasDrum) { seal = Sr("ExitSeal", 5); var bcal = Sheet.Get("bcal"); if (bcal != null) { var f = bcal.Frames[7]; seal.sprite = bcal.Frame(7, .5f, 0); seal.drawMode = SpriteDrawMode.Tiled; float w = lv.exit.width + 8, k = w / T / (f.w / World.PPU), top = lv.exit.y - 2.5f * T, hh = lv.exit.height + 2.5f * T; seal.transform.localPosition = World.ToUnity(lv.exit.x + lv.exit.width / 2, top); seal.transform.localScale = new Vector3(k, k, 1); seal.size = new Vector2(f.w / World.PPU, hh / T / k); } }   // painted talismans (bcal 7)
         }
 
         public void Sync()
@@ -81,7 +81,7 @@ namespace Cheongo
             foreach (var (c, r) in chests) { int fr = c.open ? MO_CHEST_OPEN : MO_CHEST; r.sprite = mo.Frame(fr, .5f, 1); float k = World.ScaleFor(30, mo.FrameH(MO_CHEST)); r.transform.localPosition = World.ToUnity(c.x, c.y + 2); r.transform.localScale = new Vector3(k, k, 1); }
             foreach (var (z, r) in poles) r.flipX = sim.WindDir(z) < 0;
             foreach (var (a, l, r) in gates) l.enabled = r.enabled = a.st == 1;
-            if (seal != null) { bool shut = !sim.ExitOpen; seal.enabled = shut; if (shut) seal.color = new Color(.76f, .09f, .11f, .16f + .08f * Mathf.Sin(now * 4)); }
+            if (seal != null) { bool shut = !sim.ExitOpen; seal.enabled = shut; if (shut) seal.color = new Color(1, 1, 1, .55f + .15f * Mathf.Sin(now * 4)); }
         }
     }
 }
