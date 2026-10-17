@@ -11,7 +11,7 @@ const PER = 14, LEN = 3;
   const b = await chromium.launch(), p = await (await b.newContext({ serviceWorkers: "block" })).newPage();
   await p.goto("http://localhost:8765/#debug"); await p.waitForFunction(() => window.__dbg && __dbg.genFull, null, { timeout: 90000 });
   const maps = await p.evaluate(([PER, LEN]) => {
-    const out = [], clean = r => r.replace(/[oLM]/g, " ");   // 연 and 금줄 are not in the Unity game
+    const out = [], clean = r => r.replace(/[LM]/g, " ");   // 금줄 is not in the Unity game (연 is)
     for (const md of [0, 1, 2, 3]) for (let i = 0; i < PER; i++) {
       const g = __dbg.genFull(1000 + md * 97 + i * 7919, md, false, LEN);
       if (g.meta.shafts && g.meta.shafts.length) continue;   // rising-ink shafts are not in the Unity game

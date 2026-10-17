@@ -53,5 +53,11 @@ class Sim {
     Console.WriteLine($"planks by beat (3 = ledge, 0 = gone; '1' then '2'): {ph}  (expect 30 30 03 03)");
     lv.crumb[9 * lv.w + 10] = new Crumb { gone = true };
     Console.WriteLine($"giwa: whole={lv.TileAt(11, 9)} crumbled={lv.TileAt(10, 9)} · crack solid={lv.TileAt(13, 9)} cracks={lv.cracks.Count}  (expect 3 0 1 1)");
+    // 연: 'o' is a kite; the line's kick (toward it at 620, and up 560 more) carries 무명 from the floor well above it
+    rows[4] = "        o       "; lv = Level.FromRows(rows, 2); var k = lv.points[0];
+    p = new Player(lv, lv.start.x, lv.start.y); i = new PlayerInput(); for (int f = 0; f < 5; f++) p.Step(1/60f, i);
+    float kdx = k.x - p.b.cx, kdy = k.y - p.b.cy, kd = (float)Math.Sqrt(kdx * kdx + kdy * kdy); p.vx = kdx / kd * 620; p.vy = Math.Min(kdy / kd * 620, 0) - 560; p.onGround = false;
+    float ktop = p.b.y; for (int f = 0; f < 90; f++) { p.Step(1/60f, i); ktop = Math.Min(ktop, p.b.y); }
+    Console.WriteLine($"kite: {lv.points.Count} at ({k.x},{k.y}) · reach from {(lv.start.y)/32:F1} up to {ktop/32:F1} tiles (kite row 4; higher = smaller)");
   }
 }

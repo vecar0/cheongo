@@ -111,5 +111,5 @@ namespace Cheongo
     }
 
     // one frame of the hands: axes (-1..1, y down as in the world) and the buttons pressed this frame
-    public class PlayerInput { public float x, y; public bool jumpPressed, jumpHeld, dashPressed, dashHeld, slashPressed, drumPressed, hasAim; public Vector2 aim; }   // aim: where the mouse or right stick points (when hasAim)
+    public class PlayerInput { public float x, y; public bool jumpPressed, jumpHeld, hookPressed, dashPressed, dashHeld, slashPressed, drumPressed, hasAim; public Vector2 aim; }   // aim: where the mouse or right stick points (when hasAim)
 }

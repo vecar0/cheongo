@@ -219,6 +219,7 @@ namespace Cheongo
             bool lmb = meta.mouseAim && Input.GetMouseButtonDown(0), rmb = meta.mouseAim && Input.GetMouseButton(1);
             inp.jumpPressed |= Input.GetKeyDown(KeyCode.Space) || Input.GetKeyDown(KeyCode.Z) || PadDown(0);
             inp.jumpHeld = Input.GetKey(KeyCode.Space) || Input.GetKey(KeyCode.Z) || Pad(0);
+            inp.hookPressed |= Input.GetKeyDown(KeyCode.L) || Input.GetKeyDown(KeyCode.E) || Input.GetKeyDown(KeyCode.V) || PadDown(4);   // 연
             inp.dashPressed |= Input.GetKeyDown(KeyCode.K) || Input.GetKeyDown(KeyCode.C) || Input.GetKeyDown(KeyCode.LeftShift) || Input.GetKeyDown(KeyCode.RightShift) || PadDown(1) || PadDown(5) || (meta.mouseAim && Input.GetMouseButtonDown(1));
             inp.dashHeld = Input.GetKey(KeyCode.K) || Input.GetKey(KeyCode.C) || Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift) || Pad(1) || Pad(5) || rmb;
             inp.slashPressed |= Input.GetKeyDown(KeyCode.J) || Input.GetKeyDown(KeyCode.X) || PadDown(2) || lmb;

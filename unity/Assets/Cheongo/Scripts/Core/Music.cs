@@ -204,6 +204,7 @@ namespace Cheongo
             Add("shoot", .16f, b => { b.Noise(0, .12f, 900, 'l', .35f); b.Noise(0, .05f, 3000, 'b', .2f); });           // 화승총 crack
             Add("reflect", .25f, b => { b.Kkwaeng(0, .5f, true); b.Gayageum(0, 880, .2f, .06f); });
             Add("die", 3.3f, b => { b.Jing(0); b.Kung(0, 1.3f); });                                                     // 징
+            Add("hook", .45f, b => { b.Gayageum(0, 440, .35f, .08f); b.Gayageum(.07f, 659, .35f, .07f); });   // 연: two plucks
             Add("lantern", .7f, b => { b.Gayageum(0, 330, .5f, .07f); b.Gayageum(.07f, 392, .5f, .07f); b.Gayageum(.14f, 494, .5f, .07f); });   // 가야금 arpeggio
         }
     }

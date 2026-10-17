@@ -40,6 +40,7 @@ namespace Cheongo
         public Vector2 start; public Rect exit; public readonly List<Foe> foes = new List<Foe>();
         public Palette pal; public int madang;
         public readonly List<Target> targets = new List<Target>(); public readonly List<Vector2> cps = new List<Vector2>();   // 과녁 · lanterns (checkpoints)
+        public readonly List<Vector2> points = new List<Vector2>();   // 연: the kites the line can catch
         public bool hasDrum, sealOn; public Vector2 drum; public int sealX0, sealX1, sealY1;   // 천고 itself · the talisman barrier around a guardian
 
         public int TileAt(int tx, int ty)
@@ -183,6 +184,7 @@ namespace Cheongo
                 else if (ch == 'E') lv.exit = new Rect(x * World.T + 1, (y - 1) * World.T + 6, World.T - 2, 2 * World.T - 6);
                 else if (ch == 'D') { lv.hasDrum = true; lv.drum = new Vector2(x * World.T + 16, (y + 1) * World.T); }
                 else if (ch == 'T') lv.targets.Add(new Target { x = x * World.T + 16, y = y * World.T + 16 });
+                else if (ch == 'o') lv.points.Add(new Vector2(x * World.T + 16, y * World.T + 16));
                 else if (ch == 'C') lv.cps.Add(new Vector2(x * World.T + 16, (y + 1) * World.T));
                 else if ("gsdhmrbpak".IndexOf(ch) >= 0) lv.foes.Add(new Foe { type = ch, tx = x, ty = y, id = id++ });
             }
@@ -195,6 +197,7 @@ namespace Cheongo
     public static class Maps
     {
         static WebMap[] all;
+        public static int Count => All.Length;
         static WebMap[] All { get { if (all == null) { var ta = Resources.Load<TextAsset>("Data/maps"); all = ta != null ? JsonUtility.FromJson<WebMaps>(ta.text).maps : new WebMap[0]; } return all; } }
         // one of the web-made gates for this 마당 (or 천고대), chosen by the seed; null if none were exported
         public static Level Pick(int md, bool arena, int seed)

@@ -28,6 +28,7 @@ namespace Cheongo
 
         public readonly Level lv; public Player P; public readonly List<Enemy> foes = new List<Enemy>(); public readonly List<Shot> shots = new List<Shot>(); public readonly List<Hazard> haz = new List<Hazard>();
         public readonly HashSet<int> deadIds = new HashSet<int>();
+        public static bool InstantDash;   // 부스판: no 무아경 hold — a press dashes at once
         public string state = "play";   // play · dead · over (the last 숨 is gone)
         public float songPos, hitstop, shake, flash, flashDim, deathT, FLASH, time, killCam;
         public int nakN, kills, kanpaN, perfectN, deaths, hits; public string toast; public float toastT;
@@ -77,7 +78,7 @@ namespace Cheongo
                 if (state == "play" || state == "dead") { StepEnemies(sdt); StepShots(sdt); if (state == "play") StepHazards(); }
                 if (state != "play" && state != "dead") break;
             }
-            inp.jumpPressed = inp.dashPressed = inp.slashPressed = inp.drumPressed = false;
+            inp.jumpPressed = inp.hookPressed = inp.dashPressed = inp.slashPressed = inp.drumPressed = false;
             if (state == "dead") { deathT += rdt; if (deathT > .75f) AfterDeath(); }
             shake = Mathf.Max(0, shake - rdt * 40); flash = Mathf.Max(0, flash - rdt); flashDim = Mathf.Max(0, flashDim - rdt); killCam = Mathf.Max(0, killCam - rdt); P.chainPop = Mathf.Max(0, P.chainPop - rdt);
             if (toastT > 0) toastT -= rdt;
@@ -98,9 +99,15 @@ namespace Cheongo
         void FrameInput(float rdt, PlayerInput inp)
         {
             aimNow = AimDir(inp);
-            if (bossIntro > 0) { inp.jumpPressed = inp.dashPressed = inp.slashPressed = inp.drumPressed = false; return; }   // the entrance card holds the hands
+            if (bossIntro > 0) { inp.jumpPressed = inp.hookPressed = inp.dashPressed = inp.slashPressed = inp.drumPressed = false; return; }   // the entrance card holds the hands
+            KiteInput(rdt, inp);
             if (inp.drumPressed && run.qi >= 100 && chungo == null) { if (!Chungo()) Toast("벨 적이 가까이 없다"); }
             if (inp.slashPressed) DoSlash(inp);
+            if (InstantDash && inp.dashPressed && !P.focus && !IsGun && P.dashCd <= 0 && (P.onGround || P.airDash > 0) && P.ki > .06f)   // 부스판: the dash goes the moment it is pressed, the held way, as a full 일섬
+            {
+                inp.dashPressed = false; var d = aimNow; P.tapDash = false; P.aimedUntil = songPos + .45f; if (!P.onGround) P.aimChain++;
+                if (!KanLunge(d, true)) { P.aimDash = true; if (P.StartDash(d, true)) mu?.Sfx("dash"); else P.aimDash = false; }
+            }
             if (inp.dashPressed && !P.focus && (GunReady || (P.dashCd <= 0 && (P.onGround || P.airDash > 0) && P.ki > .06f))) { P.focus = true; P.focusT = 0; P.focusGround = P.onGround || P.wall != 0; mu?.Muffle(true); }
             if (!P.focus && P.onGround) P.ki = Mathf.Min(1, P.ki + rdt * .9f * (1 + run.StatF("ki")));   // 기력 comes back with the feet on the ground
             if (P.focus && P.focusT > tu.TAP_T) P.ki = Mathf.Max(0, P.ki - rdt / (run.Has("d_jeong") ? 2.4f : 1.6f) * (run.Has("hw_c3") ? 2 : 1));   // and drains while time is held

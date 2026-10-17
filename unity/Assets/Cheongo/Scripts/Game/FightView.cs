@@ -16,6 +16,7 @@ namespace Cheongo
         Sim sim; Sheet foes, foes2, foes3, kfx, props, bossfx, bossB, kring;
         readonly Dictionary<Enemy, FoeV> views = new Dictionary<Enemy, FoeV>(); readonly List<ShotV> shotViews = new List<ShotV>(); readonly List<HazV> hazViews = new List<HazV>();
         readonly List<Transform> targetRoots = new List<Transform>(); readonly List<SpriteRenderer> targets = new List<SpriteRenderer>(), lanterns = new List<SpriteRenderer>(), cloneViews = new List<SpriteRenderer>(); SpriteRenderer drum, sealL, sealR; LineRenderer chungoLine;
+        readonly List<SpriteRenderer> kites = new List<SpriteRenderer>(); LineRenderer kiteRing, kiteAim, kiteSnap;   // 연
         static Sprite box;
         public static Sprite Box() { if (box == null) box = UnityEngine.Sprite.Create(Texture2D.whiteTexture, new Rect(0, 0, 4, 4), new Vector2(0, 1), 4); return box; }   // one unit square, pivot top-left
 
@@ -64,6 +65,9 @@ namespace Cheongo
                 var post = Sprite("Post", transform, 3); Rect(post, c.x - 1, c.y - 44, 2, 44, DB.Hex(lv.pal.tile)); var arm = Sprite("Arm", transform, 3); Rect(arm, c.x - 1, c.y - 44, 10, 2, DB.Hex(lv.pal.tile));
                 var s = Sprite("Lantern", transform, 3); if (objects != null) Put(s, objects, 1, c.x + 8, c.y - 42, 38, .5f, 0); lanterns.Add(s);
             }
+            // 연: kites on the wind; the one the line would catch is ringed in 쪽빛, with a faint line from the hand
+            foreach (var p in lv.points) { var k = Sprite("Kite", transform, 3); if (objects != null) Put(k, objects, 2, p.x, p.y - 20, 52, .5f, 0); kites.Add(k); }
+            kiteRing = Line("KiteRing", transform, 12); kiteAim = Line("KiteAim", transform, 12); kiteSnap = Line("KiteSnap", transform, 12); kiteRing.enabled = kiteAim.enabled = kiteSnap.enabled = false;
             if (lv.hasDrum) { drum = Sprite("Cheongo", transform, 4); if (solid != null) Put(drum, solid, 0, lv.drum.x, lv.drum.y + 4, 92); }
             sealL = Sprite("SealL", transform, 5); sealR = Sprite("SealR", transform, 5); sealL.enabled = sealR.enabled = false;
             chungoLine = Line("Chungo", transform, 22); chungoLine.enabled = false;
@@ -218,6 +222,12 @@ namespace Cheongo
 
             // 과녁 sway back after a moment; the lantern last passed glows; the drum waits for the guardian to fall; the barrier stands while it lives
             for (int i = 0; i < targets.Count; i++) { var g = lv.targets[i]; bool up = g.t > 0; targets[i].enabled = !up; targetRoots[i].localPosition = World.ToUnity(g.x + Mathf.Sin(Time.time * 1.6f + i) * 2, g.y); foreach (var lr in targetRoots[i].GetComponentsInChildren<LineRenderer>()) { var c0 = lr.startColor; c0.a = up ? .22f : 1; lr.startColor = lr.endColor = c0; } }
+            for (int i = 0; i < kites.Count; i++) { var p = lv.points[i]; float sw = Mathf.Sin(Time.time * 1.3f + i * 1.7f) * 2.5f; kites[i].transform.localPosition = World.ToUnity(p.x + sw, p.y - 20); kites[i].transform.localRotation = Quaternion.Euler(0, 0, -sw * 1.7f); }
+            var jjok = new Color(.18f, .35f, .48f, 1);
+            bool kon = sim.kite != null && sim.state == "play"; kiteRing.enabled = kiteAim.enabled = kon;
+            if (kon) { var k = sim.kite.Value; jjok.a = .55f + .25f * Mathf.Sin(Time.time * 12); Fx.Circle(kiteRing, k.x, k.y, 17, 1.8f, jjok); jjok.a = .5f; kiteAim.positionCount = 2; kiteAim.SetPosition(0, World.ToUnity(sim.P.b.cx, sim.P.b.y + 10, -1)); kiteAim.SetPosition(1, World.ToUnity(k.x, k.y, -1)); kiteAim.startWidth = kiteAim.endWidth = 2 / World.T; kiteAim.startColor = kiteAim.endColor = jjok; }
+            kiteSnap.enabled = sim.kiteFlashT > 0;
+            if (kiteSnap.enabled) { kiteSnap.positionCount = 2; kiteSnap.SetPosition(0, World.ToUnity(sim.P.b.cx, sim.P.b.y + 12, -1)); kiteSnap.SetPosition(1, World.ToUnity(sim.kiteTo.x, sim.kiteTo.y, -1)); kiteSnap.startWidth = kiteSnap.endWidth = 2.4f / World.T; var kc = DB.Hex(lv.pal.fig); kc.a = Mathf.Min(1, sim.kiteFlashT * 6); kiteSnap.startColor = kiteSnap.endColor = kc; }
             var obj = Sheet.Get("objects"); if (obj != null) for (int i = 0; i < lanterns.Count; i++) lanterns[i].sprite = obj.Frame(i == sim.cpIdx ? 0 : 1, .5f, 0);
             if (drum != null) { var solid = Sheet.Get("hudsolid"); if (sim.drumCut && solid != null) drum.sprite = solid.Frame(1, .5f, 1f); drum.color = sim.BossAlive ? new Color(1, 1, 1, .45f) : Color.white; }
             sealL.enabled = sealR.enabled = lv.sealOn;
