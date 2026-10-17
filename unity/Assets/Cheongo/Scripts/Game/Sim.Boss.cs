@@ -55,7 +55,7 @@ namespace Cheongo
         Enemy NewBoss(Foe d)
         {
             var B = Boss.For(run.seed, run.cycle); float floor = (d.ty + 1) * World.T;
-            int hp = Mathf.RoundToInt(B.hp * tu.BOSS_HP_MUL * run.Diff.bossHp) + Mathf.RoundToInt(tu.BOSS_HP_PER_CYCLE) * run.cycle;
+            int hp = Mathf.RoundToInt(B.hp * tu.BOSS_HP_MUL * run.Diff.bossHp * (Booth.On ? Booth.BOSS_HP : 1)) + Mathf.RoundToInt(tu.BOSS_HP_PER_CYCLE) * run.cycle;   // 부스판: a guardian a passer-by can fell
             return new Enemy { kind = B.key, B = B, hp = hp, x = d.tx * World.T + 16 - B.w / 2, y = B.fly ? floor - 95 - B.h / 2 : floor - B.h, w = B.w, h = B.h, floor = floor, tx = d.tx, rng = new System.Random(run.seed ^ B.key.GetHashCode() ^ run.cycle * 977) };
         }
 
@@ -63,7 +63,7 @@ namespace Cheongo
         void SealArena(Enemy e, bool on)
         {
             if (!on) { if (lv.sealOn) { foreach (int x in new[] { lv.sealX0, lv.sealX1 }) for (int y = 0; y <= lv.sealY1; y++) lv.grid[y * lv.w + x] = 0; lv.sealOn = false; } return; }
-            if (lv.sealOn) return; int tx = (int)e.tx, ty = Mathf.RoundToInt(e.floor / World.T) - 1, x0 = tx - 18, x1 = tx + 7, px = Mathf.FloorToInt(P.b.cx / World.T);
+            if (lv.sealOn) return; int tx = (int)e.tx, ty = Mathf.RoundToInt(e.floor / World.T) - 1, x0 = tx - 27, x1 = tx + 12, px = Mathf.FloorToInt(P.b.cx / World.T);
             if (x0 < 1 || x1 >= lv.w - 1 || px <= x0 || px >= x1) return;
             foreach (int x in new[] { x0, x1 }) for (int y = 0; y <= ty; y++) if (lv.grid[y * lv.w + x] != 0) return;   // only where the arena is open sky
             foreach (int x in new[] { x0, x1 }) for (int y = 0; y <= ty; y++) lv.grid[y * lv.w + x] = 1;
@@ -162,6 +162,8 @@ namespace Cheongo
                 bool seen = Meta.I.seen.Contains(e.kind); if (!seen) { Meta.I.seen.Add(e.kind); Meta.I.Save(); bossIntro = 1.7f; introBoss = e; } else Toast(Boss.Josa(B.name, "이", "가") + " 길을 막는다");
                 e.nextAt = (Mathf.Floor(songPos / bl) + 2) * bl + (bossIntro > 0 ? 1.7f : 0);
             }
+            if (lv.sealOn) { float lo = (lv.sealX0 + 1) * World.T + 2, hi = lv.sealX1 * World.T - e.w - 2; if (e.x < lo) { e.x = lo; if (e.vx < 0) e.vx = 0; } if (e.x > hi) { e.x = hi; if (e.vx > 0) e.vx = 0; } }   // the guardian stays inside its barrier
+            if (!B.fly && !e.hidden && lv.RectSolid(e.x, e.y, e.w, e.h)) lv.Unstick(e);   // never left inside the rock
             float ecx = e.cx;
             void Deadly() { if (live && HurtsPlayer && e.Overlaps(P.b)) Struck(e, Sgn(pcx - e.cx), -.3f, e.raged ? 2 : 1); }   // a charging guardian hits harder once enraged
             if (e.air)   // leaping: arc under gravity, deadly on contact, shake on landing

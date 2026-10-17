@@ -52,7 +52,7 @@ namespace Cheongo
         public void Frame(float rdt, PlayerInput inp)
         {
             if (state == "over") return;
-            songPos = mu != null ? mu.Pos : songPos + rdt;
+            songPos = mu != null ? mu.Pos : songPos + rdt; lv.songPos = songPos; lv.beatLen = BeatLen;   // the living ground keeps the 장단
             FlashSync();
             if (state == "play") { P.ExtraAir = (run.Has("d_air") ? 1 : 0) + (run.Has("d_cheonbo") && run.qi >= 50 ? 1 : 0); FrameInput(rdt, inp); time += rdt; run.time += rdt; }
             if (chungo != null) StepChungo(rdt);
@@ -72,7 +72,7 @@ namespace Cheongo
                     StepEdge(sdt); StepGun(sdt); StepMom(sdt); P.Step(sdt, inp); inp.jumpPressed = false;
                     if (aimed && P.dashT <= 0) AimDashEnded();
                     P.b.x = Mathf.Clamp(P.b.x, 0, lv.w * World.T - P.b.w);
-                    DashCuts(); P.slashT = Mathf.Max(0, P.slashT - sdt); SlashHits(); StepWorld(sdt); PlayerHazards();
+                    DashCuts(); P.slashT = Mathf.Max(0, P.slashT - sdt); SlashHits(); StepWorld(sdt); StepTerrain(sdt); PlayerHazards();
                 }
                 if (state == "play" || state == "dead") { StepEnemies(sdt); StepShots(sdt); if (state == "play") StepHazards(); }
                 if (state != "play" && state != "dead") break;
@@ -157,7 +157,7 @@ namespace Cheongo
             if (songPos - run.momAt > 2 && run.mom > 0) run.mom = Mathf.Max(0, run.mom - dt * 18);
         }
         // 천고 기운: won by fighting well — 일섬, 간파, 과녁
-        void AddQi(float n) { AddQiRaw(n * .6f * (1 + run.StatF("qi")) * (1 + .15f * Mathf.Min(8, P.chain))); }
+        void AddQi(float n) { AddQiRaw(n * .6f * (1 + run.StatF("qi")) * (1 + .15f * Mathf.Min(8, P.chain)) * (Booth.On ? Booth.QI : 1)); }   // 부스판: everyone gets to loose 천고난무
         void AddQiRaw(float n) { float before = run.qi; run.qi = Mathf.Min(100, before + n); if (before < 100 && run.qi >= 100) { Toast("천고 기운이 찼다 · Q → 천고난무"); mu?.Jing(); } }
 
         // ---------- the cut ----------
@@ -480,7 +480,7 @@ namespace Cheongo
             for (int ty = y0; ty <= y1; ty++) for (int tx = x0; tx <= x1; tx++)
                 if (lv.TileAt(tx, ty) == 2 && x < tx * World.T + World.T - 4 && x + w > tx * World.T + 4 && y < ty * World.T + World.T && y + h > ty * World.T + 14) { Die("fall"); return; }   // thorns
             if (P.b.y > lv.h * World.T + 80) { Die("fall"); return; }
-            if (lv.exit.width > 0 && lv.exit.Overlaps(new Rect(x, y, w, h)) && !BossAlive) cleared = true;
+            if (lv.exit.width > 0 && lv.exit.Overlaps(new Rect(x, y, w, h)) && !BossAlive) { if (ExitOpen) cleared = true; else ExitShut(); }   // 결계: shut until enough guards are cut
         }
 
         // ---------- 숨: being struck, falling, 낙법 ----------

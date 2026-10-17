@@ -19,3 +19,4 @@ namespace UnityEngine {
   public static class JsonUtility { public static T FromJson<T>(string s) => default(T); }
   public static class Debug { public static void LogError(object o) => Console.WriteLine(o); }
 }
+namespace Cheongo { public class Target { public float x, y, t; } }   // lives in Sim.Boss.cs, which this test does not compile

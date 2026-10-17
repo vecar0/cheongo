@@ -12,16 +12,19 @@ namespace Cheongo
     public static class Booth
     {
         public static bool On;
-        public const int GATES = 3;            // 관문 before 천고대
-        public const float LIMIT = 420;        // seconds for the whole journey
+        public const int GATES = 2;            // 관문 before 천고대 (each a short web-made gate of three pieces)
+        public const float LIMIT = 300;        // seconds for the whole journey
         public const float IDLE_MENU = 45, IDLE_PLAY = 60;   // no hands on the controls this long → back to the title
-        public const int START_BREATH = 5, REVIVE_BREATH = 3, DIFF = 0;   // 수월
+        public const int START_BREATH = 6, REVIVE_BREATH = 4, DIFF = 0;   // 수월
+        public const float BOSS_HP = .6f, QI = 1.6f, CUT = .5f;   // the guardian's life · how fast 천고 기운 fills · share of guards that opens the exit
         public static void Init()
         {
-            On = PlayerPrefs.GetInt("cheongo.booth", 0) == 1;
-            foreach (var a in Environment.GetCommandLineArgs()) if (a == "-booth") On = true;
+            On = PlayerPrefs.GetInt("cheongo.booth", 1) == 1;   // the Unity build is the booth build: on unless staff turned it off (F9)
+            foreach (var a in Environment.GetCommandLineArgs()) { if (a == "-booth") On = true; if (a == "-full") On = false; }
+            Apply();
         }
-        public static void Toggle() { On = !On; PlayerPrefs.SetInt("cheongo.booth", On ? 1 : 0); PlayerPrefs.Save(); }
+        public static void Toggle() { On = !On; PlayerPrefs.SetInt("cheongo.booth", On ? 1 : 0); PlayerPrefs.Save(); Apply(); }
+        static void Apply() { Sim.CutRatio = On ? CUT : .6f; }
     }
 
     [Serializable] public class BoothEntry { public string n, d; public int s; public string g; public float t; public bool won; }
@@ -45,7 +48,7 @@ namespace Cheongo
         {
             ClearWorld(); music.StopSong(); cam.backgroundColor = DB.Hex("#e6e2d7"); sim = null; naming = false; boardT = 0; boothEnd = null; lastInputT = Time.unscaledTime;
             var top = TodayTop(3); string board = top.Count == 0 ? "오늘의 첫 이름이 되어 보세요" : "오늘의 순위  " + string.Join("   ", top.ConvertAll(e => $"{top.IndexOf(e) + 1}. {e.n} {e.s}"));
-            var s = new Screen { title = "천고", sub = "天鼓 · 5분 체험 — 관문 셋을 넘고 우두머리를 베라", art = Sheet.Image("title"), note = board };
+            var s = new Screen { title = "천고", sub = "天鼓 · 3분 체험 — 관문 둘을 넘고 우두머리를 베라", art = Sheet.Image("title"), note = board };
             s.items.Add(new Item { label = "시작하기", sub = "아무 버튼이나 누르면 시작", act = BoothStart });
             s.items.Add(new Item { label = "조작 보기", sub = "키보드 · 게임패드", act = BoothKeys });
             s.items.Add(new Item { label = "오늘의 순위", sub = top.Count > 0 ? $"1위 {top[0].n} · {top[0].s}점" : "아직 없음", act = () => ShowBoothBoard(null) });
@@ -64,6 +67,8 @@ namespace Cheongo
             revived = false; boothWon = false; boothEnd = null; boothT0 = Time.unscaledTime; lastInputT = Time.unscaledTime;
             LoadGate();
         }
+        // the 마당 of each booth gate: two of the first three, in an order of this run's own
+        int BoothMd(int m) { var o = new[] { 0, 1, 2 }; var r = new System.Random(run.seed); for (int i = 2; i > 0; i--) { int j = r.Next(i + 1); (o[i], o[j]) = (o[j], o[i]); } return o[Mathf.Clamp(m, 0, 2)]; }
         // after a gate: a 비급 after the first ones, one of the three 오의 before 천고대; the guardian cut ends the journey
         bool BoothGateCleared()
         {
@@ -80,7 +85,7 @@ namespace Cheongo
             if (t != null) foreach (var b in t.br)
                 {
                     if (b.nodes == null || b.nodes.Length < 3) continue; var og = b.nodes[2]; var br = b;
-                    s.items.Add(new Item { label = og.name, tag = $"{og.han} · {b.name} 갈래", sub = og.desc + "\n\n" + b.nodes[0].name + " · " + b.nodes[1].name + "도 함께 익힌다",
+                    s.items.Add(new Item { label = og.name, icon = og.icon > 0 ? og.icon : -1, tag = $"{og.han} · {b.name} 갈래", sub = og.desc + "\n\n" + b.nodes[0].name + " · " + b.nodes[1].name + "도 함께 익힌다",
                         act = () => { for (int i = 0; i < 3; i++) run.Train(br.nodes[i].id); music.Sfx("lantern"); run.node = "gate"; LoadGate(); } });
                 }
             if (s.items.Count == 0) { LoadGate(); return; }
@@ -111,7 +116,7 @@ namespace Cheongo
 
         // ---------- the end: a score, a grade, three letters ----------
         int BoothScore() => run.kills * 10 + run.kanpa * 25 + run.perfectN * 40 + (run.m >= Run.LAST_M ? 300 : run.m * 120) + (boothWon ? 1000 + Mathf.Max(0, Mathf.RoundToInt((Booth.LIMIT - run.time) * 3)) : 0);
-        static string Grade(int s) => s >= 2600 ? "甲" : s >= 1700 ? "乙" : s >= 900 ? "丙" : "丁";
+        static string Grade(int s) => s >= 2000 ? "甲" : s >= 1400 ? "乙" : s >= 700 ? "丙" : "丁";
         void BoothResult(string why)
         {
             boothEnd = why; if (sim != null) { run.kills = Mathf.Max(run.kills, sim.kills); }
@@ -157,7 +162,7 @@ namespace Cheongo
             if (sim != null && lv != null && screen == null)
             {
                 float left = Mathf.Max(0, Booth.LIMIT - (Time.unscaledTime - boothT0)); int lm = Mathf.FloorToInt(left / 60);
-                Txt(new Rect(VW - 232, 42, 220, 22), $"남은 시간 {lm}:{left - lm * 60:00}", 14, left < 60 ? SEAL : new Color(INK.r, INK.g, INK.b, .8f), TextAnchor.MiddleRight);
+                Txt(new Rect(VW - 232, 40, 220, 22), $"남은 시간 {lm}:{left - lm * 60:00}", 14, left < 60 ? SEAL : new Color(INK.r, INK.g, INK.b, .8f), TextAnchor.MiddleRight);
                 if (run.m == 0 && stageCardT < 28 && stageCardT > 2.2f)   // the first gate: how the hands go, laid over the ground until the player has it
                 {
                     float a = Mathf.Clamp01((28 - stageCardT) / 2); var r = new Rect(VW / 2 - 330, 548, 660, 66);

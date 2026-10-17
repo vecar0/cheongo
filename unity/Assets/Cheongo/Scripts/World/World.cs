@@ -24,16 +24,34 @@ namespace Cheongo
     }
 
     public class Foe { public char type; public int tx, ty, id; }
+    // the 마당's own ground (js/game.js): 기와 that gives way, chests behind cracked rock, wind, the walled 결진
+    public class Crumb { public float at, back; public bool gone; }
+    public class Chest { public float x, y; public bool open; }
+    public class Wind { public float x0, x1; public int ph; public float py = -1; }
+    public class ArenaZone { public int x0, x1, y0, y1, st; public List<int> set; }
 
     public class Level
     {
-        public int w, h; public byte[] grid;   // 0 air, 1 rock, 2 thorns, 3 ledge
+        public int w, h; public byte[] grid;   // 0 air, 1 rock, 2 thorns, 3 ledge, 4/5 장단 발판 (on two beats of four, opposite phases), 6 기와 (gives way), 7 cracked rock (solid until cut)
+        public float songPos, beatLen = .6f;   // the living ground keeps the 장단: set by Sim every frame
+        public readonly Dictionary<int, Crumb> crumb = new Dictionary<int, Crumb>(); public readonly HashSet<int> cracks = new HashSet<int>();
+        public readonly List<Chest> chests = new List<Chest>(); public readonly List<Wind> winds = new List<Wind>(); public readonly List<ArenaZone> arenas = new List<ArenaZone>();
+        public bool sealOpen; public int gridVer;   // the exit's 결계 · bumped whenever a tile changes (arena walls, a crack falling)
         public Vector2 start; public Rect exit; public readonly List<Foe> foes = new List<Foe>();
         public Palette pal; public int madang;
         public readonly List<Target> targets = new List<Target>(); public readonly List<Vector2> cps = new List<Vector2>();   // 과녁 · lanterns (checkpoints)
         public bool hasDrum, sealOn; public Vector2 drum; public int sealX0, sealX1, sealY1;   // 천고 itself · the talisman barrier around a guardian
 
-        public int TileAt(int tx, int ty) { if (tx < 0 || tx >= w) return 1; if (ty < 0 || ty >= h) return 0; return grid[ty * w + tx]; }
+        public int TileAt(int tx, int ty)
+        {
+            if (tx < 0 || tx >= w) return 1; if (ty < 0 || ty >= h) return 0; int i = ty * w + tx, v = grid[i];
+            if (v < 4) return v; if (v == 7) return 1;
+            if (v == 6) return crumb.TryGetValue(i, out var c) && c.gone ? 0 : 3;
+            return PlankOn(v) ? 3 : 0;
+        }
+        public bool PlankOn(int v) { int b = Mathf.FloorToInt(songPos / beatLen) + (v == 5 ? 2 : 0); return ((b % 4) + 4) % 4 < 2; }
+        // +1 about to appear, −1 about to go (the board blinks a half beat ahead)
+        public int PlankNext(int v) { float bp = songPos / beatLen; int b = Mathf.FloorToInt(bp); float f = bp - b; int n = (((b + 1 + (v == 5 ? 2 : 0)) % 4) + 4) % 4; return f > .45f ? (n == 0 ? 1 : n == 2 ? -1 : 0) : 0; }
 
         public bool RectSolid(float x, float y, float bw, float bh)
         {
@@ -137,6 +155,15 @@ namespace Cheongo
             return FromRows(rows.ToArray(), md);
         }
 
+        // a gate laid out by the web game's own generator (tools/unity-export/maps.js → Resources/Data/maps.json)
+        public static Level FromWeb(WebMap m)
+        {
+            var lv = FromRows(m.rows, m.md);
+            if (m.wind != null) for (int i = 0; i + 1 < m.wind.Length; i += 2) lv.winds.Add(new Wind { x0 = m.wind[i] * World.T, x1 = m.wind[i + 1] * World.T, ph = (m.wind[i] * 7) % 2 });
+            if (m.arenas != null) for (int i = 0; i + 3 < m.arenas.Length; i += 4) lv.arenas.Add(new ArenaZone { x0 = m.arenas[i], x1 = m.arenas[i + 1], y0 = m.arenas[i + 2], y1 = m.arenas[i + 3] });
+            return lv;
+        }
+
         public static Level FromRows(string[] map, int m)
         {
             var lv = new Level { h = map.Length, madang = m, pal = DB.Tables.PAL[Mathf.Clamp(m, 0, DB.Tables.PAL.Length - 1)] };
@@ -148,6 +175,10 @@ namespace Cheongo
                 if (ch == '#') lv.grid[y * lv.w + x] = 1;
                 else if (ch == '^') lv.grid[y * lv.w + x] = 2;
                 else if (ch == '=') lv.grid[y * lv.w + x] = 3;
+                else if (ch == '1' || ch == '2') lv.grid[y * lv.w + x] = (byte)(ch == '1' ? 4 : 5);
+                else if (ch == 'x') lv.grid[y * lv.w + x] = 6;
+                else if (ch == '%') { lv.grid[y * lv.w + x] = 7; lv.cracks.Add(y * lv.w + x); }
+                else if (ch == '$') lv.chests.Add(new Chest { x = x * World.T + 16, y = (y + 1) * World.T });
                 else if (ch == 'P') lv.start = new Vector2(x * World.T + 7, (y + 1) * World.T - 30);
                 else if (ch == 'E') lv.exit = new Rect(x * World.T + 1, (y - 1) * World.T + 6, World.T - 2, 2 * World.T - 6);
                 else if (ch == 'D') { lv.hasDrum = true; lv.drum = new Vector2(x * World.T + 16, (y + 1) * World.T); }
@@ -156,6 +187,20 @@ namespace Cheongo
                 else if ("gsdhmrbpak".IndexOf(ch) >= 0) lv.foes.Add(new Foe { type = ch, tx = x, ty = y, id = id++ });
             }
             return lv;
+        }
+    }
+
+    [System.Serializable] public class WebMap { public int md; public bool arena; public string[] rows; public int[] wind, arenas; }
+    [System.Serializable] class WebMaps { public WebMap[] maps; }
+    public static class Maps
+    {
+        static WebMap[] all;
+        static WebMap[] All { get { if (all == null) { var ta = Resources.Load<TextAsset>("Data/maps"); all = ta != null ? JsonUtility.FromJson<WebMaps>(ta.text).maps : new WebMap[0]; } return all; } }
+        // one of the web-made gates for this 마당 (or 천고대), chosen by the seed; null if none were exported
+        public static Level Pick(int md, bool arena, int seed)
+        {
+            var l = new List<WebMap>(); foreach (var m in All) if (m.arena == arena && (arena || m.md == md)) l.Add(m);
+            if (l.Count == 0) return null; var w = l[(int)((uint)seed % (uint)l.Count)]; var lv = Level.FromWeb(w); if (arena) lv.madang = 4; return lv;
         }
     }
 }

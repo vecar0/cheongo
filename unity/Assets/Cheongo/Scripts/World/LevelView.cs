@@ -251,8 +251,8 @@ namespace Cheongo
             {
                 int v = lv.grid[ty * lv.w + tx];
                 if (v == 2 && objects != null) { var f = objects.Frames[OBJ_THORNS]; Spr("Thorns", objects, OBJ_THORNS, tx * T + T / 2 + (tx * 7 % 5) - 2, ty * T + T + 3, (T + 10) * f.h / f.w, -5, tx % 2 == 1); continue; }
-                if (v != 3 || lv.TileAt(tx - 1, ty) == 3 || props2 == null) continue;
-                int n = 1; while (lv.TileAt(tx + n, ty) == 3) n++;
+                if (v != 3 || (tx > 0 && lv.grid[ty * lv.w + tx - 1] == 3) || props2 == null) continue;   // the plain ledges; the living ones (장단 발판, 기와) are TerrainView's
+                int n = 1; while (tx + n < lv.w && lv.grid[ty * lv.w + tx + n] == 3) n++;
                 int segN = Mathf.Max(1, Mathf.RoundToInt(n / 4f)); float segW = n * T / segN; var pf = props2.Frames[0];
                 for (int k = 0; k < segN; k++)
                 {

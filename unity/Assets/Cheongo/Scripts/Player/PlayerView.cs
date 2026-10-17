@@ -11,7 +11,7 @@ namespace Cheongo
 
         Sim sim; SpriteRenderer sr, arc, arcBack, aimLine, reticle, dim; Sheet sheet, slash, run8; float k;
         // the redrawn run (mvrun, eight steps, the legs alternating): its anchor is the hat, so the head rides level (js/game.js MV_AX.mvrun)
-        static readonly float[] RUN8_AX = { .794f, .783f, .792f, .789f, .8f, .797f, .792f, .803f };
+        static readonly float[] RUN8_AX = { .792f, .784f, .779f, .781f, .765f, .773f, .792f, .79f };
         HeroFrames H; float[] AX; readonly SpriteRenderer[] notch = new SpriteRenderer[8];
 
         public static PlayerView Create(Sim sim, Transform parent)

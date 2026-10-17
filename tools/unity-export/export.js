@@ -30,7 +30,7 @@ write("Data/tuning.json", clean(box.TUNING));
 write("Data/content.json", clean({ STAGE: box.STAGE, LAIR: box.LAIR, CHOSIK: box.CHOSIK, TREES: box.TREES, TREE_EXT: box.TREE_EXT, RARITY: box.RARITY, RAR_NAME: box.RAR_NAME, COMBOS: box.COMBOS, COMBO_NEED: box.COMBO_NEED, OMENS: box.OMENS, SEASON: box.SEASON, PV: box.PV, SCHOOLS: box.SCHOOLS, SIMBEOP: box.SIMBEOP, WEAPONS: box.WEAPONS, OATHS: box.OATHS, OUGI: box.OUGI, CHARS: box.CHARS }));
 write("Data/chunks.json", { chunks: box.CHUNKS.map(c => ({ tier: c.tier, wall: !!c.wall, multi: !!c.multi, map: c.map })) });
 // the skill trees as plain arrays (Unity's JsonUtility reads no maps): each weapon's three branches with their later nodes appended, stats as key/value pairs
-const tnode = n => ({ id: n.id, name: n.name, han: n.han || "", desc: n.desc || "", grant: n.grant || "", stat: Object.entries(n.stat || {}).map(([k, v]) => ({ k, v })) });
+const tnode = n => ({ id: n.id, name: n.name, han: n.han || "", desc: n.desc || "", grant: n.grant || "", icon: n.icon || 0, stat: Object.entries(n.stat || {}).map(([k, v]) => ({ k, v })) });
 write("Data/tree.json", { weapons: Object.entries(box.TREES).map(([key, t]) => { const ext = box.TREE_EXT[key] || {};
   return { key, name: t.name, root: ext.r ? tnode(ext.r) : null, br: t.br.map((b, i) => ({ name: b.name, han: b.han || "", nodes: b.nodes.map(tnode).concat((ext["abc"[i]] || []).map(tnode)) })) }; }) });
 write("Data/game.json", clean(G));
@@ -49,3 +49,7 @@ for (const n of sheets) {
   console.log("sheet", n);
 }
 for (const n of IMGS) { const src = path.join(ROOT, "assets", n + ".webp"); if (fs.existsSync(src)) { toPng(src, path.join(OUT, "Sprites", n + ".png")); console.log("image", n); } }
+// the app's own small pictures: item icons (엽전 · 혼 · the wares) as Sprites/it-<name>.png, and the app icon for the player build
+for (const f of fs.readdirSync(path.join(ROOT, "assets/it")).filter(f => f.endsWith(".webp"))) { toPng(path.join(ROOT, "assets/it", f), path.join(OUT, "Sprites", "it-" + f.replace(".webp", ".png"))); console.log("icon", f); }
+{ const dir = path.join(ROOT, "unity/Assets/Cheongo/Icons"); fs.mkdirSync(dir, { recursive: true }); fs.copyFileSync(path.join(ROOT, "icons/icon-512.png"), path.join(dir, "icon-512.png")); console.log("app icon"); }
+

@@ -9,7 +9,7 @@ namespace Cheongo
     [Serializable] public class Chosik { public string id, name, han, kind, desc; public int icon; public bool repeat; }
     [Serializable] class ContentData { public Chosik[] CHOSIK; }
     [Serializable] public class StatKV { public string k; public float v; }
-    [Serializable] public class TreeNode { public string id, name, han, desc, grant; public StatKV[] stat; }
+    [Serializable] public class TreeNode { public string id, name, han, desc, grant; public int icon; public StatKV[] stat; }
     [Serializable] public class TreeBranch { public string name, han; public TreeNode[] nodes; }
     [Serializable] public class WeaponTree { public string key, name; public TreeNode root; public TreeBranch[] br; }
     [Serializable] class TreeData { public WeaponTree[] weapons; }

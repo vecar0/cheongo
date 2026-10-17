@@ -17,12 +17,12 @@ namespace Cheongo
             new GameObject("천고").AddComponent<GameRoot>();
         }
 
-        Camera cam; Level lv; Sim sim; PlayerView view; FightView fight; LevelView lview; Fx fx; Transform worldRoot; Music music; Run run; Meta meta;
+        Camera cam; Level lv; Sim sim; PlayerView view; FightView fight; LevelView lview; TerrainView terrain; Fx fx; Transform worldRoot; Music music; Run run; Meta meta;
         readonly PlayerInput inp = new PlayerInput();
         float camX, camY, stageCardT = 9, fade = 1; int earned;
 
         // ---------- menus: one list of choices at a time, drawn as a column or as cards ----------
-        class Item { public string label, sub, tag; public Action act; public Action<int> adjust; public Func<string> value; public bool enabled = true; }
+        class Item { public string label, sub, tag; public int icon = -1; public Action act; public Action<int> adjust; public Func<string> value; public bool enabled = true; }
         class Screen { public string title, sub, note; public List<Item> items = new List<Item>(); public bool cards, dark; public Action back; public int sel; public Texture2D art; }
         Screen screen; int clicked = -1; Vector2 lastMouse; float navCd;
 
@@ -72,14 +72,15 @@ namespace Cheongo
             if (run.node == "rest") { ShowRest(); return; }
             int md = Run.MD(run.m);
             worldRoot = new GameObject("World").transform;
-            lv = Level.Build(md, run.seed + run.m * 131, run.Arena, run.cycle, run.node == "elite" ? 2 : 0);
+            if (booth && !run.Arena) md = BoothMd(run.m);   // 부스판: each gate a different 마당
+            lv = Maps.Pick(md, run.Arena, run.seed + run.m * 131) ?? Level.Build(md, run.seed + run.m * 131, run.Arena, run.cycle, run.node == "elite" ? 2 : 0);   // the web game's own gates (maps.json), else the hand-made pieces
             cam.backgroundColor = DB.Hex(lv.pal.bg);
             lview = LevelView.Create(lv, worldRoot);
             fx = new GameObject("Fx").AddComponent<Fx>(); fx.transform.SetParent(worldRoot, false);
             music.StartSong(DB.Tables.MADANG[md].jd, run.seed + run.m * 31 + run.cycle); music.Tick();
             run.gateHits = 0; run.janUsed = false; run.cp.Clear();
             sim = new Sim(lv, run, fx, music); sim.P.Fx = fx.Hero;
-            fight = FightView.Create(sim, worldRoot); view = PlayerView.Create(sim, worldRoot);
+            fight = FightView.Create(sim, worldRoot); view = PlayerView.Create(sim, worldRoot); terrain = TerrainView.Create(sim, worldRoot);
             camX = sim.P.b.cx + 24; camY = sim.P.b.cy - 24; stageCardT = 0;
             if (!booth) meta.SaveRun(run);   // a booth journey is never continued
         }
@@ -112,7 +113,7 @@ namespace Cheongo
             var pool = new List<Chosik>(); foreach (var c in Content.All) if (Content.READY.Contains(c.id) && (c.repeat || !run.perks.Contains(c.id)) && !(c.id == "sum" && run.breath >= run.BreathCap)) pool.Add(c);
             var rnd = new System.Random(run.seed + run.m * 7919 + run.cycle * 104729 + run.perks.Count);
             for (int i = pool.Count - 1; i > 0; i--) { int j = rnd.Next(i + 1); (pool[i], pool[j]) = (pool[j], pool[i]); }
-            for (int i = 0; i < Mathf.Min(3, pool.Count); i++) { var c = pool[i]; s.items.Add(new Item { label = c.name, tag = $"{c.han} · {c.kind}", sub = c.desc, act = () => { run.Learn(c.id); meta.SaveRun(run); ShowRoute(); } }); }
+            for (int i = 0; i < Mathf.Min(3, pool.Count); i++) { var c = pool[i]; s.items.Add(new Item { label = c.name, tag = $"{c.han} · {c.kind}", sub = c.desc, icon = c.icon, act = () => { run.Learn(c.id); meta.SaveRun(run); ShowRoute(); } }); }
             if (s.items.Count == 0) { ShowRoute(); return; }
             Show(s);
         }
@@ -262,7 +263,7 @@ namespace Cheongo
             music.Tick(); sim.Frame(rdt, inp);
             if (sim.state == "over") { if (booth) BoothOver(); else ShowOver(); return; }
             if (sim.cleared && sim.killCam <= 0) { GateCleared(); return; }
-            var p = sim.P; view.Sync(); fight.Sync();
+            var p = sim.P; view.Sync(); fight.Sync(); terrain.Sync();
 
             // camera: the web game shows about 13 tiles across or 11 down, whichever fits; on a wide screen that is the 11 down. It leads a little where you face.
             float aspect = (float)UnityEngine.Screen.width / Mathf.Max(1, UnityEngine.Screen.height);
@@ -288,6 +289,16 @@ namespace Cheongo
         }
         void Shadowed(Rect r, string s, float size, Color c, Color shadow, TextAnchor a = TextAnchor.MiddleCenter, bool brushed = false) { Txt(new Rect(r.x + 1.5f, r.y + 1.5f, r.width, r.height), s, size, shadow, a, brushed); Txt(r, s, size, c, a, brushed); }
         void Fill(Rect r, Color c) { GUI.color = c; GUI.DrawTexture(r, white); GUI.color = Color.white; }
+        // the hanji plate, nine-sliced: corners kept, edges and paper stretched (assets/ui-plate, as the web's HUD chips)
+        Texture2D plateTex;
+        void Plate(Rect r, float a = 1)
+        {
+            if (plateTex == null) plateTex = Sheet.Image("ui-plate"); if (plateTex == null) { Fill(r, new Color(.9f, .885f, .84f, .85f * a)); return; }
+            float tw = plateTex.width, th = plateTex.height, s = 12, b = 6; float[] sx = { 0, s, tw - s, tw }, sy = { 0, s, th - s, th }, dx = { r.x, r.x + b, r.xMax - b, r.xMax }, dy = { r.y, r.y + b, r.yMax - b, r.yMax };
+            GUI.color = new Color(1, 1, 1, a);
+            for (int i = 0; i < 3; i++) for (int j = 0; j < 3; j++) GUI.DrawTextureWithTexCoords(new Rect(dx[i], dy[j], dx[i + 1] - dx[i], dy[j + 1] - dy[j]), plateTex, new Rect(sx[i] / tw, 1 - sy[j + 1] / th, (sx[i + 1] - sx[i]) / tw, (sy[j + 1] - sy[j]) / th));
+            GUI.color = Color.white;
+        }
         void Frame(Sheet sh, int i, Rect r, float a = 1) { if (sh == null) return; var f = sh.Frames[i]; GUI.color = new Color(1, 1, 1, a); GUI.DrawTextureWithTexCoords(r, sh.Tex, new Rect((float)f.x / sh.Tex.width, 1 - (float)(f.y + f.h) / sh.Tex.height, (float)f.w / sh.Tex.width, (float)f.h / sh.Tex.height)); GUI.color = Color.white; }
 
         void OnGUI()
@@ -309,9 +320,9 @@ namespace Cheongo
         {
             var p = sim.P; Color ink = DB.Hex(lv.pal.text); bool hush = p.focus || screen != null; if (hush) ink = PAPER;
             // the top row, as the web lays it out: a washed plaque with the gate's name and its 장단, the 숨 as drops of ink, and at the right the dash pip, the time and the pause mark
-            var ui = Sheet.Get("ui"); string jd = Music.JANGDAN[DB.Tables.MADANG[Run.MD(run.m)].jd].name; Color plate = hush ? new Color(1, 1, 1, .35f) : new Color(1, 1, 1, .9f);
+            var ui = Sheet.Get("ui"); string jd = Music.JANGDAN[DB.Tables.MADANG[Mathf.Clamp(lv.madang, 0, DB.Tables.MADANG.Length - 1)].jd].name; Color plate = hush ? new Color(1, 1, 1, .35f) : new Color(1, 1, 1, .9f);
             st.font = brush; st.fontSize = 15; float nw = st.CalcSize(new GUIContent(StageName)).x; st.font = body; st.fontSize = 11; float jw = st.CalcSize(new GUIContent(jd)).x;
-            Frame(ui, 5, new Rect(14, 8, nw + jw + 28, 30), plate.a); Txt(new Rect(24, 8, nw + 4, 30), StageName, 15, ink, TextAnchor.MiddleLeft, true); Txt(new Rect(32 + nw, 10, jw + 4, 30), jd, 11, new Color(ink.r, ink.g, ink.b, .7f), TextAnchor.MiddleLeft);
+            Plate(new Rect(14, 8, nw + jw + 28, 30), plate.a); Txt(new Rect(24, 8, nw + 4, 30), StageName, 15, INK, TextAnchor.MiddleLeft, true); Txt(new Rect(32 + nw, 10, jw + 4, 30), jd, 11, new Color(INK.r, INK.g, INK.b, .7f), TextAnchor.MiddleLeft);   // the hanji plate (assets/ui-plate), ink on paper whatever the ground
             float bx0 = 14 + nw + jw + 28 + 12; int cap = Mathf.Max(run.BreathCap, run.breath); Frame(ui, 5, new Rect(bx0, 8, cap * 15 + 15, 30), plate.a);
             for (int i = 0; i < cap; i++) { if (ui != null) { GUI.color = hush ? PAPER : Color.white; Frame(ui, i < run.breath ? 3 : 4, new Rect(bx0 + 10 + i * 15, 16, 10, 14), i < run.breath ? 1 : .55f); } }
             GUI.color = Color.white; var dot = Fx.Dot().texture;
@@ -321,12 +332,13 @@ namespace Cheongo
               bool pip = (p.onGround || p.airDash > 0) && p.dashCd <= 0; var jj = new Color(.153f, .275f, .416f); var m0 = GUI.matrix; GUIUtility.RotateAroundPivot(45, new Vector2(rx - 16, 23) * sc);   // the dash, ready or not: a small indigo diamond
               Fill(new Rect(rx - 21, 18, 10, 10), jj); if (!pip) Fill(new Rect(rx - 19, 20, 6, 6), hush ? new Color(.15f, .14f, .13f) : DB.Hex(lv.pal.bg)); GUI.matrix = m0; }
             // 기력 under the 숨: what 무아경 spends
-            Txt(new Rect(18, 52, 40, 14), "기력", 11, new Color(ink.r, ink.g, ink.b, .8f), TextAnchor.MiddleLeft);
-            Fill(new Rect(48, 54, 104, 10), new Color(ink.r, ink.g, ink.b, .2f)); Fill(new Rect(48, 54, 104 * Mathf.Clamp01(p.ki), 10), p.ki < .25f && Mathf.Sin(Time.unscaledTime * 11) > 0 ? new Color(ink.r, ink.g, ink.b, .5f) : ink); if (p.focus) Fill(new Rect(48, 58, 104 * Mathf.Clamp01(p.ki), 2), new Color(.153f, .275f, .416f, .5f));
+            Plate(new Rect(8, 44, 150, 52), plate.a); ink = INK;   // 기력 · 기세 on their own plate, the two rows in its middle (label 26 + gap 4 + bar 100)
+            Txt(new Rect(18, 55, 40, 12), "기력", 11, new Color(ink.r, ink.g, ink.b, .8f), TextAnchor.MiddleLeft);
+            Fill(new Rect(48, 55, 100, 10), new Color(ink.r, ink.g, ink.b, .2f)); Fill(new Rect(48, 55, 100 * Mathf.Clamp01(p.ki), 10), p.ki < .25f && Mathf.Sin(Time.unscaledTime * 11) > 0 ? new Color(ink.r, ink.g, ink.b, .5f) : ink); if (p.focus) Fill(new Rect(48, 59, 100 * Mathf.Clamp01(p.ki), 2), new Color(.153f, .275f, .416f, .5f));
             // 기세: five brush cells, the tier's numeral beside them
             int tier = sim.MomTier; bool tr = run.trance > 0;
-            Txt(new Rect(18, 68, 40, 18), tier > 0 ? $"{tier}단" : "기세", tier > 0 ? 17 : 12, tr ? SEAL : new Color(ink.r, ink.g, ink.b, .85f), TextAnchor.MiddleLeft, true);
-            for (int i = 0; i < 5; i++) { float fl = Mathf.Clamp01((run.mom - i * 100) / 100); var r = new Rect(48 + i * 21, 72, 19, 8); Fill(r, new Color(ink.r, ink.g, ink.b, .18f)); if (fl > 0) Fill(new Rect(r.x, r.y, r.width * fl, r.height), tr ? (Mathf.FloorToInt(Time.unscaledTime * 12) % 2 == 0 ? SEAL : GOLD) : i >= 3 ? SEAL : ink); }
+            Txt(new Rect(18, 71, 40, 16), tier > 0 ? $"{tier}단" : "기세", tier > 0 ? 13 : 11, tr ? SEAL : new Color(ink.r, ink.g, ink.b, .85f), TextAnchor.MiddleLeft, true);
+            for (int i = 0; i < 5; i++) { float fl = Mathf.Clamp01((run.mom - i * 100) / 100); var r = new Rect(48 + i * 20.5f, 75, 18, 8); Fill(r, new Color(ink.r, ink.g, ink.b, .18f)); if (fl > 0) Fill(new Rect(r.x, r.y, r.width * fl, r.height), tr ? (Mathf.FloorToInt(Time.unscaledTime * 12) % 2 == 0 ? SEAL : GOLD) : i >= 3 ? SEAL : ink); }
             if (sim.IsGun)   // 탄 · 열
             {
                 Txt(new Rect(18, 88, 40, 16), sim.W.heat ? "열" : "탄", 11, new Color(ink.r, ink.g, ink.b, .8f), TextAnchor.MiddleLeft);
@@ -334,6 +346,8 @@ namespace Cheongo
                 else for (int i = 0; i < sim.GunMag; i++) { GUI.color = i < p.ammo ? ink : new Color(ink.r, ink.g, ink.b, .2f); GUI.DrawTexture(new Rect(48 + i * 16, 90, 12, 12), dot); }
                 GUI.color = Color.white;
             }
+            // 결계: how many of the gate's guards are cut, and how many open the way out
+            if (sim.CutN > 0 && !lv.hasDrum) { string cs = sim.ExitOpen ? $"벤 적 {sim.CutK} / {sim.CutN} · 결계 열림" : $"벤 적 {sim.CutK} / {sim.CutN} · 결계 {sim.CutNeed}"; Plate(new Rect(VW - 232, 64, 220, 26), plate.a); Txt(new Rect(VW - 226, 64, 208, 26), cs, 13, sim.ExitOpen ? INK : SEAL, TextAnchor.MiddleCenter); }
             // 연속 처치
             if (p.chain >= 1) { float k = 1 + p.chainPop * 1.6f; Txt(new Rect(VW - 114, 64, 120, 44), "一二三四五"[Mathf.Min(5, p.chain) - 1].ToString(), 34 * k, ink, TextAnchor.MiddleCenter, true); Txt(new Rect(VW - 114, 102, 120, 18), $"{p.chain} 연속", 12, p.chain >= 5 ? SEAL : ink); }
 
@@ -411,10 +425,11 @@ namespace Cheongo
                     Fill(new Rect(r.x + 5, r.y + 6, r.width, r.height), new Color(0, 0, 0, .18f)); Fill(r, sel ? new Color(.96f, .94f, .89f) : new Color(.88f, .86f, .8f, it.enabled ? 1 : .55f));
                     Color edge = sel ? SEAL : new Color(.09f, .086f, .1f, .55f); float t = sel ? 3 : 1.5f; Fill(new Rect(r.x, r.y, r.width, t), edge); Fill(new Rect(r.x, r.yMax - t, r.width, t), edge); Fill(new Rect(r.x, r.y, t, r.height), edge); Fill(new Rect(r.xMax - t, r.y, t, r.height), edge);
                     Color c = it.enabled ? INK : new Color(.09f, .086f, .1f, .4f);
-                    Txt(new Rect(r.x, r.y + 34, r.width, 54), it.label, it.label.Length > 5 ? 30 : 38, c, TextAnchor.MiddleCenter, true);
-                    if (!string.IsNullOrEmpty(it.tag)) Txt(new Rect(r.x, r.y + 92, r.width, 22), it.tag, 13, it.enabled ? SEAL : c);
-                    Fill(new Rect(r.x + 40, r.y + 126, r.width - 80, 1), new Color(.09f, .086f, .1f, .3f));
-                    if (!string.IsNullOrEmpty(it.sub)) Txt(new Rect(r.x + 22, r.y + 140, r.width - 44, 220), it.sub, 15, c, TextAnchor.UpperCenter, false, true);
+                    float dy = 0; if (it.icon >= 0 && Icons.Get(it.icon, out var ish, out int ifr)) { var f = ish.Frames[ifr]; float ih = 64, iw = ih * f.w / f.h; Frame(ish, ifr, new Rect(r.x + r.width / 2 - iw / 2, r.y + 18, iw, ih), it.enabled ? 1 : .45f); dy = 64; }   // the 비급's painted icon, as on the web's cards
+                    Txt(new Rect(r.x, r.y + 34 + dy * .75f, r.width, 54), it.label, it.label.Length > 5 ? 30 : 38, c, TextAnchor.MiddleCenter, true);
+                    if (!string.IsNullOrEmpty(it.tag)) Txt(new Rect(r.x, r.y + 92 + dy * .75f, r.width, 22), it.tag, 13, it.enabled ? SEAL : c);
+                    Fill(new Rect(r.x + 40, r.y + 126 + dy * .75f, r.width - 80, 1), new Color(.09f, .086f, .1f, .3f));
+                    if (!string.IsNullOrEmpty(it.sub)) Txt(new Rect(r.x + 22, r.y + 140 + dy * .75f, r.width - 44, 220 - dy * .75f), it.sub, 15, c, TextAnchor.UpperCenter, false, true);
                 }
             }
             else

@@ -45,5 +45,13 @@ class Sim {
     Console.WriteLine($"ledge: feet at {(p.b.y + p.b.h)/32:F2} tiles (9 = on the ledge) onGround={p.onGround}");
     i.y = 1; i.jumpPressed = true; for (int f = 0; f < 60; f++) { p.Step(1/60f, i); i.jumpPressed = false; }
     Console.WriteLine($"drop-through: feet at {(p.b.y + p.b.h)/32:F2} tiles (12 = floor)");
+
+    // the living ground (maps from the web game): 장단 발판 '1'/'2' are ledges on two beats of four in opposite phases, 기와 'x' a ledge until it crumbles
+    var rows = new string[16]; for (int y = 0; y < 16; y++) rows[y] = y >= 12 ? "################" : y == 11 ? "  P             " : y == 9 ? "    1122  xxx%  " : "                ";
+    lv = Level.FromRows(rows, 2); lv.beatLen = .5f; string ph = "";
+    for (int b = 0; b < 4; b++) { lv.songPos = b * .5f + .1f; ph += $"{lv.TileAt(4, 9)}{lv.TileAt(6, 9)} "; }
+    Console.WriteLine($"planks by beat (3 = ledge, 0 = gone; '1' then '2'): {ph}  (expect 30 30 03 03)");
+    lv.crumb[9 * lv.w + 10] = new Crumb { gone = true };
+    Console.WriteLine($"giwa: whole={lv.TileAt(11, 9)} crumbled={lv.TileAt(10, 9)} · crack solid={lv.TileAt(13, 9)} cracks={lv.cracks.Count}  (expect 3 0 1 1)");
   }
 }
