@@ -1663,64 +1663,67 @@ function boothTitle() {
   showScreen("menu"); setTimeout(() => $("bBoothGo").focus({ preventScroll: true }), 30);
 }
 function boothKeys() {
-  board("조작", "마우스와 키보드", [
-    bdRow("이동 · 점프", "A D (또는 ← →) 로 걷고, Space 로 뛴다 · 벽에 붙어 Space 면 벽차기", null),
-    bdRow("베기 — 마우스 왼쪽", "커서 쪽으로 벤다 · 적 머리 위 원이 점으로 줄어드는 순간 베면 간파: 무엇이든 한 번에", null),
-    bdRow("대시 — 마우스 오른쪽 (또는 Shift)", "짧게 누르면 키를 누른 쪽으로 돌진 · 누르고 있으면 무아경: 시간이 느려지고 커서 쪽을 겨눈다, 놓으면 그쪽으로 일섬", null),
-    bdRow("연 — E", "파란 줄이 닿은 연으로 날아오른다", null),
-    bdRow("천고난무 — Q", "왼쪽 아래 북이 가득 차면 화면의 적을 몰아 벤다", null)],
+  board("조작 방법", "마우스와 키보드", [
+    bdRow("걷기 · 점프", "A · D 키로 걷고, Space 로 뛰어요", null),
+    bdRow("베기 — 마우스 왼쪽", "마우스가 있는 쪽을 벱니다 · 적 위 동그라미가 줄어들어 점이 될 때 누르면 한 번에 쓰러져요", null),
+    bdRow("돌진 — 마우스 오른쪽", "누르면 앞으로 돌진 · 꾹 누르고 있으면 시간이 느려지고, 마우스로 방향을 정해 떼면 그쪽으로 베며 돌진해요", null),
+    bdRow("연 타기 — E", "파란 선이 보이면 눌러서 연을 잡고 날아올라요", null),
+    bdRow("필살기 — Q", "아래쪽 북이 가득 차면 주변 적을 한꺼번에 벱니다", null)],
     [["시작하기", boothStart, true], ["돌아가기", boothTitle]]);
 }
 function boothStart() {
   if (hubOn) leaveHub();
   const seed = (Math.random() * 2 ** 32) >>> 0;
   run = { v: 2, booth: true, seed, dateKey: todayKey(), m: 0, cp: -1, dead: [], sp: 0, breath: startBreath(), time: 0, deaths: 0, kills: 0, strikes: 0, slashes: 0, perks: [], weapon: "hwando", oath: null, char: "mumyeong", picking: false, target: BOOTH_BOSSES[seed % BOOTH_BOSSES.length], qi: 0, gates: 0 };
-  mode = "run"; boothLast = performance.now(); Music.unlock(); Music.stop(); showInterlude();
+  mode = "run"; boothLast = performance.now(); coachOn = null; Music.unlock(); Music.stop(); showInterlude();
 }
 function boothGateClear() { // a gate passed: a breath back, then the card for this point of the journey
   logGate("clear"); run.gather = 0; run.gates = (run.gates || 0) + 1;
   { const c = cutCount(); if (c && c.k >= c.n && c.n >= 3) { addQi(20); run.sweeps = (run.sweeps || 0) + 1; popText(P.x + P.w / 2, P.y - 84, "일소", SEAL); } }
-  if (run.breath < BOOTH_CFG.breath) { run.breath++; toast(`숨을 골랐다 · 숨 ${run.breath}`); }
+  if (run.breath < BOOTH_CFG.breath) { run.breath++; toast(`관문 통과! 생명 +1`); } else toast("관문 통과!");
   const first = run.m === 0;
   run.m = first ? 1 : LAST_M; run.node = null; run.nakN = 0; run.janUsed = false; run.senN = 0; run.fudoN = 0; run.cp = -1; run.dead = []; run.cutDrums = [];
   state = "result"; setTimeout(() => first ? boothBranch() : boothFork(), 700);
 }
 const boothGlyph = c => c.han || (c.name || "?").slice(0, 2);
+const BOOTH_PLAIN = { br: { hwando: ["타이밍 베기를 연달아 성공할수록 강해지고, 필살기 게이지가 빨리 차요", "벤 자리에 분신이 남아 0.4초 뒤 한 번 더 벱니다", "날아오는 탄을 베면 되돌아가 가까운 적을 맞혀요"] },
+  fork: { hw_a3x: "타이밍 베기 판정이 더 넉넉해져요", hw_a3y: "타이밍 베기에 성공하면 공중에서 한 번 더 돌진하고, 필살기 게이지가 두 배로 차요",
+    hw_b3x: "오른클릭을 꾹 눌렀다 떼면 가까운 적 등 뒤로 넘어가 벱니다", hw_b3y: "돌진으로 적을 베면 공중에서 한 번 더 돌진할 수 있어요",
+    hw_c3x: "타이밍 베기 뒤 1.5초 동안 탄을 막아요", hw_c3y: "타이밍 베기 순간 주변의 탄이 사라져요" } };
 function boothBranch() { // after the first gate: one of the weapon's three branches, its first two steps learned at once
   const tk = treeKey(), TR = TREES[tk]; if (!TR) { Music.stop(); showInterlude(); return; }
   const step = (bi, t) => CHOSIK.find(c => c.tree === tk && c.br === bi && c.tier === t && nodeShown(c) && !c.alt) || CHOSIK.find(c => c.tree === tk && c.br === bi && c.tier === t && nodeShown(c));
   const items = TR.br.map((b, bi) => { const a = step(bi, 1), b2 = step(bi, 2), og = CHOSIK.find(c => c.tree === tk && c.br === bi && c.ougi);
-    return { id: bi, name: b.name, han: b.han, glyph: b.han || b.name, desc: [a, b2].filter(Boolean).map(c => `${c.name} — ${c.desc}`).join("\n") + (og ? `\n끝에 오의 「${og.name}」` : "") }; });
-  pickScreen("갈래를 골라라", "관문 하나를 넘었다 · 고른 갈래의 1·2단을 바로 익힌다", items, it => {
+    return { id: bi, name: b.name, han: b.han, glyph: b.han || b.name, desc: (BOOTH_PLAIN.br[tk] && BOOTH_PLAIN.br[tk][bi]) || [a, b2].filter(Boolean).map(c => `${c.name} — ${c.desc}`).join("\n") }; });
+  pickScreen("능력을 하나 고르세요", "첫 관문 통과! 마음에 드는 카드를 마우스로 누르세요", items, it => {
     const root = CHOSIK.find(c => c.tree === tk && c.tier === 0);
     for (const c of [root, step(it.id, 1), step(it.id, 2)]) if (c && !run.perks.includes(c.id)) run.perks.push(c.id);
-    run.boothBr = it.id; toast(`${it.name} 갈래를 익혔다`); Music.stop(); showInterlude(); });
+    run.boothBr = it.id; toast(`「${it.name}」 능력을 얻었어요`); Music.stop(); showInterlude(); });
 }
 function boothFork() { // before 천고대: one of the branch's two 3단, the 4단 with it — and 천고난무 becomes the 오의
   const tk = treeKey(), bi = run.boothBr ?? 0, shown = c => c.tree === tk && c.br === bi && nodeShown(c);
   const forks = CHOSIK.filter(c => shown(c) && c.tier === 3), t4 = CHOSIK.find(c => shown(c) && c.tier === 4), og = CHOSIK.find(c => c.tree === tk && c.br === bi && c.ougi);
   const go = id => { if (id && !run.perks.includes(id)) run.perks.push(id); if (t4 && !run.perks.includes(t4.id)) { run.perks.push(t4.id); branchEnd(t4); }
-    run.breath = Math.max(run.breath, 4); run.qi = Math.max(run.qi || 0, 60); Music.stop(); showInterlude(); };
+    run.breath = Math.max(run.breath, 4); run.qi = Math.max(run.qi || 0, 60); toast("필살기(Q)가 강해졌어요"); Music.stop(); showInterlude(); };
   if (!forks.length) { go(null); return; }
-  pickScreen("오의를 깨쳐라", `천고대 앞 · 하나를 고르면 4단${t4 ? ` 「${t4.name}」` : ""}까지 익히고, 천고난무가 오의${og ? ` 「${og.name}」` : ""}로 바뀐다`,
-    forks.map(c => ({ id: c.id, name: c.name, han: c.han, glyph: boothGlyph(c), desc: c.desc })), it => go(it.id));
+  pickScreen("하나 더 고르세요", "다음은 마지막 우두머리! 고르면 필살기(Q)도 더 강해져요", forks.map(c => ({ id: c.id, name: c.name, han: c.han, glyph: boothGlyph(c), desc: BOOTH_PLAIN.fork[c.id] || c.desc })), it => go(it.id));
 }
 function boothRevive() { // the last breath gone, once: this gate again from its start with four breaths
   if (run.revived || run.timeUp || run.ended) return false;
   run.revived = true; run.breath = BOOTH_CFG.revive; run.cp = -1; run.dead = []; run.cutDrums = []; state = "result";
-  toast(`한 번 더 — 이 관문을 처음부터 · 숨 ${run.breath}`); setTimeout(() => { Music.stop(); showInterlude(); }, 1100); return true;
+  toast(`한 번 더! 이 관문을 처음부터 다시 해요 · 생명 ${run.breath}`); setTimeout(() => { Music.stop(); showInterlude(); }, 1100); return true;
 }
-function boothBossDown() { run.bossDown = true; toast("우두머리를 베었다"); setTimeout(() => { if (run && run.booth && run.bossDown && !run.ended && state === "play") endRun(true); }, 2400); }
+function boothBossDown() { run.bossDown = true; toast("우두머리를 쓰러뜨렸어요!"); setTimeout(() => { if (run && run.booth && run.bossDown && !run.ended && state === "play") endRun(true); }, 2400); }
 function boothEnd(won) {
   if (run.ended) return; run.ended = true; state = "result"; Music.stop(); Music.muffle(false); if (P) P.focus = false;
   const left = Math.max(0, BOOTH_CFG.limit - run.time), boss = run.m >= LAST_M;
   const score = Math.round(run.kills * 10 + (run.kanpa || 0) * 25 + (run.perfectN || 0) * 40 + (run.gates || 0) * 150 + (boss ? 150 : 0) + (won ? 1000 + left * 4 : 0));
   const grade = score >= 2000 ? "甲" : score >= 1300 ? "乙" : score >= 600 ? "丙" : "丁";
   run.score = score; run.grade = grade; run.won = !!won;
-  $("rSeal").textContent = grade; $("rTitle").textContent = won ? "천고를 울렸다" : run.timeUp ? "시간이 다했다" : "여기까지";
-  $("rSub").textContent = won ? `${(BOSSES[run.target] || {}).name || "우두머리"}를 베었다 · 남은 시간 ${Math.floor(left)}초` : run.timeUp ? `${stageName(run.m)}에서 시간이 다했다` : `${stageName(run.m)}에서 ${run.lastCause ? run.lastCause + "에 " : ""}마지막 숨을 잃었다`;
+  $("rSeal").textContent = grade; $("rTitle").textContent = won ? "승리!" : run.timeUp ? "시간 끝" : "여기까지";
+  $("rSub").textContent = won ? `우두머리 ${josa((BOSSES[run.target] || {}).name || "우두머리", "을", "를")} 쓰러뜨렸어요 · 남은 시간 ${Math.floor(left)}초` : run.timeUp ? `${run.m >= LAST_M ? "우두머리" : `${run.m + 1}번째 관문`}에서 시간이 다 됐어요` : `${run.m >= LAST_M ? "우두머리" : `${run.m + 1}번째 관문`}에서 생명을 모두 잃었어요`;
   $("rStats").innerHTML = "";
-  for (const [k, v] of [["점수", `${score}점`], ["등급", grade], ["넘은 관문", `${run.gates || 0} / 2${won ? " · 천고대" : ""}`], ["벤 적", run.kills], ["간파", `${run.kanpa || 0}회`], ["시간", fmt(run.time)]]) {
+  for (const [k, v] of [["점수", `${score}점`], ["등급", grade], ["지나온 관문", `${run.gates || 0} / 2${won ? " · 우두머리" : ""}`], ["벤 적", run.kills], ["타이밍 베기", `${run.kanpa || 0}번`], ["시간", fmt(run.time)]]) {
     const a = document.createElement("span"), b = document.createElement("b"); a.textContent = k; b.textContent = v; $("rStats").append(a, b); }
   $("rRec").textContent = ""; const top = boothTop(10); const rank = top.filter(e => e.s > score).length + 1; if (rank <= 10) $("rRec").textContent = `오늘 ${rank}위에 들 점수`;
   $("boothName").hidden = false; const inp = $("nameIn"); inp.value = ""; showScreen("result"); setTimeout(() => inp.focus({ preventScroll: true }), 60);
@@ -1735,16 +1738,39 @@ function boothBoard(me) {
   if (!rows.length) rows.push(bdRow("아직 아무도 없다", "", null));
   board("오늘의 순위", todayKey(), rows, [["다시 하기", boothStart, true], ["처음으로", boothTitle]]);
 }
+// 안내: one plain line at a time, for what is in front of the player right now; each once a journey
+const nearFoe = r => P && enemies.some(e => e.alive && e.type !== "b" && Math.hypot(e.x + e.w / 2 - P.x - P.w / 2, e.y + e.h / 2 - P.y - P.h / 2) < r);
+const exitShutNear = () => { const c = cutCount(); return !!(c && LV.exit && c.k < c.need && LV.exit.x - P.x < 520 && LV.exit.x > P.x) && c; };
+const COACH = [
+  { id: "move", when: () => run.m === 0, done: c => P.x - c.x0 > 200, max: 14, t: () => "<b>A · D 키</b>로 오른쪽으로 가세요", s: "Space = 점프" },
+  { id: "cut", when: () => run.kills === 0 && nearFoe(380), done: () => run.kills > 0, max: 18, t: () => "적 위 동그라미가 줄어들어 <b>점이 될 때 왼클릭!</b>", s: "타이밍이 맞으면 어떤 적이든 한 번에 쓰러져요 · 그냥 여러 번 왼클릭해도 돼요" },
+  { id: "dash", when: () => run.kills >= 1 && run.m === 0, done: () => false, max: 8, t: () => "<b>오른클릭 = 돌진</b>", s: "꾹 누르고 있으면 시간이 느려져요 · 마우스로 방향을 정하고 떼면 그쪽으로 베며 돌진" },
+  { id: "hurt", when: () => run.breath < BOOTH_CFG.breath && !run.revived, done: () => false, max: 6, t: () => "왼쪽 위 <b>물방울이 생명</b>이에요", s: "다 잃어도 한 번은 그 관문부터 다시 할 수 있어요" },
+  { id: "kite", when: () => !!(hookCand && !hookCand.enemy), done: () => !!run.hooked, max: 8, t: () => "파란 선이 보이면 <b>E</b> — 연을 잡고 날아올라요", s: "" },
+  { id: "exit", when: () => !!exitShutNear(), done: () => !exitShutNear(), max: 9, t: () => { const c = cutCount(); return `출구가 막혀 있어요 — 적을 <b>${c ? Math.max(0, c.need - c.k) : 0}명</b> 더 베세요`; }, s: "오른쪽 위 숫자 = 벤 적 / 전체" },
+  { id: "qi", when: () => (run.qi || 0) >= 100, done: () => (run.qi || 0) < 100, max: 14, t: () => "북이 가득 찼어요! <b>Q = 필살기</b>", s: "주변 적을 한꺼번에 벱니다" },
+  { id: "boss", when: () => run.m >= LAST_M, done: () => false, max: 9, t: () => "마지막 우두머리! <b>위쪽 체력</b>이 다 닳으면 승리", s: "공격은 점프나 오른클릭 돌진으로 피하고, 몸이 번쩍일 때 몰아서 베세요" }];
+let coachOn = null, coachAt = 0, coachKey = "";
+function boothCoach(playing) {
+  const el = $("boothHelp"); if (!playing || !P) { el.hidden = true; return; }
+  const seen = run.coach = run.coach || {}, now = performance.now();
+  if (coachOn && (coachOn.done(coachOn) || (now - coachAt) / 1000 > coachOn.max)) { seen[coachOn.id] = 1; coachOn = null; }
+  if (!coachOn) for (const c of COACH) if (!seen[c.id] && c.when()) { coachOn = c; c.x0 = P.x; coachAt = now; break; }
+  if (!coachOn) { el.hidden = true; return; }
+  const t = coachOn.t(), key = coachOn.id + t; if (key !== coachKey) { coachKey = key; el.innerHTML = `<span>${t}</span>${coachOn.s ? `<small>${coachOn.s}</small>` : ""}`; }
+  el.hidden = false;
+}
 function boothTick() { // four times a second: the time limit, an idle booth going back to its title, the interlude walking on by itself, the hints
   if (!BOOTH) return; const now = performance.now(), idle = (now - boothLast) / 1000, menu = !$("menu").hidden;
   const st = state + ($("interlude").hidden ? "" : ":i"); if (st !== boothState) { boothState = st; boothStateAt = now; }
   const playing = state === "play" && run && run.booth;
-  if (playing && run.time >= BOOTH_CFG.limit && !run.timeUp && !run.ended) { run.timeUp = true; toast("시간이 다했다"); endRun(false); }
+  if (playing && run.time >= BOOTH_CFG.limit && !run.timeUp && !run.ended) { run.timeUp = true; toast("시간이 다 됐어요"); endRun(false); }
+  if (!$("interlude").hidden && run && run.booth) $("iMeta").textContent = run.m >= LAST_M ? "마지막 · 우두머리와 싸워요 · 곧 시작해요" : `관문 ${run.m + 1} / 2 · 곧 시작해요`;
   if (!$("interlude").hidden && run && run.booth && now - boothStateAt > 2600) { boothStateAt = now + 1e9; $("bEnter").click(); }
   if (!menu && idle > (playing ? BOOTH_CFG.idlePlay : BOOTH_CFG.idleMenu) && document.activeElement !== $("nameIn")) boothTitle();
   if (!menu && idle > 90) boothTitle();
   $("boothKeys").hidden = !playing;
-  $("boothHelp").hidden = !(playing && run.m === 0 && run.time < 24 && !run.revived);
+  boothCoach(playing);
 }
 if (BOOTH) {
   document.body.classList.add("booth");
@@ -2549,7 +2575,7 @@ function playerHazards() {
     }
   });
   if (LV.exit && overlap(pr, LV.exit) && !bossAlive()) { const c = cutCount();
-    if (c && c.k < c.need) { P.x = LV.exit.x - P.w - 6; P.vx = -260; shake = Math.max(shake, 4); if (performance.now() - (LV.sealToast || 0) > 1800) { LV.sealToast = performance.now(); toast(`결계 · ${c.need - c.k}명을 더 베어야 열린다 (${c.k}/${c.n})`); Music.sfx("clang"); } }
+    if (c && c.k < c.need) { P.x = LV.exit.x - P.w - 6; P.vx = -260; shake = Math.max(shake, 4); if (performance.now() - (LV.sealToast || 0) > 1800) { LV.sealToast = performance.now(); toast(BOOTH ? `출구가 막혀 있어요 · 적을 ${c.need - c.k}명 더 베세요` : `결계 · ${c.need - c.k}명을 더 베어야 열린다 (${c.k}/${c.n})`); Music.sfx("clang"); } }
     else madangClear(); }
 }
 
@@ -2590,7 +2616,7 @@ function cutCount() {
   return { k, n, need: Math.ceil(n * (BOOTH ? BOOTH_CFG.cut : TUNING.GATE_CUT_RATIO)) };
 }
 function stepChase(dt) {
-  const c = cutCount(); if (c && c.k >= c.need && !LV.sealOpen) { LV.sealOpen = true; Music.sfx("lantern"); toast(c.k >= c.n ? "결계가 풀렸다 · 일소" : `결계가 풀렸다 · 출구로 · 남은 적 ${c.n - c.k}`); }
+  const c = cutCount(); if (c && c.k >= c.need && !LV.sealOpen) { LV.sealOpen = true; Music.sfx("lantern"); toast(BOOTH ? "출구가 열렸어요 · 오른쪽 끝으로 가세요" : c.k >= c.n ? "결계가 풀렸다 · 일소" : `결계가 풀렸다 · 출구로 · 남은 적 ${c.n - c.k}`); }
   if (!c || c.k >= c.need && !(run.gate && run.gate.goal === "time")) return;
   if ((LV.chaseT = (LV.chaseT || TUNING.CHASE_EVERY) - dt) > 0) return; LV.chaseT = TUNING.CHASE_EVERY;
   if (LV.arenas && LV.arenas.some(a => a.st === 1)) return;
@@ -3599,13 +3625,14 @@ let hudCache = "";
 function updateHud() {
   const t = run.booth ? `남은 ${fmt(Math.max(0, BOOTH_CFG.limit - run.time)).replace(/\.\d+$/, "")}` : fmt(run.time), pip = (P.onGround || P.airDash > 0) && P.dashCd <= 0, hk = !!hookCand, key = t + pip + hk;
   { const el = $("hCoin"), v = run && !run.hub && !run.booth && mode !== "tutorial" ? `${run.coin || 0}` : "", key = `${v}|${(run && run.charm) || 0}`; if (el && el.dataset.t !== key) { el.dataset.t = key; el.hidden = !v; el.innerHTML = `<i class="itc" aria-label="엽전"></i><b>${v}</b>${run.charm ? `<i class="itc ch" aria-label="부적"></i><small>${run.charm}</small>` : ""}`; } }   // the key holds the charms too, so a bought 부적 shows at once
-  { const c = cutCount(), el = $("hCut"), txt = c ? `벤 적 ${c.k}/${c.n}` : ""; if (el && el.dataset.t !== txt) { el.dataset.t = txt; el.hidden = !c; if (c) { el.innerHTML = `<b>${c.k}</b>/${c.n}<small>${c.k < c.need ? `결계 ${c.need - c.k}` : c.k >= c.n ? "일소" : "열림"}</small>`; el.classList.toggle("open", c.k >= c.need); } } }
+  { const c = cutCount(), el = $("hCut"), txt = c ? `벤 적 ${c.k}/${c.n}` : ""; if (el && el.dataset.t !== txt) { el.dataset.t = txt; el.hidden = !c; if (c) { el.innerHTML = `<b>${c.k}</b>/${c.n}<small>${c.k < c.need ? (BOOTH ? `출구까지 ${c.need - c.k}` : `결계 ${c.need - c.k}`) : c.k >= c.n ? (BOOTH ? "모두 벰" : "일소") : (BOOTH ? "출구 열림" : "열림")}</small>`; el.classList.toggle("open", c.k >= c.need); } } }
   { const gt = gateGoalText(); if (gt !== (P.goalShown ?? null)) { P.goalShown = gt; $("hJang").classList.toggle("goal", !!gt); if (gt) $("hJang").textContent = gt; else setHud(); } }
   if (key === hudCache) return; hudCache = key;
   $("hTime").textContent = t + (showFps ? ` · ${fpsNow}fps ${workMs.toFixed(0)}ms ${Math.round(1000 / vsyncMs)}Hz ${DPR}x${GPU_SOFT ? " SW" : ""}` : ""); $("pip").classList.toggle("on", pip); $("bHook").classList.toggle("ready", hk);
 }
 let tipT = 0;
 function tip(title, desc, keys) { // 첫 사용 안내: shown once per thing, for a few seconds
+  if (BOOTH && run && run.booth) return;
   $("tipT").textContent = title; $("tipD").textContent = desc; $("tipK").textContent = keys || ""; const el = $("tip"); el.hidden = false; requestAnimationFrame(() => el.classList.add("on")); tipT = 4.5; }
 function tipOnce(id, title, desc, keys) { META.tips = META.tips || {}; if (META.tips[id]) return; META.tips[id] = 1; saveMeta(); tip(title, desc, keys); }
 const WTIP = {   // how each weapon's own move is done, by the rules it plays by

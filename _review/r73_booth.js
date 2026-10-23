@@ -8,8 +8,9 @@ const { chromium } = require('/opt/node-tools/node_modules/playwright');
   const S = n => p.screenshot({ path: `_review/shots/booth_${n}.png` });
   const st = () => p.evaluate(() => ({ st: __dbg.state, m: __dbg.run && __dbg.run.m, br: __dbg.run && __dbg.run.breath, perks: __dbg.run && __dbg.run.perks, og: __dbg.run && __dbg.run.ougiId, scr: [...document.querySelectorAll('.scr')].filter(s => !s.hidden).map(s => s.id) }));
   console.log('title', await st(), await p.evaluate(() => getComputedStyle(document.getElementById('boothCol')).display)); await S('1title');
-  await p.click('#bBoothGo'); await p.waitForTimeout(400); console.log('after start', await st());
-  await p.waitForFunction(() => __dbg.state === 'play', null, { timeout: 30000 }); await p.waitForTimeout(800); console.log('gate1', await st()); await S('2gate1');
+  await p.click('#bBoothGo'); await p.waitForTimeout(400); console.log('after start', await st()); await S('1b_interlude');
+  await p.waitForFunction(() => __dbg.state === 'play', null, { timeout: 30000 }); await p.waitForTimeout(800); console.log('gate1', await st(), await p.evaluate(() => document.getElementById('boothHelp').textContent)); await S('2gate1');
+  await p.keyboard.down('KeyD'); await p.waitForTimeout(900); await p.keyboard.up('KeyD'); await p.waitForTimeout(400); console.log('coach after walking', await p.evaluate(() => [document.getElementById('boothHelp').hidden, document.getElementById('boothHelp').textContent])); await S('2b_coach');
   // mouse: hold the right button with the cursor up and right of 무명 → 무아경 aims at it; the release dashes that way
   const pp = await p.evaluate(() => { const P = __dbg.P; return { x: P.x, y: P.y }; });
   await p.mouse.move(1000, 150); await p.mouse.down({ button: 'right' }); await p.waitForTimeout(500);
