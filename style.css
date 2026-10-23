@@ -572,3 +572,34 @@ body.inhub #hud .hl { border: 0; border-left: 3px solid #c3161c; border-image: n
 #hCoin { align-items: center; } #hCoin .itc { width: 20px; height: 20px; }
 .bd-cur i.itc { background-image: url("assets/it/coin.webp"); }
 #hCoin b { color: #17161a; } .night #hCoin b { color: #ece6d8; }
+
+/* 부스판: the title's own column, the keys in the corner, the first gate's hint, the name and today's board */
+#boothCol { display: none; }
+body.booth #boothCol { display: grid; min-width: min(360px, 86vw); }
+body.booth #fullCol, body.booth .menu .lede, body.booth #nameLine { display: none; }
+body.booth #bTree, body.booth .res-btns { display: none !important; }
+body.booth #cv { cursor: crosshair; }
+.bth-lede { font-family: var(--f-head); font-size: 16px; line-height: 1.6; color: var(--ink-2); margin: 0 0 6px; }
+.bth-lede b { color: var(--seal); font-weight: 700; white-space: nowrap; }
+#bBoothGo { font-size: 20px; padding: 14px 18px; }
+#bBoothGo small { font-size: 12px; opacity: .7; margin-left: 6px; }
+.bth-top { margin-top: 6px; padding: 10px 14px; background: linear-gradient(rgba(240,234,220,.78), rgba(240,234,220,.78)), var(--hanji); box-shadow: var(--hanji-edge); border-radius: 4px; }
+.bth-top h3 { margin: 0 0 6px; font-family: var(--f-brush); font-size: 17px; color: var(--ink); }
+.bth-top ol { margin: 0; padding: 0; list-style: none; counter-reset: r; display: grid; gap: 3px; }
+.bth-top li { counter-increment: r; display: grid; grid-template-columns: 22px 1fr auto auto; gap: 8px; align-items: baseline; font-size: 14px; }
+.bth-top li::before { content: counter(r); color: var(--seal); font-weight: 700; }
+.bth-top li b { font-family: var(--f-brush); font-size: 16px; }
+.bth-top li small { color: var(--ink-3); }
+.bth-top li.none { grid-template-columns: 1fr; color: var(--ink-3); }
+.bth-top li.none::before { content: none; }
+#boothKeys { position: absolute; left: 12px; bottom: 10px; z-index: 6; display: flex; flex-wrap: wrap; gap: 4px 12px; max-width: calc(50vw - 200px); padding: 6px 10px; font-size: 12.5px; color: var(--ink); background: rgba(240, 234, 220, .72); border-radius: 4px; box-shadow: var(--hanji-edge); pointer-events: none; }
+#boothKeys b { color: var(--seal); margin-right: 3px; }
+#boothHelp { position: absolute; left: 50%; bottom: 64px; transform: translateX(-50%); z-index: 6; width: min(640px, 88vw); padding: 12px 16px; text-align: center; font-size: 16px; line-height: 1.5; color: var(--ink); background: linear-gradient(rgba(240,234,220,.9), rgba(240,234,220,.9)), var(--hanji); border-left: 4px solid var(--seal); box-shadow: var(--hanji-edge); border-radius: 4px; pointer-events: none; animation: bthIn .4s ease-out; }
+#boothHelp b { color: var(--seal); }
+#boothHelp small { display: block; margin-top: 4px; font-size: 13px; color: var(--ink-2); }
+@keyframes bthIn { from { opacity: 0; transform: translate(-50%, 10px); } }
+.bth-name { margin: 10px 0 4px; display: grid; gap: 6px; justify-items: center; }
+.bth-name label { font-family: var(--f-brush); font-size: 17px; }
+.bth-name input { width: 7.5em; padding: 9px 10px; font: 700 22px var(--f-brush, serif); text-align: center; letter-spacing: .2em; border: 1px solid var(--ink-3); border-radius: 4px; background: #f4efe3; color: var(--ink); }
+.bd-row.me { outline: 2px solid var(--seal); outline-offset: -2px; }
+body.booth .card .ds { white-space: pre-line; text-align: left; }
