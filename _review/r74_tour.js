@@ -1,6 +1,6 @@
 // 부스판 picture tour: walk the camera along gates of both 마당 and the four guardians' arenas, a frame every screen-width, to look for badly cut or out-of-place pictures
 const { chromium } = require('/opt/node-tools/node_modules/playwright');
-const OUT = process.argv[2] || '_review/shots/tour';
+const OUT = process.argv[2] || '_review/shots/tour';   // not kept in git (about 60MB a tour)
 (async () => {
   const b = await chromium.launch(), p = await (await b.newContext({ viewport: { width: 1280, height: 720 }, serviceWorkers: 'block' })).newPage();
   const errs = []; p.on('pageerror', e => errs.push(e.message));
