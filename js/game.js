@@ -5,7 +5,7 @@ const T = 32;
 // 부스판: one short journey for a passer-by at a club booth (two gates, 천고대, a name on today's board). ?full opens the whole game
 const BOOTH = !/[?&]full\b/.test(location.search);
 const BOOTH_CFG = { limit: 210, breath: 6, cap: 7, revive: 4, len: 3, bossHp: .6, cut: .5, qi: 1.6, idlePlay: 60, idleMenu: 45 };
-const ASSET_V = "146";   // bump when any picture changes: the service worker then fetches the new json and webp together
+const ASSET_V = "147";   // bump when any picture changes: the service worker then fetches the new json and webp together
 const $ = id => document.getElementById(id);
 const cv = $("cv"); let ctx = cv.getContext("2d", { alpha: false });   // let: the ground is baked by pointing ctx at an offscreen canvas for a moment   // opaque canvas: cheaper to composite on phones
 let W = 0, H = 0, DPR = 1, SCALE = 1;
@@ -352,7 +352,7 @@ function loadSheet(n) { // one atlas: frames JSON + image (ink-inverted copy for
   Promise.all([
     fetch(`assets/sprites/${n}.json?v=${ASSET_V}`).then(r => r.json()),
     new Promise((res, rej) => { const im = new Image(); im.onload = () => res(im); im.onerror = rej; im.src = `assets/sprites/${n}.webp?v=${ASSET_V}`; })
-  ]).then(([f, img]) => { let inv = null; if (["hero", "hero2", "foes", "objects", "fx", "props", "props2", "rocks", "pines", "slabs", "pillars", "guide", "bname", "foes3", "mapobj", "md0", "md1", "md2", "md3", "md4"].includes(n)) try { inv = inkInverted(img); } catch (e) { inv = null; }   // short of canvas memory: keep the sheet, lose only its night copy
+  ]).then(([f, img]) => { let inv = null; if (["hero", "hero2", "foes", "objects", "fx", "props", "props2", "rocks", "pines", "slabs", "pillars", "guide", "bname", "foes3", "mapobj", "md0", "md1", "md2", "md3", "md4"].includes(n)) try { inv = inkInverted(img, ["props", "props2", "rocks", "pines", "slabs", "pillars", "mapobj", "md0", "md1", "md2", "md3", "md4"].includes(n)); } catch (e) { inv = null; }   // short of canvas memory: keep the sheet, lose only its night copy
     SPR[n] = { f, img, inv };
     if (SPR[n].inv) gpuize(SPR[n].inv, bm => { SPR[n].inv = bm; }); applyUiSprites(); }).catch(() => { sheetLoading.delete(n); const a = (sheetTry[n] = (sheetTry[n] || 0) + 1); setTimeout(() => loadSheet(n), Math.min(5000, 1200 * a)); });   // a failed load (offline blip, a deploy in progress) is tried again
 }
@@ -408,13 +408,13 @@ function playSheets() { const ch = (run && run.char) || "mumyeong", out = ALL_SH
 function needSheets(list) { for (const n of list) loadSheet(n); }   // phones: only the hand being played and the guardian being fought are held in memory
 const ALL_SHEETS = ["hero", "hero2", "foes", "objects", "ui", "fx", "hud", "hudsolid", "props", "props2", "rocks", "pines", "slabs", "pillars", "rogue", "roguea", "rogue2", "rogue3", "rogue4", "foes2", "bossA", "bossB", "bossfx", "bossC", "bossD", "bossE", "bossF", "hero3", "herofx", "slashfx", "perkfx", "weapons", "chars", "misc", "arms", "ic0", "ic1", "ic2", "ic3", "ic4", "ic5", "ic6", "ic7", "ic8", "ic9", "ic10", "ic11", "ic12", "ic13", "ic14", "ic15", "mu", "po", "mfx", "pfx", "vis", "guide", "mv0", "mv1", "mv2", "bcal", "bvfx", "bname", "mvrun", "mech", "foes3", "kfx", "kring", "wfx", "ic16", "gfx", "swm", "gun1", "gun2", "grun2", "muz", "ogA", "ogB", "hub", "pet", "npc", "bfx2", "bfx3", "mapobj", "md0", "md1", "md2", "md3", "md4", "bwalk"];
 for (const n of ALL_SHEETS) if (!LAZY_SHEETS.has(n)) loadSheet(n);
-function inkInverted(img) { // night palette: grey ink becomes bone white, coloured accents stay as they are
+function inkInverted(img, soft) { // night palette: grey ink becomes bone white, coloured accents stay as they are — the scenery (soft) only to a dim grey, so the figures stay the brightest thing on the dark
   const c = document.createElement("canvas"); c.width = img.width; c.height = img.height; const g = c.getContext("2d"); g.drawImage(img, 0, 0);
   const id = g.getImageData(0, 0, c.width, c.height), d = id.data;
   for (let i = 0; i < d.length; i += 4) {
     if (!d[i + 3]) continue;
     const mx = Math.max(d[i], d[i + 1], d[i + 2]), mn = Math.min(d[i], d[i + 1], d[i + 2]);
-    if (mx - mn < 70) { const v = 236 - (d[i] + d[i + 1] + d[i + 2]) / 3 * 0.55; d[i] = v; d[i + 1] = v * .98; d[i + 2] = v * .94; }
+    if (mx - mn < 70) { const v = soft ? 150 - (d[i] + d[i + 1] + d[i + 2]) / 3 * 0.38 : 236 - (d[i] + d[i + 1] + d[i + 2]) / 3 * 0.55; d[i] = v; d[i + 1] = v * .98; d[i + 2] = v * .94; }
   }
   g.putImageData(id, 0, 0); return c;
 }
@@ -3892,7 +3892,7 @@ function render(rdt) {
       ctx.strokeStyle = pal.tile; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(cx - w * .8, y0 + 8); ctx.quadraticCurveTo(cx, y0 + 22, cx + w * .8, y0 + 8); ctx.stroke();
       for (let i = 0; i < 5; i++) { const fx = cx - w * .64 + i * w * .32, fy = y0 + 12 + Math.sin(i * 1.3) * 3, sw = Math.sin(tt * 2 + i) * .08; ctx.save(); ctx.translate(fx, fy); ctx.rotate(sw);
         ctx.fillStyle = "#efe6cf"; ctx.fillRect(-5, 0, 10, 30); ctx.fillStyle = SEAL; ctx.fillRect(-3, 4, 6, 2); ctx.fillRect(-1, 8, 2, 16); ctx.fillRect(-3, 25, 6, 2); ctx.restore(); }
-      ctx.font = `700 13px ${BODY_FONT}`; ctx.textAlign = "center"; ctx.textBaseline = "alphabetic"; ctx.lineWidth = 3; ctx.strokeStyle = "rgba(236,230,216,.9)"; const txt = `결계 ${c.k}/${c.need}`; ctx.strokeText(txt, cx, y0 - 4); ctx.fillStyle = SEAL; ctx.fillText(txt, cx, y0 - 4); ctx.textAlign = "left";
+      ctx.font = `700 13px ${BODY_FONT}`; ctx.textAlign = "center"; ctx.textBaseline = "alphabetic"; ctx.lineWidth = 3; ctx.strokeStyle = "rgba(236,230,216,.9)"; const txt = BOOTH ? `출구 ${c.k}/${c.need}` : `결계 ${c.k}/${c.need}`; ctx.strokeText(txt, cx, y0 - 4); ctx.fillStyle = SEAL; ctx.fillText(txt, cx, y0 - 4); ctx.textAlign = "left";
     } }
   // 낙관 (exit)
   if (LV.exit && visible(LV.exit.x)) {
